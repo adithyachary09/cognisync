@@ -981,11 +981,25 @@ export default function SettingsPage() {
                                                    <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
                                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
                                                       <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
-                                                         {(member.isUser && settings.avatar) || (member as any).image ? (
-                                                            <img src={member.isUser ? settings.avatar : (member as any).image} alt={member.name} className="w-full h-full object-cover" />
-                                                         ) : (
-                                                            <><span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">{member.name.charAt(0)}</span><member.icon size={24} className="absolute -bottom-2 -right-2 opacity-10 text-foreground" /></>
-                                                         )}
+                                                        {(settings.avatar || (member as any).image) ? (
+                                                          <img
+                                                            src={member.image}
+                                                            alt={member.name}
+                                                            className="w-full h-full object-cover"
+                                                          />
+                                                        ) : (
+                                                          <>
+                                                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
+                                                              {member.name.charAt(0)}
+                                                            </span>
+                                                            <member.icon
+                                                              size={24}
+                                                              className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
+                                                            />
+                                                          </>
+                                                        )}
+
+ 
                                                       </div>
                                                    </div>
                                                    <div className="flex-1">
