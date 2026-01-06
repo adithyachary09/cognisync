@@ -964,7 +964,7 @@ export default function SettingsPage() {
                                        <h4 className="font-bold text-base mb-6 flex items-center gap-2 relative z-10"><Users size={18} className="text-emerald-500"/> Project Team</h4>
                                        <div className="space-y-4 relative z-10">
                                           {[
-                                             { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/" },
+                                             { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/", image: "/adithya.png" },
                                              { 
                                                 name: "Abhinaya", 
                                                 role: "Research & Documentation", 

@@ -321,19 +321,7 @@ export function ReportPage() {
                         </div>
                     </div>
 
-                    <div className="mb-10">
-                        <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-6 uppercase tracking-wider text-slate-700">7-Day Mood Trend</h3>
-                        <div className="flex items-end gap-2 h-32 border-b border-l border-slate-300 p-2">
-                            {currentData.pdfTrendData.map((d, i) => (
-                                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                                    <div className="w-full bg-blue-50 rounded-t-sm relative h-full flex items-end">
-                                        <div style={{ height: `${((d.value || 0) / 10) * 100}%`, printColorAdjust: 'exact' }} className="w-full bg-blue-600 rounded-t-sm transition-all print:bg-blue-600"/>
-                                    </div>
-                                    <span className="text-[10px] text-slate-500 font-bold">{d.label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    
 
                     <div className="mb-10">
                       <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4 uppercase tracking-wider text-slate-700">Detailed Activity Log</h3>
