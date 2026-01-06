@@ -9,8 +9,8 @@ import { useUser } from "@/lib/user-context";
 import Image from "next/image";
 
 
-const GOOGLE_CLIENT_ID =
-  "948498391117-5o5a6lid85r1lk1lplmr1vu8qm0c4d2b.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
+
 
 interface AuthModalProps {
   onSuccess: (name: string) => void;
