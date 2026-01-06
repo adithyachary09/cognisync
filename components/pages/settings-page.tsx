@@ -981,7 +981,7 @@ export default function SettingsPage() {
                                                    <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
                                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
                                                       <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
-                                                        {(settings.avatar || (member as any).image) ? (
+                                                       {member.image ? (
                                                           <img
                                                             src={member.image}
                                                             alt={member.name}
@@ -998,6 +998,7 @@ export default function SettingsPage() {
                                                             />
                                                           </>
                                                         )}
+
 
  
                                                       </div>
