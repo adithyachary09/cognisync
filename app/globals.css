@@ -1,0 +1,187 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ================= ROOT THEME ================= */
+:root {
+  --background: oklch(0.98 0.01 240);
+  --foreground: oklch(0.15 0.02 240);
+
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+
+  --primary: #3a86ff;
+  --border: oklch(0.92 0.01 240);
+  --input: oklch(0.96 0.01 240);
+
+  --radius: 0.625rem;
+}
+
+/* ================= DARK MODE ================= */
+.dark {
+  --background: oklch(0.12 0.02 240);
+  --foreground: oklch(0.95 0.02 240);
+
+  --card: oklch(0.18 0.02 240);
+  --border: oklch(0.28 0.02 240);
+  --input: oklch(0.22 0.02 240);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --radius-lg: var(--radius);
+  
+  /* Animation Utilities */
+  --ease-premium: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* GLOBAL SMOOTH THEME TRANSITION */
+    transition: background-color 0.3s var(--ease-premium), color 0.3s var(--ease-premium), border-color 0.3s var(--ease-premium);
+  }
+}
+
+/* =====================================================
+   ✨ APPEARANCE ANIMATIONS (PREMIUM UI)
+   ===================================================== */
+
+/* 1. Micro-interactions */
+.premium-touch {
+  transition: transform 0.2s var(--ease-premium), box-shadow 0.2s var(--ease-premium);
+}
+.premium-touch:active {
+  transform: scale(0.97);
+}
+
+/* 2. Theme Icon Morph */
+@keyframes sun-spin {
+  0% { transform: rotate(0deg) scale(0.8); opacity: 0; }
+  100% { transform: rotate(90deg) scale(1); opacity: 1; }
+}
+@keyframes moon-rise {
+  0% { transform: translateY(10px) rotate(-30deg); opacity: 0; }
+  100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+}
+
+.animate-sun-spin { animation: sun-spin 0.4s var(--ease-premium) forwards; }
+.animate-moon-rise { animation: moon-rise 0.4s var(--ease-premium) forwards; }
+
+/* 3. Checkmark/Orb Pop */
+@keyframes check-pop {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  80% { transform: scale(1.1) rotate(0deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-check-pop {
+  animation: check-pop 0.3s var(--ease-premium) forwards;
+}
+
+/* 4. Selection Pulse Glow */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0px transparent; }
+  50% { box-shadow: 0 0 0 4px currentColor; }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s var(--ease-premium) infinite;
+}
+
+/* =====================================================
+   🔒 LOGIN PAGE — HARD ISOLATION (NO THEME BLEED)
+   ===================================================== */
+
+.login-bg-forced {
+  background-color: #f0f4f8 !important;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color-scheme: light !important;
+}
+
+/* Login Card */
+.login-bg-forced .auth-card {
+  background-color: #ffffff !important;
+  border: 1px solid #dbe3ec !important;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1) !important;
+  border-radius: 20px !important;
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+}
+
+/* Inputs */
+.login-bg-forced .medical-input {
+  height: 48px !important;
+  background-color: #f8fafc !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  color: #0f172a !important;
+}
+
+.login-bg-forced .medical-input:focus {
+  border-color: #0fb9b1 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(15, 185, 177, 0.12) !important;
+}
+
+/* Sliding */
+.sliding-viewport {
+  width: 100%;
+  overflow: hidden;
+}
+
+.sliding-view-container {
+  display: flex;
+  width: 200%;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sliding-panel {
+  width: 50%;
+  padding: 0 2rem 1.75rem 2rem;
+  flex-shrink: 0;
+}
+
+/* =====================================================
+   🛠️ FIX SIDEBAR TRANSPARENCY (GLOBAL, FINAL)
+   ===================================================== */
+
+/* Sidebar base */
+.sidebar,
+[data-sidebar],
+aside {
+  background-color: var(--card) !important;
+  color: var(--card-foreground) !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+/* Sidebar buttons */
+.sidebar button,
+.sidebar a {
+  color: inherit !important;
+}
+
+/* Logout button */
+.sidebar .logout,
+button.logout {
+  background-color: #e5f6f5 !important;
+  color: #0f172a !important;
+  border: 1px solid #cdeeee !important;
+}
+
+.sidebar .logout:hover {
+  background-color: #d1f0ee !important;
+}
