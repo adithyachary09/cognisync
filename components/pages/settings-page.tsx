@@ -107,29 +107,48 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-        setPendingUsername(settings.username || (user as any)?.user_metadata?.full_name || "");
-        
-        if (user.email) {
-            setUserEmail(user.email);
-            if ((user as any)?.email_confirmed_at || isGoogleUser) {
-                setEmailStatus("verified");
-            } else {
-                const isMailVerified = localStorage.getItem(`cognisync:email_verified:${user.id}`) === "true";
-                if (isMailVerified) setEmailStatus("verified");
-            }
-        }
+  if (!user) return;
 
-        const savedPhone = localStorage.getItem(`cognisync:phone_verified:${user.id}`);
-        if (savedPhone) {
-            setPhoneNumber(savedPhone);
-            setPhoneStatus("verified");
-        } else {
-            setPhoneStatus("missing");
-            setPhoneNumber("");
-        }
+  // Username
+  setPendingUsername(
+    settings.username || (user as any)?.user_metadata?.full_name || ""
+  );
+
+  // Email
+  if (user.email) {
+    setUserEmail(user.email);
+    if ((user as any)?.email_confirmed_at || isGoogleUser) {
+      setEmailStatus("verified");
+    } else {
+      const isMailVerified =
+        localStorage.getItem(`cognisync:email_verified:${user.id}`) === "true";
+      if (isMailVerified) setEmailStatus("verified");
     }
-  }, [settings.username, user]);
+  }
+
+  // Phone
+  const savedPhone = localStorage.getItem(
+    `cognisync:phone_verified:${user.id}`
+  );
+  if (savedPhone) {
+    setPhoneNumber(savedPhone);
+    setPhoneStatus("verified");
+  } else {
+    setPhoneStatus("missing");
+    setPhoneNumber("");
+  }
+
+  // ✅ AVATAR — USER SCOPED (FIX)
+  const storedAvatar = localStorage.getItem(
+    `cognisync:avatar:${user.id}`
+  );
+
+  updateSettings({
+    avatar: storedAvatar ?? "/placeholder.jpg",
+  });
+
+}, [user, settings.username]);
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -180,7 +199,12 @@ export default function SettingsPage() {
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        updateSettings({ avatar: reader.result as string });
+              localStorage.setItem(
+        `cognisync:avatar:${user.id}`,
+        reader.result as string
+      );
+      updateSettings({ avatar: reader.result as string });
+
         showNotification({ type: "success", message: "Profile photo updated.", duration: 2000 });
       };
       reader.readAsDataURL(file);
@@ -188,9 +212,13 @@ export default function SettingsPage() {
   };
 
   const handleRemoveAvatar = () => {
-    updateSettings({ avatar: null });
-    showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
-  };
+        if (user) {
+      localStorage.removeItem(`cognisync:avatar:${user.id}`);
+    }
+    updateSettings({ avatar: "/placeholder.jpg" });
+
+        showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
+      };
 
   // --- AUTH LOGIC ---
   const sendEmailVerification = async () => {
