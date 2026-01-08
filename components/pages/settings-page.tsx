@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import {
   Sun, Moon, Palette, Settings as SettingsIcon, Trash2, LogOut, Download, Type, Mail, Sparkles,
-  ShieldCheck, ShieldAlert, Check, Smartphone, AlertTriangle, Loader2, Lock, Camera,
+  ShieldCheck, ShieldAlert, Check, AlertTriangle, Loader2, Lock, Camera,
   X, ChevronDown, FileJson, HardDrive, Server, RefreshCw, Eraser, RotateCcw, Copy, 
   ExternalLink, Fingerprint, Target, Terminal, Users, Info, Heart
 } from "lucide-react";
@@ -89,22 +89,19 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-  const [phoneStatus, setPhoneStatus] = useState<"missing" | "entering" | "sending" | "otp" | "verifying" | "verified">("missing");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [phoneCountdown, setPhoneCountdown] = useState(0); 
+  
 
   const [logoutProgress, setLogoutProgress] = useState(0);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- SAFE INITIALIZATION ---
   useEffect(() => {
-    const timer = setInterval(() => {
-      setEmailCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-      setPhoneCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const timer = setInterval(() => {
+    setEmailCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+  }, 1000);
+  return () => clearInterval(timer);
+}, []);
+
 
   useEffect(() => {
   if (!user) return;
@@ -125,18 +122,7 @@ export default function SettingsPage() {
       if (isMailVerified) setEmailStatus("verified");
     }
   }
-
-  // Phone
-  const savedPhone = localStorage.getItem(
-    `cognisync:phone_verified:${user.id}`
-  );
-  if (savedPhone) {
-    setPhoneNumber(savedPhone);
-    setPhoneStatus("verified");
-  } else {
-    setPhoneStatus("missing");
-    setPhoneNumber("");
-  }
+  
 
   // ✅ AVATAR — USER SCOPED (FIX)
   const storedAvatar = localStorage.getItem(
@@ -250,75 +236,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, "");
-    if (val.length <= 10) setPhoneNumber(val);
-  };
-
-  const sendOtp = async () => {
-     if (!user || phoneCountdown > 0) return;
-     const indianMobileRegex = /^[6-9]\d{9}$/;
-     if (!indianMobileRegex.test(phoneNumber)) {
-        showNotification({ type: "warning", message: "Enter a valid 10-digit Indian mobile number.", duration: 2000 });
-        return;
-     }
-     setPhoneStatus("sending");
-     try {
-       const res = await fetch('/api/auth/send-otp', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ phoneNumber })
-       });
-       if (!res.ok) throw new Error("Failed");
-       setPhoneStatus("otp");
-       setPhoneCountdown(30); 
-       showNotification({ type: "info", message: `OTP sent to +91 ${phoneNumber}`, duration: 2000 });
-     } catch (e: any) {
-  setPhoneStatus("entering");
-
-  const msg =
-    e?.message?.includes("approval") || e?.message?.includes("developer")
-      ? "OTP access requires developer approval.\n\nFor now, please verify using email.\n\nEmail verification is sufficient to continue."
-      : e.message || "OTP service unavailable.";
-
-  showNotification({
-    type: "info",
-    message: msg,
-    duration: 6000
-  });
-}
-
-  };
-
-  const verifyOtp = async () => {
-     if (!user || otpCode.length < 6) return;
-     setPhoneStatus("verifying");
-     try {
-       const res = await fetch('/api/auth/verify-otp', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ phoneNumber, code: otpCode })
-       });
-       if (!res.ok) throw new Error("Invalid Code");
-       setPhoneStatus("verified");
-       localStorage.setItem(`cognisync:phone_verified:${user.id}`, phoneNumber);
-       showNotification({ type: "success", message: "Phone number verified!", duration: 2000 });
-     } catch (e) {
-       setPhoneStatus("otp");
-       showNotification({ type: "error", message: "Invalid OTP.", duration: 3000 });
-     }
-  };
-   
-  const unlinkPhone = () => {
-    if (!user) return;
-    if (confirm("Remove phone number?")) {
-      setPhoneStatus("missing");
-      setPhoneNumber("");
-      setOtpCode("");
-      localStorage.removeItem(`cognisync:phone_verified:${user.id}`);
-      showNotification({ type: "info", message: "Phone number removed.", duration: 2000 });
-    }
-  };
 
   // --- SESSION & PASSWORD ---
   const startLogout = () => {
@@ -485,13 +402,22 @@ export default function SettingsPage() {
   };
 
   const getSecurityStatus = () => {
-    let score = 0;
-    if (emailStatus === "verified") score += 50;
-    if (phoneStatus === "verified") score += 50;
-    if (score === 100) return { label: "SECURE", color: "bg-green-100 text-green-700 border-green-200", icon: ShieldCheck, score };
-    if (score === 50) return { label: "AT RISK", color: "bg-amber-100 text-amber-700 border-amber-200", icon: ShieldAlert, score };
-    return { label: "CRITICAL", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle, score };
+  if (emailStatus === "verified" || isGoogleUser) {
+    return {
+      label: "SECURE",
+      color: "bg-green-100 text-green-700 border-green-200",
+      icon: ShieldCheck,
+      score: 100
+    };
+  }
+  return {
+    label: "AT RISK",
+    color: "bg-amber-100 text-amber-700 border-amber-200",
+    icon: ShieldAlert,
+    score: 50
   };
+};
+
   const security = getSecurityStatus();
 
   const containerVariant: Variants = {
@@ -710,35 +636,12 @@ export default function SettingsPage() {
                         )}
                         <motion.button whileTap={{ scale: 0.98 }} onClick={emailStatus === "verified" ? unlinkEmail : sendEmailVerification} disabled={emailStatus === "sending"} 
                            className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${emailStatus === "verified" ? "bg-muted text-muted-foreground hover:bg-red-50 hover:text-red-600" : "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90"}`}>
-                           {emailStatus === "verified" ? "Unlink Address" : emailStatus === "sending" ? "Sending..." : "Verify Now"}
-                        </motion.button>
-                      </motion.div>
+                           {emailStatus === "verified"
+                          ? "Email Verified"
+                          : emailStatus === "sending"
+                          ? "Sending..."
+                          : "Verify Email"}
 
-                      <motion.div variants={itemVariant} className="group rounded-3xl border border-white/10 bg-background/60 backdrop-blur-xl p-6 shadow-lg hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300">
-                        <div className="flex justify-between items-start mb-6">
-                           <div className="flex gap-4">
-                              <div className="p-3 bg-foreground/5 text-foreground rounded-2xl border border-foreground/5"><Smartphone size={20} /></div>
-                              <div><h4 className="font-bold">Phone</h4><p className="text-xs text-muted-foreground">Secure Login</p></div>
-                           </div>
-                           <div className={`w-3 h-3 rounded-full border-2 border-white shadow-sm ${phoneStatus === "verified" ? "bg-green-500 shadow-green-500/50" : "bg-red-500"}`} />
-                        </div>
-                        {phoneStatus === "verified" ? (
-                           <div className="flex justify-between items-center p-4 bg-muted/40 rounded-2xl border border-transparent mb-4 group-hover:border-foreground/10 transition-colors">
-                              <span className="font-mono text-sm font-semibold">+91 {phoneNumber}</span>
-                              <Check size={16} className="text-green-500" />
-                           </div>
-                        ) : (
-                           <div className="flex gap-2 mb-4">
-                              <div className="px-3 flex items-center justify-center bg-muted/40 rounded-xl font-bold text-sm text-muted-foreground">+91</div>
-                              <Input value={phoneNumber} onChange={handlePhoneChange} placeholder="9876543210" className="h-11 rounded-xl bg-muted/30" />
-                           </div>
-                        )}
-                        {(phoneStatus === "otp" || phoneStatus === "verifying") && (
-                           <Input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="0 0 0 0 0 0" className="mb-4 h-11 text-center font-mono text-lg tracking-[0.5em] rounded-xl" />
-                        )}
-                        <motion.button whileTap={{ scale: 0.98 }} onClick={phoneStatus === "verified" ? unlinkPhone : phoneStatus === "otp" ? verifyOtp : sendOtp} disabled={phoneCountdown > 0} 
-                           className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${phoneStatus === "verified" ? "bg-muted text-muted-foreground hover:bg-red-50 hover:text-red-600" : "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90"}`}>
-                           {phoneStatus === "verified" ? "Unlink" : phoneStatus === "otp" ? "Confirm OTP" : phoneCountdown > 0 ? `Wait ${phoneCountdown}s` : "Send Code"}
                         </motion.button>
                       </motion.div>
                   </div>

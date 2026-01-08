@@ -404,7 +404,8 @@ export function ReportPage() {
             <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Comprehensive analysis of your emotional wellness journey.</p>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm w-full">
+
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -416,17 +417,21 @@ export function ReportPage() {
                 {isExporting ? "Generating..." : "Export to PDF"}
              </motion.button>
              
-             <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+             <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
 
              <motion.button 
-                whileHover={{ scale: 1.02, backgroundColor: 'rgba(34, 197, 94, 0.1)' }}
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleExportCSV} 
-                className="flex items-center gap-2 text-slate-600 hover:text-green-700 rounded-xl h-12 px-4 transition-colors font-medium"
-             >
+                className="flex items-center justify-center gap-2 rounded-xl h-12 px-4 font-bold
+                            bg-green-50 text-green-700 hover:bg-green-100
+                            w-full sm:w-auto"
+                >
                 <FileSpreadsheet size={20}/> 
-                <span className="hidden sm:inline">Export Excel</span>
-             </motion.button>
+                <span>Export Excel</span>
+                </motion.button>
+
           </div>
         </div>
 
