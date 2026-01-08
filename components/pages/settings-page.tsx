@@ -26,9 +26,9 @@ import {
 } from "@/components/ui/sheet";
 import {
   Sun, Moon, Palette, Settings as SettingsIcon, Trash2, LogOut, Download, Type, Mail, Sparkles,
-  ShieldCheck, ShieldAlert, Check, AlertTriangle, Loader2, Lock, Camera,
+  ShieldCheck, ShieldAlert, Check, AlertTriangle, Loader2, Lock, Camera, Eye, EyeOff, 
   ChevronDown, FileJson, HardDrive, Server, RefreshCw, Eraser, RotateCcw, Copy, 
-  ExternalLink, Fingerprint, Target, Terminal, Users, Info, Heart, ArrowRight
+  ExternalLink, Fingerprint, Target, Terminal, Users, Info, Heart, ArrowRight, 
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useTheme } from "@/lib/theme-context";
@@ -80,6 +80,10 @@ export default function SettingsPage() {
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
+  // Visibility Toggles
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   
   const isGoogleUser = 
     (user as any)?.app_metadata?.provider === 'google' || 
@@ -570,22 +574,118 @@ export default function SettingsPage() {
                             {isGoogleUser && <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span>}
                           </div>
 
-                          {!isGoogleUser && (
-                            <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl">
-                               <div className="flex items-center gap-3 mb-5"><div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div><h4 className="font-bold text-sm">Password Reset</h4></div>
-                               <div className="space-y-3">
-                                  <Input type="password" placeholder="Current Password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                  {pwdStage !== "idle" && (
-                                     <div className="grid grid-cols-2 gap-3">
-                                        <Input type="password" placeholder="New Password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                        <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                     </div>
-                                  )}
+                         {!isGoogleUser && (
+                            <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl transition-all duration-300">
+                               <div className="flex items-center gap-3 mb-5">
+                                  <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div>
+                                  <h4 className="font-bold text-sm">Security Settings</h4>
+                               </div>
+
+                               <div className="space-y-4">
+                                  {/* Step 1: Verify Current Password */}
+                                  <div className="relative">
+                                    <Input 
+                                      type={showCurrent ? "text" : "password"} 
+                                      placeholder="Enter Current Password" 
+                                      value={currentPwd} 
+                                      onChange={(e) => setCurrentPwd(e.target.value)} 
+                                      disabled={pwdStage === "verified" || pwdStage === "saving"}
+                                      className={cn(
+                                        "h-11 rounded-xl bg-white/50 dark:bg-black/20 pr-10 transition-all",
+                                        pwdStage === "verified" && "border-green-500/50 bg-green-500/5 text-green-700"
+                                      )} 
+                                    />
+                                    <button 
+                                      type="button"
+                                      onClick={() => setShowCurrent(!showCurrent)}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    >
+                                      {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                  </div>
+
+                                  {/* Step 2: New Password Fields (Only appears after verification) */}
+                                  <AnimatePresence>
+                                    {pwdStage === "verified" && (
+                                      <motion.div 
+                                        initial={{ opacity: 0, height: 0 }} 
+                                        animate={{ opacity: 1, height: "auto" }} 
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="space-y-3 overflow-hidden"
+                                      >
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                                          <div className="relative">
+                                            <Input 
+                                              type={showNew ? "text" : "password"} 
+                                              placeholder="New Password" 
+                                              value={newPwd} 
+                                              onChange={(e) => setNewPwd(e.target.value)} 
+                                              className="h-11 rounded-xl bg-white/50 dark:bg-black/20 pr-10" 
+                                            />
+                                            <button 
+                                              type="button"
+                                              onClick={() => setShowNew(!showNew)}
+                                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            >
+                                              {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                          </div>
+                                          <div className="relative">
+                                            <Input 
+                                              type={showConfirm ? "text" : "password"} 
+                                              placeholder="Confirm New Password" 
+                                              value={confirmPwd} 
+                                              onChange={(e) => setConfirmPwd(e.target.value)} 
+                                              className="h-11 rounded-xl bg-white/50 dark:bg-black/20 pr-10" 
+                                            />
+                                            <button 
+                                              type="button"
+                                              onClick={() => setShowConfirm(!showConfirm)}
+                                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                            >
+                                              {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+
+                                  {/* Action Buttons */}
                                   <div className="flex justify-end gap-3 pt-2">
-                                     {pwdStage !== "idle" && <button onClick={() => setPwdStage("idle")} className="text-xs font-bold text-muted-foreground hover:text-foreground">Cancel</button>}
-                                     <button onClick={pwdStage === "verified" ? saveNewPassword : verifyCurrentPassword} className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-90">
-                                        {pwdStage === "verified" ? "Update Password" : "Verify Identity"}
-                                     </button>
+                                     {pwdStage !== "idle" && (
+                                        <button 
+                                          onClick={() => {
+                                            setPwdStage("idle");
+                                            setCurrentPwd("");
+                                            setNewPwd("");
+                                            setConfirmPwd("");
+                                          }} 
+                                          className="text-xs font-bold text-muted-foreground hover:text-foreground px-3"
+                                        >
+                                          Cancel
+                                        </button>
+                                     )}
+                                     
+                                     {pwdStage === "idle" || pwdStage === "verifying" ? (
+                                        <button 
+                                          onClick={verifyCurrentPassword} 
+                                          disabled={!currentPwd || pwdStage === "verifying"}
+                                          className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold rounded-xl shadow-md hover:opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
+                                        >
+                                          {pwdStage === "verifying" && <Loader2 size={14} className="animate-spin" />}
+                                          Verify to Change
+                                        </button>
+                                     ) : (
+                                        <button 
+                                          onClick={saveNewPassword} 
+                                          disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
+                                          className="px-6 py-2.5 bg-green-600 text-white text-xs font-bold rounded-xl shadow-md hover:bg-green-700 disabled:opacity-50 transition-all flex items-center gap-2"
+                                        >
+                                          {pwdStage === "saving" && <Loader2 size={14} className="animate-spin" />}
+                                          Update Password
+                                        </button>
+                                     )}
                                   </div>
                                </div>
                             </div>

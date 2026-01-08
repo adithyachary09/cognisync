@@ -6,24 +6,31 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    const { data: user } = await supabaseAdmin
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
+    }
+
+    // 1. Fetch user hash securely
+    const { data: user, error } = await supabaseAdmin
       .from('users')
-      .select('password_hash')
+      .select('id, password_hash')
       .eq('email', email)
       .single();
 
-    if (!user || !user.password_hash) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (error || !user || !user.password_hash) {
+      return NextResponse.json({ error: 'User not found or invalid' }, { status: 404 });
     }
 
+    // 2. Verify Password
     const isMatch = await bcrypt.compare(password, user.password_hash);
 
-    if (isMatch) {
-      return NextResponse.json({ success: true }, { status: 200 });
-    } else {
+    if (!isMatch) {
       return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
     }
-  } catch (error) {
-    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Verify Creds Error:", err);
+    return NextResponse.json({ error: 'Server verification failed' }, { status: 500 });
   }
 }
