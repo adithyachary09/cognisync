@@ -18,17 +18,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import {
   Sun, Moon, Palette, Settings as SettingsIcon, Trash2, LogOut, Download, Type, Mail, Sparkles,
   ShieldCheck, ShieldAlert, Check, AlertTriangle, Loader2, Lock, Camera,
-  ChevronDown, FileJson, HardDrive, RefreshCw, Eraser, Copy, 
+  ChevronDown, FileJson, HardDrive, Server, RefreshCw, Eraser, RotateCcw, Copy, 
   ExternalLink, Fingerprint, Target, Terminal, Users, Info, Heart, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
@@ -71,6 +70,7 @@ export default function SettingsPage() {
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
   const [pendingUsername, setPendingUsername] = useState(settings.username ?? "");
+  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [activeTab, setActiveTab] = useState("appearance");
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -128,6 +128,8 @@ export default function SettingsPage() {
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: merged }));
   };
 
+  const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
+
   const handleUsernameSave = () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
@@ -139,8 +141,6 @@ export default function SettingsPage() {
       showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
     }, 800);
   };
-
-  const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
@@ -157,19 +157,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRemoveAvatar = () => {
+    if (user) {
+      localStorage.removeItem(`cognisync:avatar:${user.id}`);
+    }
+    updateSettings({ avatar: "/placeholder.jpg" });
+    showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
+  };
+
   const sendEmailVerification = async () => {
      if (!user || !userEmail || emailCountdown > 0) return; 
      setEmailStatus("sending");
      try {
-       // Calls the dedicated verification route
        const res = await fetch('/api/auth/send-verification', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email: userEmail, name: pendingUsername }) 
        });
-       
        if (!res.ok) throw new Error("Failed to send");
-       
        setEmailStatus("sent");
        setEmailCountdown(60); 
        showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
@@ -179,15 +184,24 @@ export default function SettingsPage() {
      }
   };
 
+  const unlinkEmail = () => {
+    if (!user) return;
+    if (confirm("Are you sure? Account recovery will be disabled.")) {
+      setEmailStatus("unverified");
+      localStorage.removeItem(`cognisync:email_verified:${user.id}`);
+      showNotification({ type: "info", message: "Email unlinked.", duration: 2000 });
+    }
+  };
+
   const getSecurityStatus = () => {
     if (emailStatus === "verified" || isGoogleUser) {
-      return { label: "SECURE", color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", ring: "ring-emerald-500", icon: ShieldCheck, desc: "Your account is protected. Email is verified." };
+      return { label: "SECURE", color: "bg-emerald-500 text-white", ring: "ring-emerald-500", icon: ShieldCheck, desc: "Your account is protected. Email is verified." };
     }
-    return { label: "AT RISK", color: "bg-amber-500/10 text-amber-600 border-amber-500/20", ring: "ring-amber-500", icon: ShieldAlert, desc: "Verify your email to secure account recovery." };
+    return { label: "AT RISK", color: "bg-amber-500 text-white", ring: "ring-amber-500", icon: ShieldAlert, desc: "Verify your email to secure account recovery." };
   };
   const security = getSecurityStatus();
 
-  // --- LOGOUT LOGIC ---
+  // --- PASSWORD & LOGOUT LOGIC ---
   const startLogout = () => {
     if (!user) return;
     let progress = 0;
@@ -205,6 +219,131 @@ export default function SettingsPage() {
     setLogoutProgress(0);
   };
 
+  const verifyCurrentPassword = async () => {
+     if (!user || !currentPwd) return;
+     setPwdStage("verifying");
+     try {
+       const res = await fetch('/api/auth/verify-credentials', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email: userEmail, password: currentPwd })
+       });
+       if (!res.ok) throw new Error();
+       setPwdStage("verified");
+       showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
+     } catch (e) {
+       setPwdStage("idle");
+       showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
+     }
+  };
+
+  const saveNewPassword = async () => {
+     if (!user) return;
+     if (newPwd.length < 8 || newPwd !== confirmPwd) {
+        showNotification({ type: "warning", message: "Check password requirements.", duration: 2000 });
+        return;
+     }
+     setPwdStage("saving");
+     try {
+       const res = await fetch('/api/auth/update-password', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email: userEmail, password: newPwd }) 
+       });
+       if (!res.ok) throw new Error();
+       setPwdStage("idle");
+       setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+       showNotification({ type: "success", message: "Password updated!", duration: 2000 });
+     } catch (e) {
+       setPwdStage("verified"); 
+       showNotification({ type: "error", message: "Update failed.", duration: 3000 });
+     }
+  };
+
+  // --- DATA MANAGEMENT LOGIC ---
+  const handleExportArchive = () => {
+    if (!user) return;
+    const data = {
+        user: { name: pendingUsername, email: userEmail, id: user.id },
+        settings: settings,
+        journal_entries: entries, 
+        clinical_history: JSON.parse(localStorage.getItem("offline_assessments") || "[]"),
+        timestamp: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cognisync-archive-${user.id.slice(0,5)}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showNotification({ type: "success", message: "Archive downloaded.", duration: 2000 });
+  };
+
+  const handleClearCache = () => {
+    Object.keys(localStorage).forEach(key => {
+        if (key.includes(":temp")) localStorage.removeItem(key);
+    });
+    showNotification({ type: "success", message: "Temporary cache cleared.", duration: 2000 });
+  };
+
+  const handleResetPreferences = () => {
+    updateSettings({ darkMode: false, fontSize: 16, colorTheme: 'emerald' });
+    showNotification({ type: "success", message: "Preferences reset to default.", duration: 2000 });
+  };
+
+  const handleDeleteJournals = async () => {
+    if (!user) return;
+    const supabase = createBrowserClient(
+       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    try {
+        await supabase.from('user_entries').delete().eq('user_id', user.id);
+        setShowJournalDeleteDialog(false);
+        showNotification({ type: "success", message: "Journal entries deleted.", duration: 2000 });
+        setTimeout(() => window.location.reload(), 1000);
+    } catch (e) {
+        showNotification({ type: "error", message: "Deletion failed.", duration: 3000 });
+    }
+  };
+
+  const handleFactoryReset = async () => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    setShowFactoryResetDialog(false);
+    showNotification({ type: "warning", message: "Resetting account data...", duration: 4000 });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await Promise.all([
+          supabase.from('user_entries').delete().eq('user_id', user.id), 
+          supabase.from('assessments').delete().eq('user_id', user.id),  
+          supabase.from('daily_logs').delete().eq('user_id', user.id),   
+          supabase.from('chat_history').delete().eq('user_id', user.id), 
+          supabase.from('user_settings').delete().eq('user_id', user.id),
+        ]);
+        Object.keys(localStorage).forEach(key => { if (key.includes(user.id)) localStorage.removeItem(key); });
+        updateSettings({ darkMode: false, fontSize: 16, colorTheme: 'emerald', username: undefined, avatar: null });
+        showNotification({ type: "success", message: "Account reset complete.", duration: 2000 });
+        setTimeout(() => window.location.reload(), 1000);
+      }
+    } catch (error) {
+      showNotification({ type: "error", message: "Reset failed.", duration: 3000 });
+    }
+  };
+
+  // --- SUPPORT ---
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText("adithyachary09@gmail.com");
+    setCopied(true);
+    showNotification({ type: "success", message: "Email copied to clipboard!", duration: 2000 });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const containerVariant: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
   const itemVariant: Variants = { hidden: { opacity: 0, y: 15, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 220, damping: 18 } } };
 
@@ -215,7 +354,7 @@ export default function SettingsPage() {
       
       {/* Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px]" />
          <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px]" />
       </div>
 
@@ -322,7 +461,7 @@ export default function SettingsPage() {
                     <Card className="relative p-6 md:p-8 border border-white/20 shadow-xl overflow-hidden backdrop-blur-2xl bg-white/60 dark:bg-slate-900/60 rounded-[2.5rem]">
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                         <div className="relative group">
-                           <div className="w-28 h-28 md:w-32 md:h-32 rounded-full p-1.5 bg-gradient-to-br from-slate-200 to-slate-400 shadow-2xl">
+                           <div className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-br from-slate-200 to-slate-400 shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative border-4", security.ring)}>
                                  {settings.avatar ? <img src={settings.avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-400">{settings.username?.slice(0,2).toUpperCase()}</div>}
                                  <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="text-white" /></button>
@@ -330,19 +469,20 @@ export default function SettingsPage() {
                            </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           <Dialog>
-                             <DialogTrigger asChild>
-                               <button className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-extrabold shadow-lg border-2 border-white dark:border-slate-900 flex items-center gap-1 whitespace-nowrap transition-transform active:scale-95", security.color)}>
-                                  <security.icon size={12} /> {security.label}
-                               </button>
-                             </DialogTrigger>
-                             <DialogContent>
-                               <DialogHeader>
-                                 <DialogTitle className="flex items-center gap-2"><security.icon className={security.color.split(' ')[1]} /> Account Security Status</DialogTitle>
-                                 <DialogDescription className="pt-2">{security.desc}</DialogDescription>
-                               </DialogHeader>
-                             </DialogContent>
-                           </Dialog>
+                           {/* FIXED: Secure Button Layout */}
+                           <button 
+                             onClick={() => setShowSecurityInfo(!showSecurityInfo)}
+                             className={cn("absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-lg border-2 border-white dark:border-slate-900 flex items-center gap-1.5 whitespace-nowrap transition-transform active:scale-95 z-20", security.color)}
+                           >
+                              <security.icon size={12} strokeWidth={3} /> {security.label}
+                           </button>
+                           
+                           {showSecurityInfo && (
+                             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-48 p-3 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 text-center">
+                               <p className="text-xs font-bold mb-1">Account Status</p>
+                               <p className="text-[10px] text-muted-foreground leading-tight">{security.desc}</p>
+                             </motion.div>
+                           )}
                         </div>
 
                         <div className="flex-1 space-y-4 text-center md:text-left w-full">
@@ -350,67 +490,79 @@ export default function SettingsPage() {
                               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Display Identity</label>
                               <div className="flex items-center gap-3 w-full max-w-sm">
                                  <Input value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-12 bg-white/50 dark:bg-black/20 border-transparent focus:border-primary/50 shadow-inner rounded-2xl text-lg font-bold" />
-                                 <button onClick={handleUsernameSave} disabled={!isNameDirty || isSavingName} className="h-12 px-6 rounded-2xl bg-primary disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">
+                                 <button 
+                                    onClick={handleUsernameSave} 
+                                    disabled={!isNameDirty || isSavingName} 
+                                    className="h-12 px-6 rounded-2xl bg-primary disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all"
+                                 >
                                     {isSavingName ? <Loader2 size={18} className="animate-spin" /> : "Save"}
                                  </button>
                               </div>
                            </div>
-                           <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold inline-flex items-center gap-2">
-                              <Sparkles size={12} /> Member since {memberSinceYear}
+                           <div className="flex items-center gap-4 justify-center md:justify-start">
+                             <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold inline-flex items-center gap-2">
+                                <Sparkles size={12} /> Member since {memberSinceYear}
+                             </div>
+                             {settings.avatar && <button onClick={handleRemoveAvatar} className="text-xs font-bold text-rose-500 hover:underline flex items-center gap-1"><Trash2 size={12} /> Remove</button>}
                            </div>
                         </div>
                       </div>
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                      
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                       {/* EMAIL SECURITY CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 shadow-xl relative overflow-hidden h-full">
+                      <motion.div variants={itemVariant} className="rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 shadow-xl relative overflow-hidden h-full flex flex-col">
                          <div className="absolute top-0 right-0 p-6 opacity-5"><Mail size={120} /></div>
-                         <div className="relative z-10 flex flex-col h-full justify-between">
+                         <div className="relative z-10 flex-1 flex flex-col justify-between">
                             <div>
                               <h3 className="text-xl font-bold mb-1">Email Security</h3>
                               <p className="text-sm text-muted-foreground mb-6">Manage account recovery & notifications.</p>
 
                               <div className={cn("p-4 rounded-2xl border mb-6", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
                                  <div className="flex items-center justify-between">
-                                    <div className="overflow-hidden">
+                                    <div className="overflow-hidden mr-4">
                                        <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Registered Email</p>
                                        <p className="font-mono font-semibold text-sm md:text-base truncate">{userEmail || "No email linked"}</p>
                                     </div>
-                                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
+                                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white shadow-md", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
                                        {emailStatus === 'verified' ? <Check size={16} strokeWidth={3} /> : <AlertTriangle size={16} strokeWidth={3} />}
                                     </div>
                                  </div>
                               </div>
                             </div>
 
-                            {emailStatus === 'verified' ? (
-                               <div className="flex items-center justify-between mt-auto">
-                                  <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><ShieldCheck size={14} /> Verified Account</span>
-                               </div>
-                            ) : (
-                               <div className="space-y-3 mt-auto">
-                                  <button 
-                                     onClick={sendEmailVerification} 
-                                     disabled={emailStatus === "sending" || emailCountdown > 0} 
-                                     className={cn(
-                                        "w-full h-12 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2",
-                                        emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]"
-                                     )}
-                                  >
-                                    {emailStatus === "sending" ? <Loader2 size={16} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <span className="flex items-center gap-2">Verify Email <ArrowRight size={16} className="opacity-70" /></span>}
-                                  </button>
-                                  <p className="text-[10px] text-center text-muted-foreground">You will receive a secure verification link.</p>
-                               </div>
-                            )}
+                            {/* FIXED: RESTORED UNLINK & VERIFY BUTTONS */}
+                            <div className="mt-auto">
+                              {emailStatus === 'verified' ? (
+                                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/50 dark:border-white/5">
+                                    <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><ShieldCheck size={14} /> Verified Account</span>
+                                    <button onClick={unlinkEmail} className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline px-3 py-1.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">Unlink Email</button>
+                                 </div>
+                              ) : (
+                                 <div className="space-y-3">
+                                    {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-11" />}
+                                    
+                                    <button 
+                                       onClick={sendEmailVerification} 
+                                       disabled={emailStatus === "sending" || emailCountdown > 0} 
+                                       className={cn(
+                                          "w-full h-12 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2",
+                                          emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]"
+                                       )}
+                                    >
+                                      {emailStatus === "sending" ? <Loader2 size={16} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <span className="flex items-center gap-2">Verify Email <ArrowRight size={16} className="opacity-70" /></span>}
+                                    </button>
+                                    <p className="text-[10px] text-center text-muted-foreground">You will receive a secure verification link.</p>
+                                 </div>
+                              )}
+                            </div>
                          </div>
                       </motion.div>
 
                       {/* CONNECTED ACCOUNTS & LOGOUT */}
-                      <motion.div variants={itemVariant} className="space-y-6">
-                          <div className="flex items-center justify-between p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl">
+                      <motion.div variants={itemVariant} className="space-y-6 flex flex-col">
+                          <div className="flex items-center justify-between p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl flex-1">
                             <div className="flex items-center gap-4">
                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm"><span className="text-2xl font-bold text-blue-600">G</span></div>
                                <div><h4 className="font-bold text-sm">Google Workspace</h4><p className="text-[10px] font-medium text-muted-foreground">{isGoogleUser ? "Connected (Primary)" : "Not Linked"}</p></div>
@@ -418,8 +570,29 @@ export default function SettingsPage() {
                             {isGoogleUser && <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span>}
                           </div>
 
+                          {!isGoogleUser && (
+                            <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl">
+                               <div className="flex items-center gap-3 mb-5"><div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div><h4 className="font-bold text-sm">Password Reset</h4></div>
+                               <div className="space-y-3">
+                                  <Input type="password" placeholder="Current Password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
+                                  {pwdStage !== "idle" && (
+                                     <div className="grid grid-cols-2 gap-3">
+                                        <Input type="password" placeholder="New Password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
+                                        <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
+                                     </div>
+                                  )}
+                                  <div className="flex justify-end gap-3 pt-2">
+                                     {pwdStage !== "idle" && <button onClick={() => setPwdStage("idle")} className="text-xs font-bold text-muted-foreground hover:text-foreground">Cancel</button>}
+                                     <button onClick={pwdStage === "verified" ? saveNewPassword : verifyCurrentPassword} className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-90">
+                                        {pwdStage === "verified" ? "Update Password" : "Verify Identity"}
+                                     </button>
+                                  </div>
+                               </div>
+                            </div>
+                          )}
+
                           {/* Session Control */}
-                          <div className="p-1 rounded-[2rem] bg-gradient-to-r from-rose-500/20 to-transparent border border-rose-500/10">
+                          <div className="p-1 rounded-[2rem] bg-gradient-to-r from-rose-500/20 to-transparent border border-rose-500/10 mt-auto">
                             <div className="flex flex-col items-center justify-between p-6 gap-4">
                                <div className="flex gap-4 w-full">
                                   <div className="p-3 bg-white dark:bg-slate-950 rounded-2xl text-rose-500 shadow-sm"><LogOut size={24} /></div>
@@ -448,9 +621,53 @@ export default function SettingsPage() {
                           <div className="p-5 bg-primary/10 text-primary rounded-3xl"><FileJson size={32} /></div>
                           <div><h3 className="font-bold text-xl">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your clinical logs & settings (JSON).</p></div>
                         </div>
-                        <button onClick={() => {}} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2"><Download size={18} /> Download Data</button>
+                        <button onClick={handleExportArchive} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2"><Download size={18} /> Download Data</button>
                     </div>
                   </motion.div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <motion.div variants={itemVariant}>
+                       <Card className="p-8 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] shadow-lg h-full">
+                          <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Local Storage</h3></div>
+                          <div className="space-y-4">
+                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
+                                 <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Removes temporary files.</p></div></div>
+                                 <button onClick={handleClearCache} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
+                             </div>
+                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
+                                 <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Restore default theme.</p></div></div>
+                                 <button onClick={handleResetPreferences} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
+                             </div>
+                          </div>
+                       </Card>
+                    </motion.div>
+
+                    <motion.div variants={itemVariant}>
+                       <div className="p-8 h-full rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 backdrop-blur-xl flex flex-col justify-between">
+                           <div>
+                              <h3 className="font-bold text-rose-600 flex items-center gap-2 text-lg mb-2"><AlertTriangle size={20} /> Danger Zone</h3>
+                              <p className="text-xs text-rose-500/70 leading-relaxed">Actions here cannot be undone. Proceed with caution.</p>
+                           </div>
+                           
+                           <div className="space-y-3 mt-8">
+                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                                   <div className="text-xs font-bold text-rose-700">Journal Data</div>
+                                   <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
+                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Delete All</button></AlertDialogTrigger>
+                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-rose-600">Delete</AlertDialogAction></div></AlertDialogContent>
+                                   </AlertDialog>
+                               </div>
+                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                                   <div className="text-xs font-bold text-rose-700">Full Account</div>
+                                   <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
+                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Factory Reset</button></AlertDialogTrigger>
+                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Everything?</AlertDialogTitle><AlertDialogDescription>This will wipe your account completely.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleFactoryReset} className="bg-rose-600">Wipe</AlertDialogAction></div></AlertDialogContent>
+                                   </AlertDialog>
+                               </div>
+                           </div>
+                       </div>
+                    </motion.div>
+                  </div>
               </TabsContent>
 
               {/* ======================= TAB: SUPPORT ======================= */}
@@ -489,6 +706,116 @@ export default function SettingsPage() {
                          </div>
                       </div>
                   </motion.div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <motion.div variants={itemVariant} className="md:col-span-2">
+                        <Card className="p-6 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] h-full shadow-lg">
+                           <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
+                           <div className="space-y-3">
+                              {[
+                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
+                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
+                                  { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
+                              ].map((item, idx) => (
+                                  <div key={idx} className="bg-white/40 dark:bg-black/20 rounded-2xl overflow-hidden border border-transparent hover:border-slate-200/50 transition-all">
+                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
+                                         <span className="font-bold text-sm">{item.q}</span>
+                                         <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
+                                     </button>
+                                     <AnimatePresence>
+                                         {openFaq === idx && (
+                                            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                                                <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
+                                            </motion.div>
+                                         )}
+                                     </AnimatePresence>
+                                  </div>
+                              ))}
+                           </div>
+                        </Card>
+                      </motion.div>
+
+                      <motion.div variants={itemVariant} className="flex flex-col gap-4">
+                        <div className="p-5 rounded-[2rem] border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
+                           <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
+                           <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
+                           <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
+                        </div>
+                        
+                        {/* RESTORED ABOUT PROJECT SHEET */}
+                        <Sheet>
+                           <SheetTrigger asChild>
+                              <motion.button 
+                                  whileHover={{ scale: 1.02 }} 
+                                  whileTap={{ scale: 0.98 }}
+                                  className="w-full p-5 rounded-[2rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between transition-all group relative overflow-hidden shadow-lg"
+                              >
+                                  <div className="flex items-center gap-3 relative z-10">
+                                     <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:rotate-12 transition-transform"><Info size={18} /></div>
+                                     <span className="font-bold text-sm">About Project</span>
+                                  </div>
+                                  <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-primary transition-colors relative z-10" />
+                              </motion.button>
+                           </SheetTrigger>
+                           <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl border-l border-white/20">
+                              <motion.div 
+                                  initial="hidden" animate="show"
+                                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
+                                  className="h-full flex flex-col"
+                              >
+                                  <SheetHeader className="p-8 pb-4 relative overflow-hidden">
+                                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-primary/20 blur-[50px] rounded-full pointer-events-none" />
+                                     <motion.div variants={{ hidden: { y: -20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="flex items-center gap-4 relative z-10">
+                                         <div className="relative">
+                                            <div className="w-16 h-16 bg-white rounded-2xl relative z-10 border border-white/50 shadow-xl flex items-center justify-center overflow-hidden p-2">
+                                                <img src="/logo.png" alt="CogniSync" className="w-full h-full object-contain" />
+                                            </div>
+                                         </div>
+                                         <div>
+                                            <SheetTitle className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">CogniSync</SheetTitle>
+                                            <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Capstone Initiative
+                                            </p>
+                                         </div>
+                                     </motion.div>
+                                  </SheetHeader>
+                                  <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-10 relative z-10">
+                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
+                                         <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-transparent rounded-full opacity-50" />
+                                         <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Target size={18} className="text-blue-500"/> Project Objective</h4>
+                                         <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed pl-2 font-medium">To develop a scalable, privacy-first interface for psychological state analysis using modern web technologies.</p>
+                                     </motion.section>
+
+                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
+                                         <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-orange-500 to-transparent rounded-full opacity-50" />
+                                         <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Server size={18} className="text-orange-500"/> Academic Context</h4>
+                                         <div className="pl-2">
+                                            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/5 to-transparent border border-orange-500/10 flex items-center gap-4">
+                                               <div className="w-12 h-12 bg-white rounded-lg p-1 flex-shrink-0 shadow-sm border border-orange-100 overflow-hidden flex items-center justify-center">
+                                                  <img src="/mlritm.png" alt="MLRITM" className="w-full h-full object-contain" />
+                                               </div>
+                                               <div>
+                                                  <p className="text-[9px] font-bold uppercase tracking-widest text-orange-600 mb-0.5">Developed At</p>
+                                                  <p className="text-xs font-bold text-foreground leading-tight">Marri Laxman Reddy Institute of Technology & Management</p> 
+                                                  <p className="text-[10px] text-muted-foreground mt-0.5">Dept. of Computer Science & Engineering (AI & ML)</p>
+                                               </div>
+                                            </div>
+                                         </div>
+                                     </motion.section>
+                                     
+                                      <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 items-center justify-center text-center">
+                                         <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                            <p className="text-[10px] font-bold text-slate-400 tracking-wider">ACADEMIC RELEASE • 2026</p>
+                                         </div>
+                                         <p className="text-[10px] font-medium text-slate-400">Engineered with <Heart size={10} className="inline text-red-500 fill-red-500 mx-0.5" /> in India.</p>
+                                      </motion.div>
+                                  </div>
+                              </motion.div>
+                           </SheetContent>
+                        </Sheet>
+                      </motion.div>   
+                  </div>
               </TabsContent>
 
             </motion.div>
