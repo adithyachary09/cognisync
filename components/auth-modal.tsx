@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { useUser } from "@/lib/user-context";
+import { cn } from "@/lib/utils";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
 
@@ -51,9 +52,9 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
   const passwordStrength = (pwd: string) => {
     if (!pwd) return null;
-    if (pwd.length < 6) return { text: "Weak", color: "text-red-500" };
-    if (pwd.length < 10) return { text: "Medium", color: "text-yellow-500" };
-    return { text: "Strong", color: "text-green-500" };
+    if (pwd.length < 6) return { text: "Weak", color: "text-rose-500", percent: 33 };
+    if (pwd.length < 10) return { text: "Medium", color: "text-amber-500", percent: 66 };
+    return { text: "Strong", color: "text-emerald-500", percent: 100 };
   };
 
   const strength = passwordStrength(form.password);
@@ -100,7 +101,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
               return;
             }
 
-            setUser(data.user); // ✅ SINGLE SOURCE
+            setUser(data.user); 
             onSuccess(data.user.name || "User");
           } catch (err) {
             console.error("Google auth error:", err);
@@ -113,12 +114,13 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         theme: "outline",
         size: "large",
         shape: "pill",
-        width: googleBtnRef.current.offsetWidth,
+        width: googleBtnRef.current.offsetWidth, // Matches container width
+        text: isSignUp ? "signup_with" : "signin_with",
       });
     };
 
     document.head.appendChild(script);
-  }, [setUser, onSuccess]);
+  }, [setUser, onSuccess, isSignUp]);
 
   /* ===================== COOLDOWN ===================== */
 
@@ -158,7 +160,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         return;
       }
 
-      setUser(data.user); // ✅ USER CONTEXT HANDLES STORAGE
+      setUser(data.user);
       onSuccess(data.user.name || "User");
     } catch {
       setLoginError("Unexpected error occurred");
@@ -200,173 +202,235 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
   /* ===================== RENDER ===================== */
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-4">
-      <Card className="w-full max-w-md p-6 space-y-4">
+    <div className="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-slate-50 to-slate-100">
+      
+      {/* Glassmorphism Card */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-white/70 backdrop-blur-xl border border-white/50 shadow-2xl rounded-3xl overflow-hidden p-8"
+      >
+        
         {/* Header */}
-        <div className="flex flex-col items-center gap-1">
-          <Image src="/logo.png" alt="CogniSync" width={56} height={56} />
-          <h1 className="text-2xl font-bold">CogniSync</h1>
-          <p className="text-xs text-slate-500">
-            Clinical Intelligence Platform
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4">
+             <Image src="/logo.png" alt="CogniSync" width={40} height={40} className="object-contain" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800">
+            {forgotMode ? "Reset Password" : isSignUp ? "Create Account" : "Welcome Back"}
+          </h1>
+          <p className="text-sm text-slate-500 font-medium">
+             {forgotMode ? "We'll email you a recovery link" : "CogniSync Clinical Intelligence"}
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex bg-slate-100 rounded-lg p-1">
-          <button
-            className={`flex-1 py-1.5 text-xs font-semibold ${
-              !isSignUp ? "text-slate-900" : "text-slate-500"
-            }`}
-            onClick={() => {
-              setIsSignUp(false);
-              setForgotMode(false);
-              setLoginError("");
-            }}
-          >
-            Login
-          </button>
-          <button
-            className={`flex-1 py-1.5 text-xs font-semibold ${
-              isSignUp ? "text-slate-900" : "text-slate-500"
-            }`}
-            onClick={() => setIsSignUp(true)}
-          >
-            Sign Up
-          </button>
-        </div>
-
-        {/* Form */}
-        <form
-          className="space-y-3"
-          onSubmit={forgotMode ? handleReset : handleAuthSubmit}
-        >
-          {isSignUp && (
-            <Input
-              placeholder="Full Name"
-              required
-              value={form.name}
-              onChange={(e) =>
-                setForm({ ...form, name: e.target.value })
-              }
+        {/* Custom Tab Switcher - The Fix */}
+        {!forgotMode && (
+          <div className="bg-slate-100/80 p-1.5 rounded-xl flex items-center mb-6 relative">
+            {/* Sliding Background Animation */}
+            <motion.div
+              className="absolute top-1.5 bottom-1.5 bg-white shadow-sm rounded-lg"
+              initial={false}
+              animate={{
+                x: isSignUp ? "100%" : "0%",
+                width: "50%"
+              }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
-          )}
+            
+            <button
+              onClick={() => { setIsSignUp(false); setLoginError(""); }}
+              className={cn(
+                "flex-1 relative z-10 py-2.5 text-sm font-semibold transition-colors text-center",
+                !isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => { setIsSignUp(true); setLoginError(""); }}
+              className={cn(
+                "flex-1 relative z-10 py-2.5 text-sm font-semibold transition-colors text-center",
+                isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
-          <Input
-            placeholder="Email Address"
-            required
-            value={form.email}
-            onChange={(e) =>
-              setForm({ ...form, email: e.target.value })
-            }
-          />
-
-          {!forgotMode && (
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                required
-                value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
-                }
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                onClick={() => setShowPassword((v) => !v)}
+        {/* Animated Form Container */}
+        <form onSubmit={forgotMode ? handleReset : handleAuthSubmit} className="space-y-4">
+          <AnimatePresence mode="wait">
+            
+            {/* NAME INPUT (Sign Up Only) */}
+            {isSignUp && !forgotMode && (
+              <motion.div
+                key="name-field"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
               >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          )}
+                <Input
+                  placeholder="Full Name"
+                  required={isSignUp}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="bg-white/50 border-slate-200 focus:bg-white transition-all h-12 rounded-xl"
+                />
+              </motion.div>
+            )}
 
-          {isSignUp && !forgotMode && (
-            <div className="relative">
+            {/* EMAIL INPUT */}
+            <motion.div key="email-field" layout>
               <Input
-                type={showConfirmPassword ? "text" : "password"}
-                placeholder="Confirm Password"
+                placeholder="Email Address"
+                type="email"
                 required
-                value={form.confirmPassword}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    confirmPassword: e.target.value,
-                  })
-                }
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="bg-white/50 border-slate-200 focus:bg-white transition-all h-12 rounded-xl"
               />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2"
-                onClick={() =>
-                  setShowConfirmPassword((v) => !v)
-                }
+            </motion.div>
+
+            {/* PASSWORD INPUT */}
+            {!forgotMode && (
+              <motion.div key="password-field" layout className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="bg-white/50 border-slate-200 focus:bg-white transition-all h-12 rounded-xl pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </motion.div>
+            )}
+
+            {/* CONFIRM PASSWORD (Sign Up Only) */}
+            {isSignUp && !forgotMode && (
+              <motion.div
+                key="confirm-field"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden relative pt-1"
               >
-                {showConfirmPassword ? (
-                  <EyeOff size={16} />
-                ) : (
-                  <Eye size={16} />
-                )}
-              </button>
-            </div>
-          )}
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  required={isSignUp}
+                  value={form.confirmPassword}
+                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  className={cn(
+                    "bg-white/50 border-slate-200 focus:bg-white transition-all h-12 rounded-xl pr-10",
+                    isMismatch && "border-rose-300 focus:ring-rose-200"
+                  )}
+                />
+                 <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 pt-1"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </motion.div>
+            )}
 
-          {strength && (
-            <p className={`text-xs font-semibold ${strength.color}`}>
-              Strength: {strength.text}
-            </p>
-          )}
+          </AnimatePresence>
 
-          {isMismatch && (
-            <p className="text-xs text-red-500">
-              Passwords do not match
-            </p>
-          )}
+          {/* Status Messages */}
+          <div className="space-y-2">
+            {isSignUp && !forgotMode && strength && (
+              <div className="flex items-center justify-between text-xs px-1">
+                <div className="flex gap-1 h-1 flex-1 mx-2">
+                    <div className={cn("h-full rounded-full transition-all duration-500", strength.percent >= 33 ? strength.color.replace("text-", "bg-") : "bg-slate-200")} style={{width: '33%'}} />
+                    <div className={cn("h-full rounded-full transition-all duration-500", strength.percent >= 66 ? strength.color.replace("text-", "bg-") : "bg-slate-200")} style={{width: '33%'}} />
+                    <div className={cn("h-full rounded-full transition-all duration-500", strength.percent >= 100 ? strength.color.replace("text-", "bg-") : "bg-slate-200")} style={{width: '33%'}} />
+                </div>
+                <span className={cn("font-medium", strength.color)}>{strength.text}</span>
+              </div>
+            )}
 
-          {loginError && (
-            <p className="text-xs text-red-500 text-center">
-              {loginError}
-            </p>
-          )}
+            {isMismatch && (
+              <motion.p initial={{opacity:0}} animate={{opacity:1}} className="text-xs text-rose-500 flex items-center gap-1.5 px-1 font-medium">
+                <AlertCircle size={14} /> Passwords do not match
+              </motion.p>
+            )}
 
-          {resetSent && (
-            <p className="text-xs text-green-600 text-center">
-              Reset link sent{" "}
-              {cooldown > 0 && `(retry in ${cooldown}s)`}
-            </p>
-          )}
+            {loginError && (
+              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-rose-50 text-rose-600 p-3 rounded-lg text-xs flex items-center gap-2 border border-rose-100">
+                <AlertCircle size={16} /> {loginError}
+              </motion.div>
+            )}
 
+            {resetSent && (
+              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-xs flex items-center gap-2 border border-emerald-100">
+                <CheckCircle2 size={16} /> Reset link sent {cooldown > 0 && `(retry ${cooldown}s)`}
+              </motion.div>
+            )}
+          </div>
+
+          {/* Action Button */}
           <Button
             type="submit"
             disabled={isLoading || isMismatch}
-            className="w-full"
+            className="w-full h-12 rounded-xl text-md font-semibold bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-900/20 transition-all hover:scale-[1.01] active:scale-[0.98]"
           >
-            {isLoading
-              ? "Processing..."
-              : forgotMode
-              ? "Send Reset Link"
-              : isSignUp
-              ? "Create Account"
-              : "Sign In"}
+            {isLoading ? (
+                "Processing..."
+            ) : forgotMode ? (
+                "Send Reset Link"
+            ) : (
+                <span className="flex items-center gap-2">
+                    {isSignUp ? "Create Account" : "Sign In"} <ArrowRight size={16} />
+                </span>
+            )}
           </Button>
 
-          <button
-            type="button"
-            className="text-xs text-teal-600 w-full text-center"
-            onClick={() => {
-              setForgotMode((v) => !v);
-              setResetSent(false);
-              setCooldown(0);
-              setLoginError("");
-            }}
-          >
-            {forgotMode ? "Back to login" : "Forgot password?"}
-          </button>
+          {/* Toggle Forgot / Back */}
+          <div className="pt-2 text-center">
+             <button
+              type="button"
+              className="text-sm text-slate-500 hover:text-slate-800 font-medium transition-colors"
+              onClick={() => {
+                setForgotMode((v) => !v);
+                setResetSent(false);
+                setCooldown(0);
+                setLoginError("");
+              }}
+            >
+              {forgotMode ? "Back to login" : "Forgot your password?"}
+            </button>
+          </div>
         </form>
 
+        {/* Divider */}
+        {!forgotMode && (
+             <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200"></span></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white/50 backdrop-blur-sm px-2 text-slate-400 font-bold">Or continue with</span></div>
+             </div>
+        )}
+
         {/* Google */}
-        <div ref={googleBtnRef} className="flex justify-center" />
-      </Card>
+        <div 
+            ref={googleBtnRef} 
+            className={cn(
+                "flex justify-center min-h-[44px]", 
+                forgotMode && "hidden"
+            )} 
+        />
+        
+      </motion.div>
     </div>
   );
 }
