@@ -271,7 +271,7 @@ export function ReportPage() {
   }
 
   return (
-    <div className="min-h-screen p-6 md:p-10 bg-slate-50/50 dark:bg-black/10 print:bg-white print:p-0">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10 bg-slate-50/50 dark:bg-black/10 print:bg-white print:p-0">
       
       {/* --- HIDDEN PRINT TEMPLATE --- */}
       <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900">
@@ -393,7 +393,7 @@ export function ReportPage() {
 
       <div className="max-w-7xl mx-auto print:hidden">
         {/* --- PREMIUM HEADER & BUTTONS --- */}
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
@@ -404,7 +404,7 @@ export function ReportPage() {
             <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Comprehensive analysis of your emotional wellness journey.</p>
           </div>
           
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm w-full sm:w-auto">
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -465,7 +465,7 @@ export function ReportPage() {
 
         {/* --- METRICS ROW --- */}
         <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard title="Total Data Points" value={currentData.totalEntries} icon={<BookOpen className="text-blue-500" size={24}/>} color="bg-blue-50 dark:bg-blue-900/10 border-blue-200" onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}/>
                 <MetricCard title="Wellness Score" value={`${currentData.avgMood}/10`} icon={<Activity className="text-emerald-500" size={24}/>} color="bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200" onClick={() => setSelectedMetric("mood")}/>
                 <MetricCard title="Tests Taken" value={currentData.testCount} icon={<CheckCircle2 className="text-purple-500" size={24}/>} color="bg-purple-50 dark:bg-purple-900/10 border-purple-200" onClick={() => setSelectedMetric("tests")}/>
@@ -475,7 +475,7 @@ export function ReportPage() {
             {/* --- CONTENT SWITCHER --- */}
             {activeTab === 'today' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <Card className="p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm h-[400px] flex flex-col">
+                    <Card className="p-4 sm:p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm h-[320px] sm:h-[360px] md:h-[400px] flex flex-col">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><BookOpen size={20} className="text-blue-500"/> Activity Log</h3>
                         <div className="space-y-6 overflow-y-auto flex-1 pr-2">
                             {currentData.totalEntries === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400"><Clock size={32} className="mb-2 opacity-50"/><p>No activity recorded yet today.</p></div>}
@@ -528,7 +528,7 @@ export function ReportPage() {
                             </h3>
                             <Badge variant="outline" className="text-purple-600 bg-purple-50">Timeline</Badge>
                         </div>
-                        <div className="h-[300px]">
+                        <div className="h-[220px] sm:h-[260px] md:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart 
                                     key={`assess-${historyPeriod}`} 
@@ -625,7 +625,7 @@ export function ReportPage() {
         <AnimatePresence>
             {selectedMetric && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-6 shadow-2xl border max-h-[80vh] overflow-y-auto">
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()}className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-4 sm:p-6 shadow-2xl border max-h-[85vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-2xl font-bold">{selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Explanation" : selectedMetric === 'tests' ? "Clinical History" : "Score Analysis"}</h3>
                             <button onClick={() => setSelectedMetric(null)}><X className="text-slate-400 hover:text-slate-600"/></button>
@@ -664,5 +664,6 @@ export function ReportPage() {
 }
 
 function MetricCard({ title, value, icon, color, onClick }: any) {
-    return <motion.div whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }} onClick={onClick} className={`p-6 rounded-2xl border ${color} cursor-pointer bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all`}><div className="flex justify-between items-start mb-4"><div><p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</p><h3 className="text-3xl font-black text-slate-800 dark:text-white">{value}</h3></div><div className="p-2 bg-white dark:bg-white/10 rounded-full shadow-sm">{icon}</div></div><div className="flex items-center gap-1 text-xs font-bold text-slate-400">Tap for details <ChevronRight size={12}/></div></motion.div>
+    return <motion.div whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }} onClick={onClick} className={`p-4 sm:p-6 rounded-2xl border ${color} cursor-pointer bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all`}>
+<div className="flex justify-between items-start mb-4"><div><p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</p><h3 className="text-3xl font-black text-slate-800 dark:text-white">{value}</h3></div><div className="p-2 bg-white dark:bg-white/10 rounded-full shadow-sm">{icon}</div></div><div className="flex items-center gap-1 text-xs font-bold text-slate-400">Tap for details <ChevronRight size={12}/></div></motion.div>
 }

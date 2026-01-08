@@ -250,7 +250,7 @@ export function ChatbotPage() {
   );
 
   return (
-    <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? "fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none bg-background" : "relative h-[calc(100vh-2rem)] rounded-[2.5rem] m-4 md:m-0"} ${isDark ? "bg-[#09090b] text-white border-white/10" : "bg-slate-50 text-slate-900 border-slate-200"} border overflow-hidden`}>
+    <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? "fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none bg-background" : "relative h-screen md:h-[calc(100vh-2rem)] rounded-none md:rounded-[2.5rem] m-0 md:m-4"} ${isDark ? "bg-[#09090b] text-white border-white/10" : "bg-slate-50 text-slate-900 border-slate-200"} border overflow-hidden`}>
       
       {/* BACKGROUND ANIMATION */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -263,12 +263,12 @@ export function ChatbotPage() {
       </div>
 
      {/* HEADER */}
-      <header className={`relative z-10 flex items-center justify-between px-6 py-4 border-b ${isDark ? "bg-slate-900/40 border-white/5" : "bg-white/40 border-slate-200"} backdrop-blur-xl`}>
+      <header className={`relative z-10 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b ${isDark ? "bg-slate-900/40 border-white/5" : "bg-white/40 border-slate-200"} backdrop-blur-xl`}>
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
              <Bot className="text-slate-800 dark:text-white h-6 w-6" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               AI Assistant
           </h1>
         </div>
@@ -372,7 +372,7 @@ export function ChatbotPage() {
       </header>
 
       {/* CHAT FEED */}
-      <div className="relative z-10 flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="relative z-10 flex-1 overflow-y-auto px-3 sm:px-6 py-4 space-y-5">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center">
             <NeuralCore />
@@ -385,7 +385,8 @@ export function ChatbotPage() {
             
             <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-12 w-full max-w-2xl"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 sm:mt-12 w-full max-w-2xl"
+
             >
                 {SUGGESTIONS.map((s, i) => (
                     <motion.button
@@ -421,7 +422,8 @@ export function ChatbotPage() {
                 ) : <Brain size={16} className={theme.text} />}
               </div>
               
-              <div className={`max-w-[85%] p-5 rounded-2xl shadow-sm ${msg.role === "user" ? `bg-gradient-to-br ${theme.gradient} text-white` : isDark ? "bg-[#18181b] border border-white/5" : "bg-white border border-slate-100"}`}>
+             <div className={`max-w-[92%] sm:max-w-[85%] p-4 sm:p-5 rounded-2xl shadow-sm ${msg.role === "user" ? `bg-gradient-to-br ${theme.gradient} text-white` : isDark ? "bg-[#18181b] border border-white/5" : "bg-white border border-slate-100"}`}>
+
                 <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
@@ -441,7 +443,7 @@ export function ChatbotPage() {
       </div>
 
       {/* INPUT */}
-      <div className="relative z-10 p-6 pt-0">
+      <div className="relative z-10 px-3 sm:px-6 pt-0 pb-3">
         <div className={`relative flex items-center gap-2 p-2 pl-4 rounded-[2rem] border shadow-2xl shadow-black/5 ${isDark ? "bg-[#18181b] border-white/10" : "bg-white border-slate-200"}`}>
           
           <motion.button 
@@ -457,7 +459,8 @@ export function ChatbotPage() {
             onChange={(e) => setInputValue(e.target.value)} 
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()} 
             placeholder="Type your message..." 
-            className="border-none focus-visible:ring-0 bg-transparent text-md placeholder:text-muted-foreground/50 h-12" 
+           className="border-none focus-visible:ring-0 bg-transparent text-sm sm:text-md placeholder:text-muted-foreground/50 h-11 sm:h-12"
+  
           />
           
           <motion.button 
@@ -469,7 +472,7 @@ export function ChatbotPage() {
             <ArrowUp size={22} />
           </motion.button>
         </div>
-        <div className="text-center mt-2">
+        <div className="text-center mt-1 sm:mt-2">
             <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">CogniSync AI © 2025</span>
         </div>
       </div>

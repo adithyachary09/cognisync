@@ -324,7 +324,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
             <Progress value={((quizState.currentQuestion + 1) / TEST_QUESTIONS.length) * 100} className="h-2 rounded-full" />
           </div>
 
-          <Card className="p-10 shadow-2xl bg-gradient-to-br from-card to-primary/5 border border-primary/10 min-h-[400px] flex flex-col justify-between rounded-[2rem] relative overflow-hidden">
+          <Card className="p-6 sm:p-8 shadow-2xl bg-gradient-to-br from-card to-primary/5 border border-primary/10 min-h-[360px] flex flex-col justify-between rounded-[2rem] relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 z-0" />
             <div className="relative z-10">
                 <h2 className="text-3xl font-bold text-foreground mb-12 leading-tight">
@@ -371,7 +371,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="min-h-screen p-6 md:p-10"
+        className="min-h-screen p-4 sm:p-6 md:p-10"
       >
         <div className="max-w-4xl mx-auto">
           <Card className="p-12 shadow-2xl text-center mb-8 bg-gradient-to-b from-background to-primary/5 border border-primary/10 rounded-[2.5rem] relative overflow-hidden">
@@ -381,7 +381,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <Award size={16} /> Assessment Complete
                 </div>
                 
-                <h1 className="text-5xl font-black text-foreground mb-2">Your Results</h1>
+                <h1 className="text-3xl sm:text-5xl font-black text-foreground mb-2">Your Results</h1>
                 <p className="text-muted-foreground mb-8">Based on your responses, here is your analysis.</p>
 
                 <div className="flex justify-center mb-8 h-64">
@@ -458,7 +458,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
           </Card>
 
           <div className="flex gap-4 justify-center">
-            <Button onClick={handleRestartTest} className="bg-muted hover:bg-muted/80 text-foreground px-8 py-6 rounded-xl text-lg font-bold">
+            <Button onClick={handleRestartTest} className="bg-muted hover:bg-muted/80 text-foreground px-6 py-4 rounded-xl text-base sm:text-lg font-bold">
               Take Another Test
             </Button>
             <Button onClick={handleRestartTest} variant="outline" className="px-8 py-6 rounded-xl text-lg font-bold">

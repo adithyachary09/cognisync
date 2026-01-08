@@ -223,7 +223,7 @@ export function AwarenessPage() {
       <div className="w-full bg-rose-600 text-white px-4 py-4 text-sm font-medium shadow-md relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
             {/* Added pl-16 to dodge the sidebar icon on the left */}
-            <div className="flex items-center gap-2 text-center md:text-left pl-16 md:pl-0">
+           <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
                 <AlertCircle size={20} className="shrink-0" />
                 <span>In crisis? Press the SOS button or call your local helpline immediately.</span>
             </div>
@@ -269,8 +269,9 @@ export function AwarenessPage() {
       <AnimatePresence>
       {activeExercise && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md">
-          <div className="w-full max-w-2xl text-center text-white space-y-8">
-            <h2 className="text-3xl md:text-5xl font-bold tracking-tight">{activeExercise.title}</h2>
+          <div className="w-full max-w-2xl text-center text-white space-y-6 px-2 sm:px-0">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight">
+{activeExercise.title}</h2>
             <p className="text-xl text-slate-300 max-w-lg mx-auto">{activeExercise.desc}</p>
             <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-white/20 border-t-primary animate-spin-slow mx-auto flex items-center justify-center bg-white/5"><span className="text-2xl font-mono">Active</span></div>
             <div className="flex justify-center gap-4">
@@ -293,7 +294,9 @@ export function AwarenessPage() {
                 <Activity className="text-slate-800 dark:text-white h-8 w-8" />
             </div>
             {/* Standardized Text Size: text-4xl md:text-5xl */}
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">Regulation</h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Regulation
+          </h1>
           </div>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system and expand emotional intelligence.</p>
         </div>
@@ -323,9 +326,11 @@ export function AwarenessPage() {
                     onClick={() => handleMoodSelect(item.val)} 
                     className="group flex flex-col items-center gap-4"
                   >
-                    <div className={`p-6 md:p-7 rounded-2xl ${item.bg} ${item.color} shadow-sm border border-transparent transition-all duration-300 ${item.hover} hover:shadow-xl`}>
-                        <item.icon size={40} strokeWidth={1.5} />
-                    </div>
+                    <div className={`p-4 sm:p-6 md:p-7 rounded-2xl ${item.bg} ${item.color} shadow-sm border border-transparent transition-all duration-300 ${item.hover} hover:shadow-xl`}>
+                            <item.icon size={28} className="sm:hidden" strokeWidth={1.5} />
+                            <item.icon size={40} className="hidden sm:block" strokeWidth={1.5} />
+                          </div>
+
                     <span className="text-xs font-bold uppercase tracking-wide text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">{item.label}</span>
                   </motion.button>
                 ))}
@@ -358,7 +363,7 @@ export function AwarenessPage() {
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3"><Play className="text-primary h-6 w-6 fill-primary/20" /> Your Daily Practice</h2>
               <span className="text-xs font-bold uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">Resets in 24h</span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {dailyExercises.map((ex, i) => (
               <motion.div key={ex.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
                 <Card className={`group relative overflow-hidden p-8 border transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 bg-gradient-to-br ${ex.color} ${ex.border} h-full`}>
@@ -405,7 +410,8 @@ export function AwarenessPage() {
            </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {dailyScience.map((card, i) => (
-              <motion.div key={card.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} className="h-64 perspective-1000 group cursor-pointer" onClick={() => toggleFlip(card.id)}>
+              <motion.div key={card.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} className="h-56 sm:h-64 perspective-1000 group cursor-pointer"
+               onClick={() => toggleFlip(card.id)}>
                 <div className={`relative w-full h-full transition-all duration-700 transform-style-3d ${flippedCards.includes(card.id) ? 'rotate-y-180' : ''}`}>
                   {/* FRONT */}
                   <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-white border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all rounded-3xl">

@@ -464,14 +464,14 @@ export function InsightsPage() {
          />
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 dark:opacity-20 mix-blend-soft-light"></div>
       </div>
-
-      <div className="max-w-7xl mx-auto p-6 md:p-10 relative z-10">
+<div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
+      
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
                <BarChart3 className="text-slate-800 dark:text-white h-8 w-8" />
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Insights
             </h1>
           </div>
@@ -480,7 +480,7 @@ export function InsightsPage() {
           </p>
         </motion.div>
 
-        <div className="mb-8 flex gap-3 flex-wrap">
+        <div className="mb-6 flex gap-2 flex-wrap">
           {PERIODS.map((period) => (
             <button key={period} onClick={() => handlePeriodChange(period)} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 backdrop-blur-md border shadow-sm ${timePeriod === period ? "bg-purple-600 text-white border-purple-500 shadow-purple-500/20 scale-105" : "bg-white/40 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-white/50 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60"}`}>
               <span className="flex items-center gap-2 capitalize"><Calendar size={14} /> {period === "day" ? "Today" : period === "week" ? "This Week" : period === "month" ? "This Month" : "This Year"}</span>
@@ -499,7 +499,7 @@ export function InsightsPage() {
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="w-full relative z-20"
             >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 relative z-30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8 relative z-30">
                     <MetricCard title="Primary Emotional State" value={stats.totalEntries > 0 ? stats.dominantEmotion : "No Data"} icon={<div style={{ color: DominantColor }}>{React.createElement(DominantIconForCard as any, { size: 80 })}</div>} color={stats.totalEntries > 0 ? "text-slate-800 dark:text-white" : "text-slate-400"} subtext={stats.totalEntries > 0 ? "Most Frequent" : "Log entries to see"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('dominant')} disabled={stats.totalEntries === 0}/>
                     <MetricCard title="Total Data Points" value={stats.totalEntries} icon={<BookOpen size={80} className="text-blue-500"/>} color="text-slate-800 dark:text-white" subtext={stats.totalEntries > 0 ? " recorded entries" : "Start writing"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('total')} disabled={stats.totalEntries === 0}/>
                     <MetricCard title="Wellness Baseline" value={stats.totalEntries > 0 ? stats.averageMood : "-"} icon={<Activity size={80} className="text-emerald-500"/>} color={stats.averageMood >= 7 ? 'text-emerald-500' : stats.averageMood <= 4 ? 'text-rose-500' : 'text-blue-500'} subtext={stats.totalEntries > 0 ? "/10 Intensity" : "No ratings yet"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('average')} disabled={stats.totalEntries === 0}/>
@@ -550,10 +550,11 @@ export function InsightsPage() {
             </motion.div>
         </AnimatePresence>
 
-        <div className="p-8 rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl">
+        <div className= "p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Bot size={24} className="text-amber-500"/> AI Analysis</h2>
             {stats.totalEntries > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+
                     {getSmartInsights().map((rec: any, idx) => (
                         <AnimatePresence mode="wait" key={rec.key || idx}>
                             <motion.div 
@@ -613,7 +614,7 @@ export function InsightsPage() {
                 exit={{ opacity: 0, scale: 0.9, y: 20 }} 
                 transition={{ type: "spring", stiffness: 300, damping: 25 }} 
                 onClick={(e) => e.stopPropagation()} 
-                className="bg-white/95 dark:bg-slate-900/95 w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-slate-700 p-8 relative backdrop-blur-xl overflow-y-auto max-h-[85vh]"
+                className="bg-white/95 dark:bg-slate-900/95 w-full max-w-lg rounded-2xl sm:rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-slate-700 p-8 relative backdrop-blur-xl overflow-y-auto max-h-[85vh]"
               >
                 <button onClick={() => setSelectedMetric(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"><X size={24} className="text-slate-400"/></button>
                 
@@ -664,7 +665,8 @@ function MetricCard({ title, value, icon, color, subtext, onClick, disabled }: a
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">{icon}</div>
             {!disabled && <div className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Info size={16} className="text-slate-400"/></div>}
             <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">{title}</p>
-            <h3 className={`text-4xl font-black ${color} flex items-center gap-2`}>{value}</h3>
+            <h3 className={`text-3xl sm:text-4xl font-black ${color} flex items-center gap-2`}>
+{value}</h3>
             <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-slate-800/50 px-3 py-1 rounded-full w-fit">{subtext}</div>
         </motion.div>
     );
@@ -672,9 +674,9 @@ function MetricCard({ title, value, icon, color, subtext, onClick, disabled }: a
 
 function ChartCard({ title, icon, children, isEmpty, fullWidth }: any) {
     return (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl ${fullWidth ? 'mb-8' : ''}`}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl ${fullWidth ? 'mb-8' : ''}`}>
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800 dark:text-white">{icon} {title}</h2>
-            <div className="h-[300px] w-full">
+            <div className="h-[240px] sm:h-[300px] w-full">
                 {isEmpty ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-medium bg-slate-50/50 dark:bg-black/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                         <div className="p-4 bg-white dark:bg-slate-800 rounded-full mb-3 shadow-sm"><PenTool size={24}/></div>

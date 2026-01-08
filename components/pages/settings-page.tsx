@@ -274,9 +274,20 @@ export default function SettingsPage() {
        setPhoneCountdown(30); 
        showNotification({ type: "info", message: `OTP sent to +91 ${phoneNumber}`, duration: 2000 });
      } catch (e: any) {
-       setPhoneStatus("entering");
-       showNotification({ type: "error", message: e.message || "Failed to send SMS.", duration: 3000 });
-     }
+  setPhoneStatus("entering");
+
+  const msg =
+    e?.message?.includes("approval") || e?.message?.includes("developer")
+      ? "OTP access requires developer approval.\n\nFor now, please verify using email.\n\nEmail verification is sufficient to continue."
+      : e.message || "OTP service unavailable.";
+
+  showNotification({
+    type: "info",
+    message: msg,
+    duration: 6000
+  });
+}
+
   };
 
   const verifyOtp = async () => {
@@ -501,7 +512,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen p-6 md:p-10 transition-colors duration-500 ease-out bg-background selection:bg-primary/20 selection:text-primary relative overflow-hidden">
+    <div className="min-h-screen p-4 sm:p-6 md:p-10 transition-colors duration-500 ease-out bg-background selection:bg-primary/20 selection:text-primary relative overflow-hidden">
       
       {/* Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -531,7 +542,7 @@ export default function SettingsPage() {
 
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           {/* FLOATING DOCK NAV */}
-          <div className="flex justify-center mb-8 sticky top-4 z-50">
+          <div className="flex justify-center mb-6 sticky top-2 z-50 px-2">
             <div className="bg-background/80 p-1.5 rounded-full border border-border/40 backdrop-blur-xl shadow-lg shadow-primary/5 inline-flex ring-1 ring-white/20">
                 <TabsList className="bg-transparent p-0 h-auto gap-1">
                     {tabs.map((tab) => (
@@ -643,7 +654,7 @@ export default function SettingsPage() {
               <TabsContent value="account" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
                     <Card className="relative p-8 border-0 shadow-xl overflow-hidden backdrop-blur-xl bg-background/60 rounded-3xl ring-1 ring-white/20">
-                      <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                      <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
                         <div className="relative group">
                            <motion.div whileHover={{ scale: 1.05 }} className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-br from-primary to-purple-500 shadow-2xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                               <div className="w-full h-full rounded-full bg-card overflow-hidden relative">
