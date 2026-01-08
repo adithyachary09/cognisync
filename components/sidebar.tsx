@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Activity,
   User,
+  Sparkles
 } from "lucide-react";
 
 interface SidebarProps {
@@ -38,15 +39,10 @@ export function Sidebar({
 }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const { logout } = useUser();
   const { settings, resetTheme } = useTheme();
-
-  // Reset hover state when collapsed changes to prevent sticky hovers
-  useEffect(() => {
-    if (isCollapsed) setIsHovered(false);
-  }, [isCollapsed]);
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home },
@@ -92,20 +88,20 @@ export function Sidebar({
         initial="expanded"
         animate={isCollapsed ? "collapsed" : "expanded"}
         variants={sidebarVariants}
-        transition={{ type: "spring", stiffness: 300, damping: 30, mass: 0.8 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
         className={cn(
           "fixed md:relative inset-y-0 left-0 z-40 flex flex-col border-r border-border/40",
-          "bg-background/95 backdrop-blur-2xl shadow-xl md:shadow-none",
+          "bg-background/80 backdrop-blur-2xl shadow-2xl md:shadow-none",
           "h-[100dvh]",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Collapse Toggle (Desktop) */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
+          whileHover={{ scale: 1.1, backgroundColor: "rgba(var(--primary-rgb), 0.1)" }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden md:flex absolute -right-3 top-10 z-50 w-6 h-6 bg-background border border-border rounded-full items-center justify-center text-muted-foreground hover:text-foreground shadow-sm hover:shadow-md transition-all"
+          className="hidden md:flex absolute -right-3 top-10 z-50 w-6 h-6 bg-background border border-border rounded-full items-center justify-center text-muted-foreground hover:text-primary shadow-sm transition-colors"
         >
           {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </motion.button>
@@ -114,56 +110,60 @@ export function Sidebar({
         <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center px-0")}>
           <motion.div
             layout
-            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0 shadow-inner"
+            whileHover={{ rotate: 10, scale: 1.05 }}
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary/20 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0 shadow-inner relative overflow-hidden"
           >
-            <img src="/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
+            <div className="absolute inset-0 bg-primary/10 blur-xl" />
+            <img src="/logo.png" alt="Logo" className="w-6 h-6 object-contain relative z-10" />
           </motion.div>
           
-          <AnimatePresence>
+          <AnimatePresence mode="wait">
             {!isCollapsed && (
               <motion.div
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                exit={{ opacity: 0, x: -5 }}
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden whitespace-nowrap"
               >
                 <h1 className="text-lg font-bold tracking-tight text-foreground">CogniSync</h1>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Wellness OS</p>
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                  Wellness OS <Sparkles size={8} className="text-primary" />
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
         {/* User Profile Card */}
-        <div className={cn("px-4 mb-2", isCollapsed && "px-3")}>
+        <div className={cn("px-4 mb-4", isCollapsed && "px-3")}>
           <motion.div
             onClick={() => handlePageChange("settings")}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, y: -1 }}
             whileTap={{ scale: 0.98 }}
             className={cn(
-              "relative overflow-hidden group cursor-pointer rounded-2xl border border-border/50 bg-gradient-to-b from-muted/50 to-transparent p-3 transition-all hover:bg-muted/80",
-              isCollapsed && "flex justify-center p-2 bg-transparent border-transparent hover:bg-muted/50"
+              "relative overflow-hidden group cursor-pointer rounded-2xl border border-border/50 bg-gradient-to-b from-muted/30 to-muted/10 p-3 transition-all hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5",
+              isCollapsed && "flex justify-center p-2 bg-transparent border-transparent hover:bg-muted/30"
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative z-10">
               <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center shadow-sm">
                   {settings.avatar ? (
                     <img src={settings.avatar} className="w-full h-full object-cover" />
                   ) : (
                     <User size={16} className="text-muted-foreground" />
                   )}
                 </div>
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
               </div>
               
               {!isCollapsed && (
                 <div className="overflow-hidden">
-                  <p className="text-xs font-medium text-foreground truncate max-w-[120px]">
+                  <p className="text-xs font-bold text-foreground truncate max-w-[120px]">
                     {settings.username || userName || "User"}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">Free Plan</p>
+                  <p className="text-[9px] font-medium text-muted-foreground/80 bg-primary/10 px-1.5 py-0.5 rounded-md w-fit mt-0.5">Free Plan</p>
                 </div>
               )}
             </div>
@@ -171,8 +171,8 @@ export function Sidebar({
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden py-4 scrollbar-hide">
-          <nav className={cn("space-y-1", isCollapsed ? "px-2" : "px-3")}>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 scrollbar-hide" onMouseLeave={() => setHoveredId(null)}>
+          <nav className={cn("space-y-1.5", isCollapsed ? "px-2" : "px-3")}>
             {menuItems.map((item) => {
               const isActive = activePage === item.id;
               
@@ -180,17 +180,27 @@ export function Sidebar({
                 <button
                   key={item.id}
                   onClick={() => handlePageChange(item.id)}
+                  onMouseEnter={() => setHoveredId(item.id)}
                   className={cn(
-                    "relative w-full flex items-center rounded-xl transition-all duration-200 group outline-none",
-                    isCollapsed ? "justify-center py-3" : "px-4 py-3 gap-3"
+                    "relative w-full flex items-center rounded-xl transition-all duration-300 outline-none",
+                    isCollapsed ? "justify-center py-3.5" : "px-4 py-3.5 gap-3"
                   )}
                 >
-                  {/* Active Indicator Background */}
+                  {/* MAGNETIC HOVER BACKGROUND */}
+                  {hoveredId === item.id && !isActive && (
+                    <motion.div
+                      layoutId="hover-bg"
+                      className="absolute inset-0 bg-muted/60 rounded-xl z-0"
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+
+                  {/* ACTIVE BACKGROUND */}
                   {isActive && (
                     <motion.div
-                      layoutId="activeNav"
-                      className="absolute inset-0 bg-primary/10 rounded-xl"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      layoutId="active-bg"
+                      className="absolute inset-0 bg-primary/10 border border-primary/20 rounded-xl z-0 shadow-sm"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
                   )}
 
@@ -198,28 +208,35 @@ export function Sidebar({
                   <item.icon
                     size={20}
                     className={cn(
-                      "relative z-10 transition-colors duration-200",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                      "relative z-10 transition-transform duration-300",
+                      isActive ? "text-primary scale-110" : "text-muted-foreground group-hover:text-foreground",
+                      hoveredId === item.id && !isActive && "scale-105 text-foreground"
                     )}
                   />
 
                   {/* Label */}
-                  {!isCollapsed && (
-                    <span
-                      className={cn(
-                        "relative z-10 text-sm font-medium transition-colors duration-200",
-                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                      )}
-                    >
-                      {item.label}
-                    </span>
-                  )}
+                  <AnimatePresence mode="wait">
+                    {!isCollapsed && (
+                      <motion.span
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className={cn(
+                          "relative z-10 text-sm font-medium transition-colors duration-200",
+                          isActive ? "text-primary font-bold" : "text-muted-foreground"
+                        )}
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
 
-                  {/* Active Status Bar (Left) */}
+                  {/* Active Indicator Pilled (Left) */}
                   {isActive && !isCollapsed && (
                     <motion.div
-                      layoutId="activeBar"
-                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full"
+                      layoutId="active-pill"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]"
                     />
                   )}
                 </button>
@@ -232,14 +249,22 @@ export function Sidebar({
         <div className={cn("p-4 border-t border-border/40", isCollapsed && "p-3")}>
           <button
             onClick={handleLogout}
+            onMouseEnter={() => setHoveredId("logout")}
+            onMouseLeave={() => setHoveredId(null)}
             className={cn(
-              "w-full flex items-center rounded-xl transition-all duration-200 group",
-              "text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600",
+              "relative w-full flex items-center rounded-xl transition-all duration-200 group overflow-hidden",
+              "text-muted-foreground hover:text-rose-600",
               isCollapsed ? "justify-center py-3" : "px-4 py-3 gap-3"
             )}
           >
-            <LogOut size={18} className="shrink-0" />
-            {!isCollapsed && <span className="text-sm font-medium">Sign Out</span>}
+            {/* Danger Hover Effect */}
+            <div className="absolute inset-0 bg-rose-500/0 group-hover:bg-rose-500/10 transition-colors duration-300 rounded-xl" />
+            
+            <LogOut size={18} className="shrink-0 relative z-10 transition-transform group-hover:rotate-12" />
+            
+            {!isCollapsed && (
+              <span className="text-sm font-medium relative z-10">Sign Out</span>
+            )}
           </button>
         </div>
       </motion.aside>
@@ -258,14 +283,19 @@ export function Sidebar({
       </AnimatePresence>
 
       {/* Mobile Close Button */}
-      {mobileOpen && (
-        <button
-          onClick={() => setMobileOpen(false)}
-          className="md:hidden fixed top-4 right-4 z-50 p-2 bg-white/10 backdrop-blur-md text-white rounded-full"
-        >
-          <X size={24} />
-        </button>
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.button
+            initial={{ scale: 0, rotate: -90 }}
+            animate={{ scale: 1, rotate: 0 }}
+            exit={{ scale: 0, rotate: 90 }}
+            onClick={() => setMobileOpen(false)}
+            className="md:hidden fixed top-4 right-4 z-50 p-2 bg-white/10 backdrop-blur-md text-white rounded-full shadow-lg border border-white/20"
+          >
+            <X size={24} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </>
   );
 }

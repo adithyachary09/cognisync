@@ -252,7 +252,8 @@ export default function SettingsPage() {
        const res = await fetch('/api/auth/update-password', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, password: newPwd }) 
+         // FIX: Changed 'password' to 'newPassword' to match your backend
+         body: JSON.stringify({ email: userEmail, newPassword: newPwd }) 
        });
        if (!res.ok) throw new Error();
        setPwdStage("idle");
@@ -293,7 +294,26 @@ export default function SettingsPage() {
   };
 
   const handleResetPreferences = () => {
-    updateSettings({ darkMode: false, fontSize: 16, colorTheme: 'emerald' });
+    // 1. Define Defaults with strict types to fix TS Error
+    const defaults = { 
+      darkMode: false, 
+      fontSize: 16 as const, 
+      colorTheme: 'emerald' as const 
+    };
+    
+    // 2. Update Context
+    updateSettings(defaults);
+    
+    // 3. Force Immediate UI Patch (Fixes color not changing instantly)
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+      detail: { 
+        ...defaults, 
+        theme: 'light', 
+        accentColor: ACCENT['emerald'], 
+        username: settings.username 
+      } 
+    }));
+
     showNotification({ type: "success", message: "Preferences reset to default.", duration: 2000 });
   };
 
@@ -313,30 +333,53 @@ export default function SettingsPage() {
     }
   };
 
-  const handleFactoryReset = async () => {
+ const handleFactoryReset = async () => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+
     setShowFactoryResetDialog(false);
-    showNotification({ type: "warning", message: "Resetting account data...", duration: 4000 });
+    showNotification({ type: "warning", message: "Wiping all data...", duration: 4000 });
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
       if (user) {
+        // 1. Wipe DB Data (Including tokens)
         await Promise.all([
           supabase.from('user_entries').delete().eq('user_id', user.id), 
           supabase.from('assessments').delete().eq('user_id', user.id),  
           supabase.from('daily_logs').delete().eq('user_id', user.id),   
           supabase.from('chat_history').delete().eq('user_id', user.id), 
           supabase.from('user_settings').delete().eq('user_id', user.id),
+          supabase.from('verification_tokens').delete().eq('user_id', user.id),
         ]);
-        Object.keys(localStorage).forEach(key => { if (key.includes(user.id)) localStorage.removeItem(key); });
-        updateSettings({ darkMode: false, fontSize: 16, colorTheme: 'emerald', username: undefined, avatar: null });
-        showNotification({ type: "success", message: "Account reset complete.", duration: 2000 });
-        setTimeout(() => window.location.reload(), 1000);
+
+        // 2. Aggressive Local Clean (Wipe everything)
+        localStorage.clear(); 
+        
+        // 3. Reset State & Logout
+        updateSettings({ 
+            darkMode: false, 
+            fontSize: 16 as const, 
+            colorTheme: 'emerald' as const, 
+            username: undefined, 
+            avatar: null 
+        });
+
+        // 4. Force Server Logout
+        await supabase.auth.signOut();
+        logout();
+
+        showNotification({ type: "success", message: "Factory reset complete. Goodbye.", duration: 2000 });
+        
+        // 5. Hard Redirect to Home
+        setTimeout(() => window.location.href = "/", 1000);
       }
     } catch (error) {
-      showNotification({ type: "error", message: "Reset failed.", duration: 3000 });
+      console.error(error);
+      showNotification({ type: "error", message: "Reset failed. Check connection.", duration: 3000 });
     }
   };
 
@@ -574,7 +617,7 @@ export default function SettingsPage() {
                             {isGoogleUser && <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span>}
                           </div>
 
-                         {!isGoogleUser && (
+                        {!isGoogleUser && (
                             <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl transition-all duration-300">
                                <div className="flex items-center gap-3 mb-5">
                                   <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div>
