@@ -36,50 +36,57 @@ const USER_CACHE_KEY = "cognisync:user-cache";
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
 
-  /* ---- RESTORE USER ON HARD REFRESH ---- */
+  /* ---- RESTORE SESSION ON LOAD ---- */
   useEffect(() => {
-    const activeUserId = localStorage.getItem(ACTIVE_USER_KEY);
-    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
+    const uid = localStorage.getItem(ACTIVE_USER_KEY);
+    const cached = localStorage.getItem(USER_CACHE_KEY);
 
-    if (!activeUserId || !cachedUser) return;
+    if (!uid || !cached) return;
 
     try {
-      const parsed: User = JSON.parse(cachedUser);
-
-      // restore only if cache matches active user
-      if (parsed.id === activeUserId) {
+      const parsed: User = JSON.parse(cached);
+      if (parsed.id === uid) {
         setUserState(parsed);
       }
     } catch {
-      /* ignore corrupted cache */
+      /* ignore */
     }
   }, []);
 
-  /* ---- SET USER (LOGIN / REGISTER) ---- */
+  /* ---- SET USER (LOGIN / SWITCH USER) ---- */
   const setUser = (u: User | null) => {
-    setUserState(u);
+    if (!u) {
+      // immediate logout-style reset
+      localStorage.removeItem(ACTIVE_USER_KEY);
+      localStorage.removeItem(USER_CACHE_KEY);
+      setUserState(null);
+      return;
+    }
 
-    if (!u) return;
-
-    // mark active user
+    // write session first
     localStorage.setItem(ACTIVE_USER_KEY, u.id);
-
-    // cache identity ONLY (no UI prefs here)
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
+
+    // then update state
+    setUserState(u);
   };
 
-  /* ---- LOGOUT (SAFE, NON-DESTRUCTIVE) ---- */
+  /* ---- LOGOUT (INSTANT, NON-DESTRUCTIVE) ---- */
   const logout = () => {
     /**
-     * IMPORTANT RULES:
-     * - Do NOT delete user-scoped settings
-     * - Do NOT delete theme/avatar/preferences
-     * - Only clear session markers
+     * DO NOT:
+     * - delete user settings
+     * - delete avatars
+     * - delete theme prefs
+     *
+     * DO:
+     * - clear active session immediately
      */
 
     localStorage.removeItem(ACTIVE_USER_KEY);
     localStorage.removeItem(USER_CACHE_KEY);
 
+    // force immediate rerender everywhere
     setUserState(null);
   };
 

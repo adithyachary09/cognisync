@@ -47,36 +47,12 @@ const DEFAULT_SETTINGS: ThemeSettings = {
 /* ===================== COLOR MAP ===================== */
 
 const colorMap = {
-  blue: {
-    primary: "oklch(0.55 0.18 260)",
-    accent: "oklch(0.62 0.2 160)",
-    username: "#1E40AF",
-  },
-  teal: {
-    primary: "oklch(0.55 0.18 200)",
-    accent: "oklch(0.62 0.2 190)",
-    username: "#065F46",
-  },
-  coral: {
-    primary: "oklch(0.63 0.19 30)",
-    accent: "oklch(0.68 0.21 40)",
-    username: "#B91C1C",
-  },
-  slate: {
-    primary: "oklch(0.45 0.03 250)",
-    accent: "oklch(0.52 0.04 250)",
-    username: "#1E293B",
-  },
-  emerald: {
-    primary: "oklch(0.55 0.18 140)",
-    accent: "oklch(0.62 0.2 120)",
-    username: "#065F46",
-  },
-  amber: {
-    primary: "oklch(0.67 0.2 90)",
-    accent: "oklch(0.72 0.22 80)",
-    username: "#92400E",
-  },
+  blue: { primary: "oklch(0.55 0.18 260)", accent: "oklch(0.62 0.2 160)", username: "#1E40AF" },
+  teal: { primary: "oklch(0.55 0.18 200)", accent: "oklch(0.62 0.2 190)", username: "#065F46" },
+  coral: { primary: "oklch(0.63 0.19 30)", accent: "oklch(0.68 0.21 40)", username: "#B91C1C" },
+  slate: { primary: "oklch(0.45 0.03 250)", accent: "oklch(0.52 0.04 250)", username: "#1E293B" },
+  emerald: { primary: "oklch(0.55 0.18 140)", accent: "oklch(0.62 0.2 120)", username: "#065F46" },
+  amber: { primary: "oklch(0.67 0.2 90)", accent: "oklch(0.72 0.22 80)", username: "#92400E" },
 } as const;
 
 /* ===================== HELPERS ===================== */
@@ -104,9 +80,7 @@ function applyThemeDOM(s: ThemeSettings) {
   root.style.setProperty("--accent", colors.accent);
   root.style.setProperty("--accent-foreground", "#ffffff");
 
-  const usernameEl = document.querySelector(
-    ".username-display"
-  ) as HTMLElement | null;
+  const usernameEl = document.querySelector(".username-display") as HTMLElement | null;
   if (usernameEl) usernameEl.style.color = colors.username;
 }
 
@@ -119,33 +93,36 @@ function storageKey(uid: string) {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { showNotification } = useNotification();
   const [settings, setSettings] = useState<ThemeSettings>(DEFAULT_SETTINGS);
-  const lastUserRef = useRef<string | null>(null);
+  const activeUserRef = useRef<string | null>(null);
   const notifyRef = useRef<number | null>(null);
 
-  /* ---- HARD RESET DOM ON USER CHANGE ---- */
-  const loadForUser = (uid: string) => {
-    const raw = localStorage.getItem(storageKey(uid));
-    const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
-    setSettings(next);
-    applyThemeDOM(next);
-  };
-
-  /* ---- INITIAL + USER SWITCH LOAD ---- */
+  /* ---- SYNC ON LOGIN / LOGOUT / USER SWITCH ---- */
   useEffect(() => {
-    const uid = localStorage.getItem(ACTIVE_USER_KEY);
+    const sync = () => {
+      const uid = localStorage.getItem(ACTIVE_USER_KEY);
 
-    if (!uid) {
-      setSettings(DEFAULT_SETTINGS);
-      applyThemeDOM(DEFAULT_SETTINGS);
-      lastUserRef.current = null;
-      return;
-    }
+      // LOGOUT → reset instantly
+      if (!uid) {
+        activeUserRef.current = null;
+        setSettings(DEFAULT_SETTINGS);
+        applyThemeDOM(DEFAULT_SETTINGS);
+        return;
+      }
 
-    if (lastUserRef.current !== uid) {
-      lastUserRef.current = uid;
-      loadForUser(uid);
-    }
-  });
+      // USER SWITCH
+      if (activeUserRef.current !== uid) {
+        activeUserRef.current = uid;
+        const raw = localStorage.getItem(storageKey(uid));
+        const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
+        setSettings(next);
+        applyThemeDOM(next);
+      }
+    };
+
+    sync();
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   /* ---- UPDATE ---- */
   const updateSettings = (patch: Partial<ThemeSettings>) => {
@@ -162,9 +139,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         if ("darkMode" in patch)
           showNotification({
             type: "info",
-            message: next.darkMode
-              ? "Dark mode enabled."
-              : "Light mode enabled.",
+            message: next.darkMode ? "Dark mode enabled." : "Light mode enabled.",
           });
         if ("fontSize" in patch)
           showNotification({
@@ -188,8 +163,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         settings,
         updateSettings,
         applySettings: () => applyThemeDOM(settings),
-        getModeLabel: () =>
-          settings.darkMode ? "Dark Mode" : "Light Mode",
+        getModeLabel: () => (settings.darkMode ? "Dark Mode" : "Light Mode"),
       }}
     >
       {children}
