@@ -14,7 +14,7 @@ import { useNotification } from "./notification-context";
 
 export interface ThemeSettings {
   darkMode: boolean;
-  fontSize: number; // 14 | 16 | 18
+  fontSize: number;
   colorTheme: "blue" | "teal" | "coral" | "slate" | "emerald" | "amber";
   username: string;
   avatar: string | null;
@@ -34,7 +34,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 /* ===================== CONSTANTS ===================== */
 
 const ACTIVE_USER_KEY = "cognisync:active-user";
-const UPDATED_EVENT = "cognisync:theme:update";
+const STORAGE_PREFIX = "cognisync:settings:";
 
 const DEFAULT_SETTINGS: ThemeSettings = {
   darkMode: false,
@@ -44,87 +44,45 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   avatar: null,
 };
 
-const getStorageKey = (userId: string) =>
-  `cognisync:settings:${userId}`;
-
 /* ===================== COLOR MAP ===================== */
 
 const colorMap = {
-  blue: {
-    primary: "oklch(0.55 0.18 260)",
-    accent: "oklch(0.62 0.2 160)",
-    username: "#1E40AF",
-  },
-  teal: {
-    primary: "oklch(0.55 0.18 200)",
-    accent: "oklch(0.62 0.2 190)",
-    username: "#065F46",
-  },
-  coral: {
-    primary: "oklch(0.63 0.19 30)",
-    accent: "oklch(0.68 0.21 40)",
-    username: "#B91C1C",
-  },
-  slate: {
-    primary: "oklch(0.45 0.03 250)",
-    accent: "oklch(0.52 0.04 250)",
-    username: "#1E293B",
-  },
-  emerald: {
-    primary: "oklch(0.55 0.18 140)",
-    accent: "oklch(0.62 0.2 120)",
-    username: "#065F46",
-  },
-  amber: {
-    primary: "oklch(0.67 0.2 90)",
-    accent: "oklch(0.72 0.22 80)",
-    username: "#92400E",
-  },
+  blue: { primary: "oklch(0.55 0.18 260)", accent: "oklch(0.62 0.2 160)", username: "#1E40AF" },
+  teal: { primary: "oklch(0.55 0.18 200)", accent: "oklch(0.62 0.2 190)", username: "#065F46" },
+  coral: { primary: "oklch(0.63 0.19 30)", accent: "oklch(0.68 0.21 40)", username: "#B91C1C" },
+  slate: { primary: "oklch(0.45 0.03 250)", accent: "oklch(0.52 0.04 250)", username: "#1E293B" },
+  emerald: { primary: "oklch(0.55 0.18 140)", accent: "oklch(0.62 0.2 120)", username: "#065F46" },
+  amber: { primary: "oklch(0.67 0.2 90)", accent: "oklch(0.72 0.22 80)", username: "#92400E" },
 } as const;
 
-/* ===================== DOM APPLY ===================== */
+/* ===================== HELPERS ===================== */
+
+function sanitizeSettings(raw: any): ThemeSettings {
+  const safeTheme = Object.keys(colorMap).includes(raw?.colorTheme)
+    ? raw.colorTheme
+    : DEFAULT_SETTINGS.colorTheme;
+
+  return {
+    darkMode: typeof raw?.darkMode === "boolean" ? raw.darkMode : false,
+    fontSize: [14, 16, 18].includes(raw?.fontSize) ? raw.fontSize : 16,
+    colorTheme: safeTheme,
+    username: typeof raw?.username === "string" ? raw.username : "User",
+    avatar: typeof raw?.avatar === "string" ? raw.avatar : null,
+  };
+}
 
 function applyThemeDOM(s: ThemeSettings) {
   const root = document.documentElement;
-  const colors = colorMap[s.colorTheme];
+  const colors = colorMap[s.colorTheme] ?? colorMap.blue;
 
   root.classList.toggle("dark", s.darkMode);
-
   root.style.fontSize = `${s.fontSize}px`;
-  root.style.setProperty("--base-font", `${s.fontSize}px`);
   root.style.setProperty("--primary", colors.primary);
   root.style.setProperty("--accent", colors.accent);
   root.style.setProperty("--accent-foreground", "#ffffff");
 
-  const usernameEl = document.querySelector(
-    ".username-display"
-  ) as HTMLElement | null;
-
-  if (usernameEl) usernameEl.style.color = colors.username;
-}
-
-/* ===================== STORAGE ===================== */
-
-function persist(settings: ThemeSettings, userId: string) {
-  localStorage.setItem(
-    getStorageKey(userId),
-    JSON.stringify(settings)
-  );
-
-  window.dispatchEvent(
-    new CustomEvent(UPDATED_EVENT, { detail: { userId } })
-  );
-}
-
-function restore(userId: string): ThemeSettings | null {
-  const raw = localStorage.getItem(getStorageKey(userId));
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as ThemeSettings;
-  } catch {
-    return null;
-  }
+  const nameEl = document.querySelector(".username-display") as HTMLElement | null;
+  if (nameEl) nameEl.style.color = colors.username;
 }
 
 /* ===================== PROVIDER ===================== */
@@ -134,82 +92,53 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ThemeSettings>(DEFAULT_SETTINGS);
   const notifyRef = useRef<number | null>(null);
 
-  /* ---- LOAD PER USER ---- */
+  /* ---- LOAD ON LOGIN ---- */
   useEffect(() => {
-    const userId = localStorage.getItem(ACTIVE_USER_KEY);
-    if (!userId) return;
+    const uid = localStorage.getItem(ACTIVE_USER_KEY);
+    if (!uid) return;
 
-    const restored = restore(userId);
-    if (!restored) return;
+    const raw = localStorage.getItem(`${STORAGE_PREFIX}${uid}`);
+    if (!raw) return;
 
-    setSettings(restored);
-    applyThemeDOM(restored);
-  }, []);
-
-  /* ---- CROSS TAB (SAME USER ONLY) ---- */
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const activeUser = localStorage.getItem(ACTIVE_USER_KEY);
-      const { detail } = e as CustomEvent<{ userId: string }>;
-
-      if (!activeUser || detail?.userId !== activeUser) return;
-
-      const restored = restore(activeUser);
-      if (!restored) return;
-
-      setSettings(restored);
-      applyThemeDOM(restored);
-    };
-
-    window.addEventListener(UPDATED_EVENT, handler);
-    return () => window.removeEventListener(UPDATED_EVENT, handler);
+    try {
+      const parsed = sanitizeSettings(JSON.parse(raw));
+      setSettings(parsed);
+      applyThemeDOM(parsed);
+    } catch {}
   }, []);
 
   /* ---- UPDATE ---- */
   const updateSettings = (patch: Partial<ThemeSettings>) => {
-    const userId = localStorage.getItem(ACTIVE_USER_KEY);
-    if (!userId) return;
+    const uid = localStorage.getItem(ACTIVE_USER_KEY);
+    if (!uid) return;
 
     setSettings((prev) => {
-      const next = { ...prev, ...patch };
+      const next = sanitizeSettings({ ...prev, ...patch });
+      localStorage.setItem(`${STORAGE_PREFIX}${uid}`, JSON.stringify(next));
       applyThemeDOM(next);
-      persist(next, userId);
 
       if (notifyRef.current) clearTimeout(notifyRef.current);
       notifyRef.current = window.setTimeout(() => {
         if ("darkMode" in patch)
-          showNotification({
-            type: "info",
-            message: next.darkMode
-              ? "Dark mode enabled."
-              : "Light mode enabled.",
-          });
-
+          showNotification({ type: "info", message: next.darkMode ? "Dark mode enabled." : "Light mode enabled." });
         if ("fontSize" in patch)
-          showNotification({
-            type: "info",
-            message: `Font size set to ${next.fontSize}px.`,
-          });
-
+          showNotification({ type: "info", message: `Font size set to ${next.fontSize}px.` });
         if ("colorTheme" in patch)
-          showNotification({
-            type: "success",
-            message: "Accent color updated.",
-          });
+          showNotification({ type: "success", message: "Accent color updated." });
       }, 40);
 
       return next;
     });
   };
 
-  const applySettings = () => applyThemeDOM(settings);
-
-  const getModeLabel = () =>
-    settings.darkMode ? "Dark Mode" : "Light Mode";
-
   return (
     <ThemeContext.Provider
-      value={{ settings, updateSettings, applySettings, getModeLabel }}
+      value={{
+        settings,
+        updateSettings,
+        applySettings: () => applyThemeDOM(settings),
+        getModeLabel: () => (settings.darkMode ? "Dark Mode" : "Light Mode"),
+      }}
     >
       {children}
     </ThemeContext.Provider>
