@@ -612,215 +612,560 @@ export default function SettingsPage() {
                       </motion.div>
                   </div>
               </TabsContent>
+      {/* ======================= TAB: DATA ======================= */}
 
-              {/* ======================= TAB: DATA ======================= */}
               <TabsContent value="data" className="space-y-6 m-0">
+
                   <motion.div variants={itemVariant}>
-                    <div className="p-8 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex gap-5 items-center">
-                          <div className="p-5 bg-primary/10 text-primary rounded-3xl"><FileJson size={32} /></div>
-                          <div><h3 className="font-bold text-xl">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your clinical logs & settings (JSON).</p></div>
+
+                    <div className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 shadow-lg flex items-center justify-between">
+
+                        <div className="flex gap-4 items-center">
+
+                          <div className="p-4 bg-blue-500/10 text-blue-600 rounded-2xl"><FileJson size={24} /></div>
+
+                          <div><h3 className="font-bold text-lg">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your data (JSON).</p></div>
+
                         </div>
-                        <button onClick={handleExportArchive} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2"><Download size={18} /> Download Data</button>
+
+                        <motion.button whileTap={{ scale: 0.95 }} onClick={handleExportArchive} className="px-5 py-3 bg-foreground text-background rounded-2xl text-sm font-bold shadow-lg hover:opacity-90 flex items-center gap-2">
+
+                          <Download size={16} /> Download
+
+                        </motion.button>
+
                     </div>
+
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <motion.div variants={itemVariant}>
-                       <Card className="p-8 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] shadow-lg h-full">
-                          <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Local Storage</h3></div>
-                          <div className="space-y-4">
-                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
-                                 <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Removes temporary files.</p></div></div>
-                                 <button onClick={handleClearCache} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
-                             </div>
-                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
-                                 <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Restore default theme.</p></div></div>
-                                 <button onClick={handleResetPreferences} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
-                             </div>
-                          </div>
-                       </Card>
-                    </motion.div>
 
-                    <motion.div variants={itemVariant}>
-                       <div className="p-8 h-full rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 backdrop-blur-xl flex flex-col justify-between">
-                           <div>
-                              <h3 className="font-bold text-rose-600 flex items-center gap-2 text-lg mb-2"><AlertTriangle size={20} /> Danger Zone</h3>
-                              <p className="text-xs text-rose-500/70 leading-relaxed">Actions here cannot be undone. Proceed with caution.</p>
-                           </div>
-                           
-                           <div className="space-y-3 mt-8">
-                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                                   <div className="text-xs font-bold text-rose-700">Journal Data</div>
-                                   <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
-                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Delete All</button></AlertDialogTrigger>
-                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-rose-600">Delete</AlertDialogAction></div></AlertDialogContent>
-                                   </AlertDialog>
-                               </div>
-                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                                   <div className="text-xs font-bold text-rose-700">Full Account</div>
-                                   <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
-                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Factory Reset</button></AlertDialogTrigger>
-                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Everything?</AlertDialogTitle><AlertDialogDescription>This will wipe your account completely.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleFactoryReset} className="bg-rose-600">Wipe</AlertDialogAction></div></AlertDialogContent>
-                                   </AlertDialog>
-                               </div>
-                           </div>
-                       </div>
-                    </motion.div>
-                  </div>
+
+                  <motion.div variants={itemVariant}>
+
+                    <Card className="p-8 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 shadow-lg">
+
+                        <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Storage</h3></div>
+
+                        <div className="space-y-4">
+
+                          <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-border transition-all">
+
+                              <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Safe to clear.</p></div></div>
+
+                              <button onClick={handleClearCache} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
+
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-border transition-all">
+
+                              <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Default theme.</p></div></div>
+
+                              <button onClick={handleResetPreferences} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
+
+                          </div>
+
+                          <div className="flex items-center justify-between p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition-all">
+
+                              <div className="flex items-center gap-3"><Eraser size={18} className="text-red-500" /><div><p className="font-bold text-sm text-red-600">Delete Journals</p><p className="text-xs text-red-400/80">Permanent loss.</p></div></div>
+
+                              <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
+
+                                <AlertDialogTrigger asChild><button className="px-4 py-2 text-xs font-bold text-white bg-red-600 rounded-xl shadow-lg shadow-red-500/20 hover:scale-105 transition-transform">Delete</button></AlertDialogTrigger>
+
+                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-red-600">Delete</AlertDialogAction></div></AlertDialogContent>
+
+                              </AlertDialog>
+
+                          </div>
+
+                        </div>
+
+                    </Card>
+
+                  </motion.div>
+
+
+
+                  <motion.div variants={itemVariant}>
+
+                    <div className="p-6 rounded-3xl border border-red-500/20 bg-red-500/5 backdrop-blur-xl flex items-center justify-between">
+
+                        <div><h3 className="font-bold text-red-600 flex items-center gap-2"><RotateCcw size={18} /> Factory Reset</h3><p className="text-xs text-red-500/70 mt-1">Wipes Journals, AI History, Dashboard Logs & Settings.</p></div>
+
+                        <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
+
+                          <AlertDialogTrigger asChild><button className="px-5 py-3 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 shadow-xl shadow-red-500/30 hover:scale-105 transition-transform">Reset App</button></AlertDialogTrigger>
+
+                          <AlertDialogContent>
+
+                            <AlertDialogHeader>
+
+                              <AlertDialogTitle className="text-red-600">⚠️ CRITICAL WARNING</AlertDialogTitle>
+
+                              <AlertDialogDescription className="font-medium text-foreground">
+
+                                This action is IRREVERSIBLE.
+
+                                <br/><br/>
+
+                                It will permanently delete:
+
+                                <ul className="list-disc pl-5 mt-2 space-y-1 text-sm text-muted-foreground">
+
+                                  <li>All Journal Entries & Analysis</li>
+
+                                  <li>Dashboard Streaks & Wellness Data</li>
+
+                                  <li>Clinical Assessment History</li>
+
+                                  <li>AI Assistant Chat Logs</li>
+
+                                  <li>All User Settings & Preferences</li>
+
+                                </ul>
+
+                              </AlertDialogDescription>
+
+                            </AlertDialogHeader>
+
+                            <div className="flex justify-end gap-3">
+
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+                              <AlertDialogAction onClick={handleFactoryReset} className="bg-red-600 hover:bg-red-700">Yes, Wipe Everything</AlertDialogAction>
+
+                            </div>
+
+                          </AlertDialogContent>
+
+                        </AlertDialog>
+
+                    </div>
+
+                  </motion.div>
+
               </TabsContent>
+
+
 
               {/* ======================= TAB: SUPPORT ======================= */}
+
               <TabsContent value="support" className="space-y-6 m-0">
-                  <motion.div variants={itemVariant} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Direct Support */}
-                      <div onClick={() => { navigator.clipboard.writeText("adithyachary09@gmail.com"); setCopied(true); setTimeout(()=>setCopied(false),2000); }} className="relative p-8 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group hover:scale-[1.02] transition-transform">
-                        <div className="relative z-10 flex flex-col h-full justify-between">
+
+                  <motion.div variants={itemVariant}>
+
+                      <motion.div 
+
+                        whileHover={{ scale: 1.01 }}
+
+                        whileTap={{ scale: 0.98 }}
+
+                        onClick={handleCopyEmail}
+
+                        className="relative p-10 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group"
+
+                      >
+
+                        <div className="relative z-10 flex flex-col items-center text-center gap-4">
+
+                           <div className="p-4 bg-white/10 rounded-full backdrop-blur-lg border border-white/20 mb-2">
+
+                              <Fingerprint size={48} className="text-white opacity-90" />
+
+                           </div>
+
                            <div>
-                              <div className="p-4 bg-white/10 rounded-full w-fit backdrop-blur-lg border border-white/20 mb-4"><Fingerprint size={32} /></div>
-                              <h2 className="text-xs font-bold uppercase tracking-[0.2em] opacity-70 mb-1">Direct Support</h2>
-                              <div className="text-xl md:text-2xl font-mono font-bold break-all">{copied ? "COPIED!" : "adithyachary09@gmail.com"}</div>
+
+                              <h2 className="text-sm font-bold uppercase tracking-[0.3em] opacity-70 mb-2">Direct Support Line</h2>
+
+                              <div className="text-3xl md:text-4xl font-black font-mono tracking-tight group-hover:scale-105 transition-transform duration-300">
+
+                                 {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
+
+                              </div>
+
                            </div>
-                           <div className="mt-6 flex items-center gap-2 text-xs font-bold opacity-80"><Copy size={14} /> Click to copy address</div>
+
+                           <div className="mt-6 flex items-center gap-2 px-5 py-2 bg-white/20 rounded-full backdrop-blur-md text-sm font-bold border border-white/10 group-hover:bg-white group-hover:text-violet-700 transition-all">
+
+                              {copied ? <Check size={16} /> : <Copy size={16} />}
+
+                              {copied ? "Address Copied" : "Click card to copy address"}
+
+                           </div>
+
                         </div>
-                      </div>
 
-                      {/* RESTORED TEAM SECTION */}
-                      <div className="p-8 rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl shadow-lg">
-                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Users size={20} className="text-primary"/> Project Team</h3>
-                         <div className="space-y-3">
-                            {[
-                               { name: "Adithya", role: "Lead Architect", color: "bg-gradient-to-r from-primary to-violet-500", link: "https://www.linkedin.com/in/adithya-chary/" },
-                               { name: "Abhinaya", role: "Research Lead", color: "bg-gradient-to-r from-blue-400 to-cyan-400", link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320" },
-                               { name: "Sushmitha", role: "Compliance", color: "bg-gradient-to-r from-emerald-400 to-teal-400", link: "https://www.linkedin.com/in/sushmitha-dongara-805350348" }
-                            ].map((member, i) => (
-                               <a key={i} href={member.link} target="_blank" className="flex items-center gap-4 p-3 rounded-2xl bg-white/50 dark:bg-black/20 hover:bg-white/80 transition-colors border border-transparent hover:border-slate-200">
-                                  <div className={`w-10 h-10 rounded-xl ${member.color} flex items-center justify-center text-white font-bold shadow-md`}>{member.name[0]}</div>
-                                  <div>
-                                     <p className="text-sm font-bold">{member.name}</p>
-                                     <p className="text-[10px] font-medium text-muted-foreground">{member.role}</p>
-                                  </div>
-                                  <ExternalLink size={14} className="ml-auto opacity-50" />
-                               </a>
-                            ))}
-                         </div>
-                      </div>
-                  </motion.div>
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-y-full group-hover:-translate-y-full transition-transform duration-700 pointer-events-none" />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <motion.div variants={itemVariant} className="md:col-span-2">
-                        <Card className="p-6 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] h-full shadow-lg">
-                           <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
-                           <div className="space-y-3">
-                              {[
-                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
-                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
-                                  { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
-                              ].map((item, idx) => (
-                                  <div key={idx} className="bg-white/40 dark:bg-black/20 rounded-2xl overflow-hidden border border-transparent hover:border-slate-200/50 transition-all">
-                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
-                                         <span className="font-bold text-sm">{item.q}</span>
-                                         <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
-                                     </button>
-                                     <AnimatePresence>
-                                         {openFaq === idx && (
-                                            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                                                <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
-                                            </motion.div>
-                                         )}
-                                     </AnimatePresence>
-                                  </div>
-                              ))}
-                           </div>
-                        </Card>
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+
+                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
+
                       </motion.div>
 
-                      <motion.div variants={itemVariant} className="flex flex-col gap-4">
-                        <div className="p-5 rounded-[2rem] border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
-                           <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
-                           <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
-                           <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
-                        </div>
-                        
-                        {/* RESTORED ABOUT PROJECT SHEET */}
-                        <Sheet>
-                           <SheetTrigger asChild>
-                              <motion.button 
-                                  whileHover={{ scale: 1.02 }} 
-                                  whileTap={{ scale: 0.98 }}
-                                  className="w-full p-5 rounded-[2rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between transition-all group relative overflow-hidden shadow-lg"
-                              >
-                                  <div className="flex items-center gap-3 relative z-10">
-                                     <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:rotate-12 transition-transform"><Info size={18} /></div>
-                                     <span className="font-bold text-sm">About Project</span>
-                                  </div>
-                                  <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-primary transition-colors relative z-10" />
-                              </motion.button>
-                           </SheetTrigger>
-                           <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl border-l border-white/20">
-                              <motion.div 
-                                  initial="hidden" animate="show"
-                                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
-                                  className="h-full flex flex-col"
-                              >
-                                  <SheetHeader className="p-8 pb-4 relative overflow-hidden">
-                                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-primary/20 blur-[50px] rounded-full pointer-events-none" />
-                                     <motion.div variants={{ hidden: { y: -20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="flex items-center gap-4 relative z-10">
-                                         <div className="relative">
-                                            <div className="w-16 h-16 bg-white rounded-2xl relative z-10 border border-white/50 shadow-xl flex items-center justify-center overflow-hidden p-2">
-                                                <img src="/logo.png" alt="CogniSync" className="w-full h-full object-contain" />
-                                            </div>
-                                         </div>
-                                         <div>
-                                            <SheetTitle className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">CogniSync</SheetTitle>
-                                            <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Capstone Initiative
-                                            </p>
-                                         </div>
-                                     </motion.div>
-                                  </SheetHeader>
-                                  <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-10 relative z-10">
-                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-                                         <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-transparent rounded-full opacity-50" />
-                                         <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Target size={18} className="text-blue-500"/> Project Objective</h4>
-                                         <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed pl-2 font-medium">To develop a scalable, privacy-first interface for psychological state analysis using modern web technologies.</p>
-                                     </motion.section>
+                  </motion.div>
 
-                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-                                         <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-orange-500 to-transparent rounded-full opacity-50" />
-                                         <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Server size={18} className="text-orange-500"/> Academic Context</h4>
-                                         <div className="pl-2">
-                                            <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/5 to-transparent border border-orange-500/10 flex items-center gap-4">
-                                               <div className="w-12 h-12 bg-white rounded-lg p-1 flex-shrink-0 shadow-sm border border-orange-100 overflow-hidden flex items-center justify-center">
-                                                  <img src="/mlritm.png" alt="MLRITM" className="w-full h-full object-contain" />
-                                               </div>
-                                               <div>
-                                                  <p className="text-[9px] font-bold uppercase tracking-widest text-orange-600 mb-0.5">Developed At</p>
-                                                  <p className="text-xs font-bold text-foreground leading-tight">Marri Laxman Reddy Institute of Technology & Management</p> 
-                                                  <p className="text-[10px] text-muted-foreground mt-0.5">Dept. of Computer Science & Engineering (AI & ML)</p>
-                                               </div>
-                                            </div>
-                                         </div>
-                                     </motion.section>
-                                     
-                                      <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 items-center justify-center text-center">
-                                         <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                            <p className="text-[10px] font-bold text-slate-400 tracking-wider">ACADEMIC RELEASE • 2026</p>
-                                         </div>
-                                         <p className="text-[10px] font-medium text-slate-400">Engineered with <Heart size={10} className="inline text-red-500 fill-red-500 mx-0.5" /> in India.</p>
-                                      </motion.div>
-                                  </div>
+
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                      <motion.div variants={itemVariant} className="md:col-span-2">
+
+                        <Card className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 h-full">
+
+                           <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
+
+                           <div className="space-y-3">
+
+                              {[
+
+                                 { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
+
+                                 { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
+
+                                 { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
+
+                              ].map((item, idx) => (
+
+                                 <div key={idx} className="bg-muted/30 rounded-2xl overflow-hidden border border-transparent hover:border-border/50 transition-all">
+
+                                    <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
+
+                                       <span className="font-bold text-sm">{item.q}</span>
+
+                                       <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
+
+                                    </button>
+
+                                    <AnimatePresence>
+
+                                       {openFaq === idx && (
+
+                                          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+
+                                             <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
+
+                                          </motion.div>
+
+                                       )}
+
+                                    </AnimatePresence>
+
+                                 </div>
+
+                              ))}
+
+                           </div>
+
+                        </Card>
+
+                      </motion.div>
+
+
+
+                      <motion.div variants={itemVariant} className="flex flex-col gap-4">
+
+                        <div className="p-5 rounded-3xl border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
+
+                           <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
+
+                           <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
+
+                           <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
+
+                        </div>
+
+                        
+
+                        {/* About Project Sheet */}
+
+                        <Sheet>
+
+                           <SheetTrigger asChild>
+
+                              <motion.button 
+
+                                 whileHover={{ scale: 1.02, backgroundColor: "rgba(var(--primary-rgb), 0.05)" }} 
+
+                                 whileTap={{ scale: 0.98 }}
+
+                                 className="w-full p-5 rounded-3xl border border-border/50 bg-background/60 backdrop-blur-xl flex items-center justify-between transition-all group relative overflow-hidden"
+
+                              >
+
+                                 <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+
+                                 <div className="flex items-center gap-3 relative z-10">
+
+                                    <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:rotate-12 transition-transform"><Info size={18} /></div>
+
+                                    <span className="font-bold text-sm">About Project</span>
+
+                                 </div>
+
+                                 <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-primary transition-colors relative z-10" />
+
+                              </motion.button>
+
+                           </SheetTrigger>
+
+                           <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-l border-border/50">
+
+                              <motion.div 
+
+                                 initial="hidden" animate="show"
+
+                                 variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
+
+                                 className="h-full flex flex-col"
+
+                              >
+
+                                 <SheetHeader className="p-6 pb-4 relative overflow-hidden">
+
+                                    <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-primary/20 blur-[50px] rounded-full pointer-events-none" />
+
+                                    <motion.div variants={{ hidden: { y: -20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="flex items-center gap-4 relative z-10">
+
+                                       <div className="relative">
+
+                                          <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-transparent rounded-xl blur-md" />
+
+                                          <div className="w-14 h-14 bg-background/80 backdrop-blur-md rounded-xl relative z-10 border border-white/10 shadow-xl flex items-center justify-center overflow-hidden p-2">
+
+                                             <img src="/logo.png" alt="CogniSync" className="w-full h-full object-contain" />
+
+                                          </div>
+
+                                       </div>
+
+                                       <div>
+
+                                          <SheetTitle className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">CogniSync</SheetTitle>
+
+                                          <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+
+                                             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Capstone Initiative
+
+                                          </p>
+
+                                       </div>
+
+                                    </motion.div>
+
+                                 </SheetHeader>
+
+                                 <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-8 relative z-10">
+
+                                    <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
+
+                                       <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-transparent rounded-full opacity-50" />
+
+                                       <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Target size={18} className="text-blue-500"/> Project Objective</h4>
+
+                                       <p className="text-sm text-muted-foreground leading-relaxed pl-2 font-medium">To develop a scalable, privacy-first interface for psychological state analysis.</p>
+
+                                    </motion.section>
+
+                                    <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
+
+                                       <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-orange-500 to-transparent rounded-full opacity-50" />
+
+                                       <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Server size={18} className="text-orange-500"/> Academic Context</h4>
+
+                                       <div className="pl-2">
+
+                                          <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/5 to-transparent border border-orange-500/10 flex items-center gap-4">
+
+                                             <div className="w-12 h-12 bg-white rounded-lg p-1 flex-shrink-0 shadow-sm border border-orange-100 overflow-hidden flex items-center justify-center">
+
+                                                <img src="/mlritm.png" alt="MLRITM" className="w-full h-full object-contain" />
+
+                                             </div>
+
+                                             <div>
+
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-orange-600 mb-0.5">Developed At</p>
+
+                                                <p className="text-xs font-bold text-foreground leading-tight">Marri Laxman Reddy Institute of Technology & Management</p> 
+
+                                                <p className="text-[10px] text-muted-foreground mt-0.5">Dept. of Computer Science & Engineering (AI & ML)</p>
+
+                                             </div>
+
+                                          </div>
+
+                                       </div>
+
+                                    </motion.section>
+
+                                    <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
+
+                                       <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-purple-500 to-transparent rounded-full opacity-50" />
+
+                                       <h4 className="font-bold text-base mb-4 flex items-center gap-2 pl-2"><Terminal size={18} className="text-purple-500"/> Technology Stack</h4>
+
+                                       <motion.div variants={{ show: { transition: { staggerChildren: 0.05 } } }} className="flex flex-wrap gap-2 pl-2">
+
+                                          {["Next.js 14", "TypeScript", "Tailwind CSS", "Recharts", "Framer Motion", "NLP Analysis", "Local-First Arch"].map((tag) => (
+
+                                             <motion.span key={tag} variants={{ hidden: { scale: 0.5, opacity: 0 }, show: { scale: 1, opacity: 1, transition: { type: "spring" } } }} whileHover={{ scale: 1.1, y: -2, backgroundColor: "rgba(var(--primary-rgb), 0.15)" }} className="px-3 py-1.5 rounded-lg bg-muted/50 text-[11px] font-extrabold text-foreground/80 border border-border/50 cursor-default transition-colors">{tag}</motion.span>
+
+                                          ))}
+
+                                       </motion.div>
+
+                                    </motion.section>
+
+                                    <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="rounded-3xl bg-muted/20 border border-border/50 p-5 relative overflow-hidden">
+
+                                       <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
+
+                                       <h4 className="font-bold text-base mb-6 flex items-center gap-2 relative z-10"><Users size={18} className="text-emerald-500"/> Project Team</h4>
+
+                                       <div className="space-y-4 relative z-10">
+
+                                          {[
+
+                                             { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/", image: "/adithya.png" },
+
+                                             { 
+
+                                                name: "Abhinaya", 
+
+                                                role: "Research & Documentation", 
+
+                                                color: "from-blue-400 to-cyan-400", 
+
+                                                icon: FileJson, 
+
+                                                isUser: false, 
+
+                                                link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320",
+
+                                                image: "/abhinaya.png" 
+
+                                             },
+
+                                             { name: "Sushmitha", role: "Compliance & Methodology", color: "from-emerald-400 to-teal-400", icon: ShieldCheck, isUser: false, link: "https://www.linkedin.com/in/sushmitha-dongara-805350348", image: "/sushmitha.png" }
+
+                                          ].map((member, i) => (
+
+                                             <a key={member.name} href={member.link} target="_blank" rel="noopener noreferrer" className="block group">
+
+                                                <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 + (i * 0.1), type: "spring" }} whileHover={{ scale: 1.02, x: 5 }} className="flex items-center gap-4 p-3 rounded-2xl bg-background/80 border border-white/5 shadow-sm hover:shadow-md transition-all relative overflow-hidden cursor-pointer">
+
+                                                   <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
+
+                                                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
+
+                                                      <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
+
+                                                       {member.image ? (
+
+                                                          <img
+
+                                                            src={member.image}
+
+                                                            alt={member.name}
+
+                                                            className="w-full h-full object-cover"
+
+                                                          />
+
+                                                        ) : (
+
+                                                          <>
+
+                                                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
+
+                                                              {member.name.charAt(0)}
+
+                                                            </span>
+
+                                                            <member.icon
+
+                                                              size={24}
+
+                                                              className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
+
+                                                            />
+
+                                                          </>
+
+                                                        )}
+
+
+
+
+
+ 
+
+                                                      </div>
+
+                                                   </div>
+
+                                                   <div className="flex-1">
+
+                                                      <div className="flex items-center justify-between">
+
+                                                         <p className="text-sm font-bold text-foreground flex items-center gap-2">{member.name} {i === 0 && <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-[8px] font-extrabold text-primary uppercase tracking-wider border border-primary/20">Lead</span>}</p>
+
+                                                         <ExternalLink size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-primary" />
+
+                                                      </div>
+
+                                                      <p className="text-xs font-medium text-muted-foreground">{member.role}</p>
+
+                                                   </div>
+
+                                                </motion.div>
+
+                                             </a>
+
+                                          ))}
+
+                                       </div>
+
+                                    </motion.section>
+
+                                    <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="pt-6 border-t border-border/50 flex flex-col gap-2 items-center justify-center text-center">
+
+                                       <div className="flex items-center gap-2">
+
+                                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+
+                                          <p className="text-[10px] font-bold text-muted-foreground tracking-wider">ACADEMIC RELEASE • 2026</p>
+
+                                       </div>
+
+                                       <p className="text-[10px] font-medium text-muted-foreground/60">Engineered with <Heart size={10} className="inline text-red-500 fill-red-500 mx-0.5" /> in India.</p>
+
+                                    </motion.div>
+
+                                 </div>
+
                               </motion.div>
+
                            </SheetContent>
+
                         </Sheet>
+
                       </motion.div>   
+
                   </div>
+
               </TabsContent>
 
+
+
             </motion.div>
+
           </AnimatePresence>
+
         </Tabs>
+              
       </div>
     </div>
   );
