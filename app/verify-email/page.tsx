@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -24,7 +23,6 @@ function VerifyEmailContent() {
 
     const verify = async () => {
       try {
-        // We need to create this API route next
         const res = await fetch("/api/auth/verify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -33,16 +31,26 @@ function VerifyEmailContent() {
 
         const data = await res.json();
 
-        if (!res.ok) throw new Error(data.error || "Verification failed");
+        if (!res.ok) {
+          // If already verified, treat as success but show specific message
+          if (res.status === 409 || data.error?.includes("already verified")) {
+             setStatus("success");
+             setMessage("Your email was already verified.");
+             return;
+          }
+          throw new Error(data.error || "Verification failed");
+        }
 
         setStatus("success");
         setMessage("Your identity has been confirmed.");
         
-        // Optional: Update local storage to reflect verified status immediately
-        // usually strictly handled by backend, but this helps UI update fast
-        // localStorage.setItem("cognisync:email_verified", "true"); 
+        // Auto-close attempt after 3 seconds
+        setTimeout(() => {
+           handleCloseOrRedirect();
+        }, 3000);
 
       } catch (err: any) {
+        console.error("Verification Error:", err);
         setStatus("error");
         setMessage(err.message || "Token expired or invalid.");
       }
@@ -50,6 +58,17 @@ function VerifyEmailContent() {
 
     verify();
   }, [token]);
+
+  const handleCloseOrRedirect = () => {
+    // Attempt to close the tab (Works if opened via target="_blank")
+    try {
+      window.close();
+    } catch (e) {
+      console.log("Auto-close blocked");
+    }
+    // Fallback: Redirect to settings on the current tab if close fails
+    router.push("/settings?verified=true");
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative overflow-hidden bg-slate-50">
@@ -72,7 +91,7 @@ function VerifyEmailContent() {
         </div>
 
         <h1 className="text-2xl font-black text-slate-900 mb-2">
-          {status === "verifying" ? "Verifying..." : status === "success" ? "Verified!" : "Verification Failed"}
+          {status === "verifying" ? "Verifying..." : status === "success" ? "Verified!" : "Link Expired"}
         </h1>
         <p className="text-slate-500 font-medium text-sm mb-8">{message}</p>
 
@@ -89,11 +108,12 @@ function VerifyEmailContent() {
                <p className="font-bold text-sm">Clinical Access Granted</p>
             </div>
             <button 
-              onClick={() => router.push("/settings?verified=true")}
+              onClick={handleCloseOrRedirect}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
             >
               Continue to Workspace <ArrowRight size={18} />
             </button>
+            <p className="text-[10px] text-slate-400">Closing tab in 3 seconds...</p>
           </motion.div>
         )}
 
@@ -101,7 +121,7 @@ function VerifyEmailContent() {
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="space-y-6">
             <div className="bg-rose-50 text-rose-600 p-6 rounded-3xl border border-rose-100 flex flex-col items-center gap-3">
                <XCircle size={48} />
-               <p className="font-bold text-sm">Invalid or Expired Link</p>
+               <p className="font-bold text-sm">Action Required</p>
             </div>
             <button 
               onClick={() => router.push("/settings")}
