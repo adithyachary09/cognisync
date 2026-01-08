@@ -1,8 +1,16 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 
-interface User {
+/* ===================== TYPES ===================== */
+
+export interface User {
   id: string;
   name?: string;
   email: string;
@@ -14,33 +22,59 @@ interface UserContextType {
   logout: () => void;
 }
 
+/* ===================== CONTEXT ===================== */
+
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
+/* ===================== STORAGE KEYS ===================== */
+
+const ACTIVE_USER_KEY = "cognisync:active-user";
+const USER_CACHE_KEY = "cognisync:user-cache";
+
+/* ===================== PROVIDER ===================== */
+
+export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
 
+  /* ---- RESTORE SESSION ON REFRESH ---- */
+  useEffect(() => {
+    const activeUserId = localStorage.getItem(ACTIVE_USER_KEY);
+    const cached = localStorage.getItem(USER_CACHE_KEY);
+
+    if (!activeUserId || !cached) return;
+
+    try {
+      const parsed: User = JSON.parse(cached);
+      if (parsed.id === activeUserId) {
+        setUserState(parsed);
+      }
+    } catch {
+      /* ignore corrupted cache */
+    }
+  }, []);
+
+  /* ---- SET USER (LOGIN / REGISTER) ---- */
   const setUser = (u: User | null) => {
     setUserState(u);
 
     if (u?.id) {
-      // ✅ ACTIVE USER SCOPE (CRITICAL)
-      localStorage.setItem("cognisync:active-user", u.id);
+      // ✅ mark active user
+      localStorage.setItem(ACTIVE_USER_KEY, u.id);
+
+      // ✅ cache basic identity (NOT preferences)
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
     }
   };
 
+  /* ---- LOGOUT (NON-DESTRUCTIVE) ---- */
   const logout = () => {
-    const uid = localStorage.getItem("cognisync:active-user");
+    // ❌ DO NOT DELETE USER DATA
+    // ❌ DO NOT DELETE THEME / AVATAR / SETTINGS
+    // ❌ DO NOT TOUCH USER-SCOPED STORAGE
 
-    // ✅ REMOVE ONLY THIS USER’S UI DATA
-    if (uid) {
-      Object.keys(localStorage).forEach((key) => {
-        if (key.endsWith(`:${uid}`)) {
-          localStorage.removeItem(key);
-        }
-      });
-    }
+    localStorage.removeItem(ACTIVE_USER_KEY);
+    localStorage.removeItem(USER_CACHE_KEY);
 
-    localStorage.removeItem("cognisync:active-user");
     setUserState(null);
   };
 
@@ -50,6 +84,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     </UserContext.Provider>
   );
 }
+
+/* ===================== HOOK ===================== */
 
 export const useUser = () => {
   const ctx = useContext(UserContext);

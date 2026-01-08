@@ -22,8 +22,8 @@ declare global {
 }
 
 export function AuthModal({ onSuccess }: AuthModalProps) {
-  /* ------------------------------------------------------------------ */
-  /* state */
+  /* ===================== STATE ===================== */
+
   const { setUser } = useUser();
 
   const [isSignUp, setIsSignUp] = useState(false);
@@ -47,12 +47,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     confirmPassword: "",
   });
 
-  /* ------------------------------------------------------------------ */
-  /* helpers */
-
-  const setActiveUser = (userId: string) => {
-    localStorage.setItem("cognisync:active-user", userId);
-  };
+  /* ===================== HELPERS ===================== */
 
   const passwordStrength = (pwd: string) => {
     if (!pwd) return null;
@@ -62,13 +57,13 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
   };
 
   const strength = passwordStrength(form.password);
+
   const isMismatch =
     isSignUp &&
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
-  /* ------------------------------------------------------------------ */
-  /* google auth */
+  /* ===================== GOOGLE AUTH ===================== */
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -84,7 +79,9 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         client_id: GOOGLE_CLIENT_ID,
         callback: async (res: any) => {
           try {
-            const payload = JSON.parse(atob(res.credential.split(".")[1]));
+            const payload = JSON.parse(
+              atob(res.credential.split(".")[1])
+            );
 
             const resp = await fetch("/api/auth/register", {
               method: "POST",
@@ -98,13 +95,16 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
             const data = await resp.json();
 
-            if (resp.ok && data.user) {
-              setActiveUser(data.user.id);
-              setUser(data.user);
-              onSuccess(data.user.name || "User");
+            if (!resp.ok || !data.user) {
+              setLoginError("Google authentication failed");
+              return;
             }
+
+            setUser(data.user); // ✅ SINGLE SOURCE
+            onSuccess(data.user.name || "User");
           } catch (err) {
-            console.error("Google auth failed", err);
+            console.error("Google auth error:", err);
+            setLoginError("Google sign-in failed");
           }
         },
       });
@@ -118,10 +118,9 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     };
 
     document.head.appendChild(script);
-  }, [onSuccess, setUser]);
+  }, [setUser, onSuccess]);
 
-  /* ------------------------------------------------------------------ */
-  /* cooldown timer */
+  /* ===================== COOLDOWN ===================== */
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -129,8 +128,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     return () => clearInterval(t);
   }, [cooldown]);
 
-  /* ------------------------------------------------------------------ */
-  /* submit handlers */
+  /* ===================== AUTH SUBMIT ===================== */
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +136,9 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-      const endpoint = isSignUp ? "/api/auth/register" : "/api/auth/login";
+      const endpoint = isSignUp
+        ? "/api/auth/register"
+        : "/api/auth/login";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -153,14 +153,12 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
       const data = await res.json();
 
-      if (!res.ok) {
+      if (!res.ok || !data.user) {
         setLoginError(data.error || "Authentication failed");
-        setIsLoading(false);
         return;
       }
 
-      setActiveUser(data.user.id);
-      setUser(data.user);
+      setUser(data.user); // ✅ USER CONTEXT HANDLES STORAGE
       onSuccess(data.user.name || "User");
     } catch {
       setLoginError("Unexpected error occurred");
@@ -168,6 +166,8 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
       setIsLoading(false);
     }
   };
+
+  /* ===================== PASSWORD RESET ===================== */
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,20 +197,21 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     }
   };
 
-  /* ------------------------------------------------------------------ */
-  /* render */
+  /* ===================== RENDER ===================== */
 
   return (
     <div className="flex items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md p-6 space-y-4">
-        {/* header */}
+        {/* Header */}
         <div className="flex flex-col items-center gap-1">
           <Image src="/logo.png" alt="CogniSync" width={56} height={56} />
           <h1 className="text-2xl font-bold">CogniSync</h1>
-          <p className="text-xs text-slate-500">Clinical Intelligence Platform</p>
+          <p className="text-xs text-slate-500">
+            Clinical Intelligence Platform
+          </p>
         </div>
 
-        {/* tabs */}
+        {/* Tabs */}
         <div className="flex bg-slate-100 rounded-lg p-1">
           <button
             className={`flex-1 py-1.5 text-xs font-semibold ${
@@ -234,7 +235,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </button>
         </div>
 
-        {/* form */}
+        {/* Form */}
         <form
           className="space-y-3"
           onSubmit={forgotMode ? handleReset : handleAuthSubmit}
@@ -273,7 +274,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2"
-                onClick={() => setShowPassword(!showPassword)}
+                onClick={() => setShowPassword((v) => !v)}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -288,14 +289,17 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
                 required
                 value={form.confirmPassword}
                 onChange={(e) =>
-                  setForm({ ...form, confirmPassword: e.target.value })
+                  setForm({
+                    ...form,
+                    confirmPassword: e.target.value,
+                  })
                 }
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2"
                 onClick={() =>
-                  setShowConfirmPassword(!showConfirmPassword)
+                  setShowConfirmPassword((v) => !v)
                 }
               >
                 {showConfirmPassword ? (
@@ -327,7 +331,8 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
           {resetSent && (
             <p className="text-xs text-green-600 text-center">
-              Reset link sent {cooldown > 0 && `(retry in ${cooldown}s)`}
+              Reset link sent{" "}
+              {cooldown > 0 && `(retry in ${cooldown}s)`}
             </p>
           )}
 
@@ -349,7 +354,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
             type="button"
             className="text-xs text-teal-600 w-full text-center"
             onClick={() => {
-              setForgotMode(!forgotMode);
+              setForgotMode((v) => !v);
               setResetSent(false);
               setCooldown(0);
               setLoginError("");
@@ -359,7 +364,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </button>
         </form>
 
-        {/* google */}
+        {/* Google */}
         <div ref={googleBtnRef} className="flex justify-center" />
       </Card>
     </div>
