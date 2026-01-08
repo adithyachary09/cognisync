@@ -84,12 +84,12 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           }
         },
       });
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: "outline",
-        size: "large",
-        width: 360,
-        shape: "pill",
-      });
+     window.google.accounts.id.renderButton(googleBtnRef.current, {
+  theme: "outline",
+  size: "large",
+  width: googleBtnRef.current.offsetWidth,
+  shape: "pill",
+}); 
     };
     document.head.appendChild(script);
   }, [onSuccess, setUser]);
@@ -164,9 +164,9 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     }
   };
 
-  return (
-    <div className="login-bg-forced flex items-center justify-center min-h-screen p-2">
-      <Card className="auth-card max-h-[95vh] overflow-hidden flex flex-col">
+return (
+  <div className="login-bg-forced flex items-center justify-center min-h-screen p-3 sm:p-4">
+    <Card className="auth-card w-full max-w-md sm:max-w-lg max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex flex-col items-center pt-4 pb-2">
         <div className="mb-1">
@@ -189,7 +189,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
 
         {/* Tabs */}
-        <div className="px-8 mb-4">
+        <div className="px-4 sm:px-8 mb-4">
           <div className="relative flex bg-slate-100 p-1 rounded-lg border border-slate-200">
             <div
               className="absolute h-[calc(100%-8px)] top-1 bg-white rounded-md shadow-sm transition-all duration-300"
@@ -226,7 +226,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
             style={{ transform: `translateX(${isSignUp ? "-50%" : "0%"})` }}
           >
             {/* LOGIN PANEL */}
-            <div className="sliding-panel px-8 pb-1 flex flex-col justify-center">
+            <div className="sliding-panel px-4 sm:px-8 pb-1 flex flex-col justify-center">
               <form
                 className="space-y-3"
                 onSubmit={forgotMode ? handleResetRequest : handleSubmit}
@@ -291,7 +291,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
             </div>
 
             {/* SIGN UP PANEL */}
-            <div className="sliding-panel px-8 pb-1 flex flex-col justify-center">
+            <div className="sliding-panel px-4 sm:px-8 pb-1 flex flex-col justify-center">
               <form onSubmit={handleSubmit} className="space-y-2">
                 <Input 
                   placeholder="Full Name" 
@@ -367,7 +367,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-8 pb-4 pt-2 text-center">
+        <div className="px-4 sm:px-8 pb-4 pt-2 text-center">
             <div ref={googleBtnRef} className="flex justify-center" />
         </div>
       </Card>

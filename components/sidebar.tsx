@@ -37,8 +37,9 @@ export function Sidebar({
   userName,
   onLogout,
 }: SidebarProps) {
-  // Mobile drawer state
-  const [mobileOpen, setMobileOpen] = useState(isOpen);
+  // Mobile drawer state (mobile-only, independent of desktop)
+const [mobileOpen, setMobileOpen] = useState(false);
+
   // Desktop collapse state
   const [isCollapsed, setIsCollapsed] = useState(false);
   
@@ -85,19 +86,20 @@ export function Sidebar({
 
       {/* Sidebar Container - Added Glassmorphism (backdrop-blur) */}
       <motion.aside
-        initial="expanded"
-        animate={isCollapsed ? "collapsed" : "expanded"}
-        variants={sidebarVariants}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={cn(
-          "fixed md:relative h-screen z-40 flex flex-col border-r border-border",
-          "bg-card/85 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60", // Glassmorphism
-          "text-card-foreground shadow-2xl md:shadow-sm",
-          // Mobile responsive logic:
-          "transition-transform duration-300 md:transition-none",
-          mobileOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0"
-        )}
-      >
+      initial="expanded"
+      animate={isCollapsed ? "collapsed" : "expanded"}
+      variants={sidebarVariants}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className={cn(
+        "fixed md:relative inset-y-0 left-0 z-40 flex flex-col border-r border-border",
+        "bg-card/90 backdrop-blur-xl supports-[backdrop-filter]:bg-card/70",
+        "text-card-foreground shadow-2xl md:shadow-sm",
+        "transition-transform duration-300 md:transition-none",
+        "h-[100dvh] max-h-[100dvh]",
+        mobileOpen ? "translate-x-0 w-72" : "-translate-x-full md:translate-x-0"
+      )}
+    >
+
         {/* Desktop Collapse Toggle */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -254,14 +256,14 @@ export function Sidebar({
       {/* Mobile Overlay */}
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 bg-black/60 z-30 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-        )}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="md:hidden fixed inset-0 bg-black/60 z-30 backdrop-blur-sm touch-none"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
       </AnimatePresence>
     </>
   );

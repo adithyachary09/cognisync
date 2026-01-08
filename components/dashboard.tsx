@@ -17,18 +17,20 @@ export default function Dashboard({ userName, userId }: DashboardProps) {
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <Sidebar
-        activePage={activePage}
-        onPageChange={setActivePage}
-        isOpen={true}
-        userName={userName}
-        onLogout={async () => {
-          const { supabase } = await import("@/lib/supabase");
-          await supabase.auth.signOut();
-        }}
-      />
+  activePage={activePage}
+  onPageChange={setActivePage}
+  isOpen={true} // sidebar component already handles mobile internally
+  userName={userName}
+  onLogout={async () => {
+    const { supabase } = await import("@/lib/supabase");
+    await supabase.auth.signOut();
+  }}
+/>
+
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden">
+
         <MainContent
           activePage={activePage}
           userName={userName}
