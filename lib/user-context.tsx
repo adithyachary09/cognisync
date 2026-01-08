@@ -36,15 +36,17 @@ const USER_CACHE_KEY = "cognisync:user-cache";
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
 
-  /* ---- RESTORE SESSION ON REFRESH ---- */
+  /* ---- RESTORE USER ON HARD REFRESH ---- */
   useEffect(() => {
     const activeUserId = localStorage.getItem(ACTIVE_USER_KEY);
-    const cached = localStorage.getItem(USER_CACHE_KEY);
+    const cachedUser = localStorage.getItem(USER_CACHE_KEY);
 
-    if (!activeUserId || !cached) return;
+    if (!activeUserId || !cachedUser) return;
 
     try {
-      const parsed: User = JSON.parse(cached);
+      const parsed: User = JSON.parse(cachedUser);
+
+      // restore only if cache matches active user
       if (parsed.id === activeUserId) {
         setUserState(parsed);
       }
@@ -57,20 +59,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const setUser = (u: User | null) => {
     setUserState(u);
 
-    if (u?.id) {
-      // ✅ mark active user
-      localStorage.setItem(ACTIVE_USER_KEY, u.id);
+    if (!u) return;
 
-      // ✅ cache basic identity (NOT preferences)
-      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
-    }
+    // mark active user
+    localStorage.setItem(ACTIVE_USER_KEY, u.id);
+
+    // cache identity ONLY (no UI prefs here)
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
   };
 
-  /* ---- LOGOUT (NON-DESTRUCTIVE) ---- */
+  /* ---- LOGOUT (SAFE, NON-DESTRUCTIVE) ---- */
   const logout = () => {
-    // ❌ DO NOT DELETE USER DATA
-    // ❌ DO NOT DELETE THEME / AVATAR / SETTINGS
-    // ❌ DO NOT TOUCH USER-SCOPED STORAGE
+    /**
+     * IMPORTANT RULES:
+     * - Do NOT delete user-scoped settings
+     * - Do NOT delete theme/avatar/preferences
+     * - Only clear session markers
+     */
 
     localStorage.removeItem(ACTIVE_USER_KEY);
     localStorage.removeItem(USER_CACHE_KEY);
