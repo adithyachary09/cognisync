@@ -18,16 +18,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Sun, Moon, Palette, Settings as SettingsIcon, Trash2, LogOut, Download, Type, Mail, Sparkles,
   ShieldCheck, ShieldAlert, Check, AlertTriangle, Loader2, Lock, Camera,
-  X, ChevronDown, FileJson, HardDrive, Server, RefreshCw, Eraser, RotateCcw, Copy, 
+  ChevronDown, FileJson, HardDrive, RefreshCw, Eraser, Copy, 
   ExternalLink, Fingerprint, Target, Terminal, Users, Info, Heart, ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
@@ -56,7 +57,6 @@ const THEME_NAMES = {
   amber: "Solar Ember",
 } as const;
 
-// Explicitly typed for TypeScript map
 const FONT_SIZES = [14, 16, 18] as const;
 
 export default function SettingsPage() {
@@ -71,7 +71,6 @@ export default function SettingsPage() {
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
   const [pendingUsername, setPendingUsername] = useState(settings.username ?? "");
-  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [activeTab, setActiveTab] = useState("appearance");
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -96,7 +95,7 @@ export default function SettingsPage() {
   const [logoutProgress, setLogoutProgress] = useState(0);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- SAFE INITIALIZATION ---
+  // --- INITIALIZATION ---
   useEffect(() => {
     const timer = setInterval(() => {
       setEmailCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -106,16 +105,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!user) return;
+    setPendingUsername(settings.username || (user as any)?.user_metadata?.full_name || "");
 
-    // Username
-    setPendingUsername(
-      settings.username || (user as any)?.user_metadata?.full_name || ""
-    );
-
-    // Email
     if (user.email) {
       setUserEmail(user.email);
-      // Check Supabase metadata OR local storage override
       if ((user as any)?.email_confirmed_at || isGoogleUser) {
         setEmailStatus("verified");
       } else {
@@ -124,45 +117,21 @@ export default function SettingsPage() {
       }
     }
   
-    // Avatar
     const storedAvatar = localStorage.getItem(`cognisync:avatar:${user.id}`);
-    updateSettings({
-      avatar: storedAvatar ?? "/placeholder.jpg",
-    });
-
+    updateSettings({ avatar: storedAvatar ?? "/placeholder.jpg" });
   }, [user, settings.username]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("verified") === "true" && user) {
-       setEmailStatus("verified");
-       localStorage.setItem(`cognisync:email_verified:${user.id}`, "true");
-       if (user.email) setUserEmail(user.email);
-       showNotification({ type: "success", message: "Email successfully verified!", duration: 4000 });
-       window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [user]);
 
   // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
     updateSettings(partial);
     const merged = { ...settings, ...partial };
-    const unifiedPatch = {
-      theme: merged.darkMode ? "dark" : "light",
-      fontSize: merged.fontSize <= 14 ? "small" : merged.fontSize >= 18 ? "large" : "medium",
-      accentColor: ACCENT[merged.colorTheme as keyof typeof ACCENT],
-      username: merged.username ?? "User",
-    };
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: unifiedPatch }));
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: merged }));
   };
 
   const handleUsernameSave = () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
-    if (!trimmed) {
-      showNotification({ type: "warning", message: "Username cannot be empty.", duration: 2000 });
-      return;
-    }
+    if (!trimmed) return;
     setIsSavingName(true);
     setTimeout(() => {
       updateSettings({ username: trimmed });
@@ -171,14 +140,13 @@ export default function SettingsPage() {
     }, 800);
   };
 
+  const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
+
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        showNotification({ type: "warning", message: "Image is too large. Max 2MB.", duration: 3000 });
-        return;
-      }
+      if (file.size > 2 * 1024 * 1024) return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
       const reader = new FileReader();
       reader.onloadend = () => {
         localStorage.setItem(`cognisync:avatar:${user.id}`, reader.result as string);
@@ -189,48 +157,37 @@ export default function SettingsPage() {
     }
   };
 
-  const handleRemoveAvatar = () => {
-    if (user) {
-      localStorage.removeItem(`cognisync:avatar:${user.id}`);
-    }
-    updateSettings({ avatar: "/placeholder.jpg" });
-    showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
-  };
-
-  // --- AUTH LOGIC ---
   const sendEmailVerification = async () => {
      if (!user || !userEmail || emailCountdown > 0) return; 
      setEmailStatus("sending");
      try {
-       // CALLING THE NEW PREMIUM API
-       const res = await fetch('/api/auth/register', {
+       // Calls the dedicated verification route
+       const res = await fetch('/api/auth/send-verification', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         // We re-trigger registration endpoint for existing user to resend verification
-         body: JSON.stringify({ email: userEmail, password: "dummy-password", name: pendingUsername }) 
+         body: JSON.stringify({ email: userEmail, name: pendingUsername }) 
        });
        
-       const data = await res.json();
+       if (!res.ok) throw new Error("Failed to send");
        
        setEmailStatus("sent");
        setEmailCountdown(60); 
        showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
      } catch (e: any) {
        setEmailStatus("unverified");
-       showNotification({ type: "error", message: e.message || "Failed to send email.", duration: 3000 });
+       showNotification({ type: "error", message: "Could not send email. Try again.", duration: 3000 });
      }
   };
 
-  const unlinkEmail = () => {
-    if (!user) return;
-    if (confirm("Are you sure? Account recovery will be disabled.")) {
-      setEmailStatus("unverified");
-      localStorage.removeItem(`cognisync:email_verified:${user.id}`);
-      showNotification({ type: "info", message: "Email unlinked.", duration: 2000 });
+  const getSecurityStatus = () => {
+    if (emailStatus === "verified" || isGoogleUser) {
+      return { label: "SECURE", color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20", ring: "ring-emerald-500", icon: ShieldCheck, desc: "Your account is protected. Email is verified." };
     }
+    return { label: "AT RISK", color: "bg-amber-500/10 text-amber-600 border-amber-500/20", ring: "ring-amber-500", icon: ShieldAlert, desc: "Verify your email to secure account recovery." };
   };
+  const security = getSecurityStatus();
 
-  // --- SESSION & PASSWORD ---
+  // --- LOGOUT LOGIC ---
   const startLogout = () => {
     if (!user) return;
     let progress = 0;
@@ -239,244 +196,48 @@ export default function SettingsPage() {
       setLogoutProgress(progress);
       if (progress >= 100) {
         if (logoutTimerRef.current) clearInterval(logoutTimerRef.current);
-        showNotification({ type: "warning", message: "Signing out...", duration: 1000 });
-        setTimeout(() => logout(), 500); 
+        logout(); 
       }
     }, 10);
   };
-
   const cancelLogout = () => {
     if (logoutTimerRef.current) clearInterval(logoutTimerRef.current);
     setLogoutProgress(0);
   };
 
-  const verifyCurrentPassword = async () => {
-     if (!user || !currentPwd) return;
-     setPwdStage("verifying");
-     try {
-       const res = await fetch('/api/auth/verify-credentials', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, password: currentPwd })
-       });
-       if (!res.ok) throw new Error();
-       setPwdStage("verified");
-       showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
-     } catch (e) {
-       setPwdStage("idle");
-       showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
-     }
-  };
+  const containerVariant: Variants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.08 } } };
+  const itemVariant: Variants = { hidden: { opacity: 0, y: 15, scale: 0.98 }, show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 220, damping: 18 } } };
 
-  const saveNewPassword = async () => {
-     if (!user) return;
-     if (newPwd.length < 8 || newPwd !== confirmPwd) {
-        showNotification({ type: "warning", message: "Check password requirements.", duration: 2000 });
-        return;
-     }
-     setPwdStage("saving");
-     try {
-       const res = await fetch('/api/auth/update-password', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, password: newPwd }) 
-       });
-       if (!res.ok) throw new Error();
-       setPwdStage("idle");
-       setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-       showNotification({ type: "success", message: "Password updated!", duration: 2000 });
-     } catch (e) {
-       setPwdStage("verified"); 
-       showNotification({ type: "error", message: "Update failed.", duration: 3000 });
-     }
-  };
-
-  // --- DATA MANAGEMENT ---
-  const handleExportArchive = () => {
-    if (!user) return;
-    const data = {
-        user: { name: pendingUsername, email: userEmail, id: user.id },
-        settings: settings,
-        journal_entries: entries, 
-        clinical_history: JSON.parse(localStorage.getItem("offline_assessments") || "[]"),
-        timestamp: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `cognisync-archive-${user.id.slice(0,5)}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showNotification({ type: "success", message: "Archive downloaded.", duration: 2000 });
-  };
-
-  const handleClearCache = () => {
-    Object.keys(localStorage).forEach(key => {
-        if (key.includes(":temp")) localStorage.removeItem(key);
-    });
-    showNotification({ type: "success", message: "Temporary cache cleared.", duration: 2000 });
-  };
-
-  const handleResetPreferences = () => {
-    updateSettings({ darkMode: false, fontSize: 16, colorTheme: 'emerald' });
-    showNotification({ type: "success", message: "Preferences reset to default.", duration: 2000 });
-  };
-
-  const handleDeleteJournals = async () => {
-    if (!user) return;
-    const supabase = createBrowserClient(
-       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    try {
-        await supabase.from('user_entries').delete().eq('user_id', user.id);
-        setShowJournalDeleteDialog(false);
-        showNotification({ type: "success", message: "Journal entries deleted.", duration: 2000 });
-        setTimeout(() => window.location.reload(), 1000);
-    } catch (e) {
-        showNotification({ type: "error", message: "Deletion failed.", duration: 3000 });
-    }
-  };
-
-  const handleFactoryReset = async () => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    setShowFactoryResetDialog(false);
-    showNotification({ type: "warning", message: "Resetting account data...", duration: 4000 });
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        await Promise.all([
-          supabase.from('user_entries').delete().eq('user_id', user.id), 
-          supabase.from('assessments').delete().eq('user_id', user.id),  
-          supabase.from('daily_logs').delete().eq('user_id', user.id),   
-          supabase.from('chat_history').delete().eq('user_id', user.id), 
-          supabase.from('user_settings').delete().eq('user_id', user.id),
-        ]);
-
-        Object.keys(localStorage).forEach(key => {
-            if (key.includes(user.id)) localStorage.removeItem(key);
-        });
-
-        updateSettings({ 
-            darkMode: false, 
-            fontSize: 16, 
-            colorTheme: 'emerald',
-            username: undefined,
-            avatar: null
-        });
-
-        showNotification({ type: "success", message: "Account reset complete.", duration: 2000 });
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        throw new Error("No session");
-      }
-    } catch (error) {
-      console.error("Reset Error:", error);
-      showNotification({ type: "error", message: "Reset failed. Check connection.", duration: 3000 });
-    }
-  };
-
-  // --- SUPPORT ---
-  const handleCopyEmail = () => {
-    navigator.clipboard.writeText("adithyachary09@gmail.com");
-    setCopied(true);
-    showNotification({ type: "success", message: "Email copied to clipboard!", duration: 2000 });
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getSecurityStatus = () => {
-    if (emailStatus === "verified" || isGoogleUser) {
-      return {
-        label: "SECURE",
-        color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-        icon: ShieldCheck,
-      };
-    }
-    return {
-      label: "AT RISK",
-      color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-      icon: ShieldAlert,
-    };
-  };
-
-  const security = getSecurityStatus();
-
-  const containerVariant: Variants = {
-    hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } }
-  };
-   
-  const itemVariant: Variants = {
-    hidden: { opacity: 0, y: 15, scale: 0.98 },
-    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 220, damping: 18 } }
-  };
-
-  const tabs = [
-    { id: "appearance", label: "Appearance" },
-    { id: "account", label: "Account" },
-    { id: "data", label: "Data" },
-    { id: "support", label: "Support" }
-  ];
+  const tabs = [{ id: "appearance", label: "Appearance" }, { id: "account", label: "Account" }, { id: "data", label: "Data" }, { id: "support", label: "Support" }];
 
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 transition-colors duration-500 ease-out bg-slate-50 dark:bg-slate-950 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
       
-      {/* Background Blobs - Smoother Animation */}
+      {/* Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px]" />
-         <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-indigo-500/5 rounded-full blur-[100px]" />
+         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+         <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative mx-auto max-w-5xl z-10 pb-20">
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          transition={{ type: "spring", stiffness: 100 }}
-          className="mb-8 flex flex-col gap-2 pt-4 md:pt-0"
-        >
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex flex-col gap-2 pt-4 md:pt-0">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-               <SettingsIcon className="text-slate-800 dark:text-white h-6 w-6 md:h-8 md:w-8" />
+               <SettingsIcon className="text-slate-900 dark:text-white h-6 w-6 md:h-8 md:w-8" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                Settings
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Settings</h1>
           </div>
-          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 pl-1 font-medium">
-              Manage your clinical intelligence preferences.
-          </p>
         </motion.div>
 
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          {/* FLOATING DOCK NAV - Mobile Optimized */}
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              <div className="bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl shadow-lg shadow-slate-200/20 dark:shadow-black/20 inline-flex min-w-max mx-auto">
+              <div className="bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl shadow-lg inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
-                          <TabsTrigger 
-                              key={tab.id} 
-                              value={tab.id}
-                              className="relative px-4 md:px-6 py-2 md:py-2.5 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent data-[state=active]:shadow-none z-10 hover:text-foreground/80"
-                          >
-                              {activeTab === tab.id && (
-                                  <motion.div
-                                      layoutId="active-tab-bg"
-                                      className="absolute inset-0 bg-slate-900 dark:bg-white rounded-full"
-                                      transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
-                                  />
-                              )}
-                              <span className={`relative z-10 ${activeTab === tab.id ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}`}>
-                                  {tab.label}
-                              </span>
+                          <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-foreground/80">
+                              {activeTab === tab.id && <motion.div layoutId="active-tab-bg" className="absolute inset-0 bg-slate-900 dark:bg-white rounded-full" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
+                              <span className={`relative z-10 ${activeTab === tab.id ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}`}>{tab.label}</span>
                           </TabsTrigger>
                       ))}
                   </TabsList>
@@ -485,79 +246,69 @@ export default function SettingsPage() {
           </div>
 
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              variants={containerVariant}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0, y: -10, transition: { duration: 0.15 } }}
-              className="px-1"
-            >
+            <motion.div key={activeTab} variants={containerVariant} initial="hidden" animate="show" exit={{ opacity: 0, y: -10, transition: { duration: 0.15 } }} className="px-1">
               
               {/* ======================= TAB: APPEARANCE ======================= */}
               <TabsContent value="appearance" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
-                    <Card className={`p-6 md:p-8 border border-white/20 shadow-xl relative overflow-hidden group transition-all duration-500 rounded-[2rem] ${settings.darkMode ? "bg-slate-900/60" : "bg-white/60"} backdrop-blur-2xl`}>
+                    <Card className={`p-6 md:p-8 border border-white/20 shadow-xl relative overflow-hidden transition-all duration-500 rounded-[2rem] ${settings.darkMode ? "bg-slate-900/60" : "bg-orange-50/80"} backdrop-blur-2xl`}>
                       <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
                         <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                          <motion.div 
-                            whileHover={{ rotate: 15, scale: 1.1 }}
-                            className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ${settings.darkMode ? "bg-slate-800 text-indigo-400" : "bg-orange-50 text-orange-500"}`}
-                          >
+                          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ${settings.darkMode ? "bg-slate-800 text-primary" : "bg-white text-primary"}`}>
                             {settings.darkMode ? <Moon size={40} /> : <Sun size={40} />}
-                          </motion.div>
+                          </div>
                           <div>
                             <h3 className="font-bold text-2xl text-foreground mb-1">{getModeLabel()}</h3>
                             <p className="text-muted-foreground font-medium text-sm">Choose the interface theme that best fits your environment.</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-                          <Switch checked={settings.darkMode} onCheckedChange={(c) => handleInstantChange({ darkMode: c })} className="data-[state=checked]:bg-indigo-500" />
+                        <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
+                          <Switch checked={settings.darkMode} onCheckedChange={(c) => handleInstantChange({ darkMode: c })} className="data-[state=checked]:bg-primary" />
                         </div>
                       </div>
                     </Card>
                   </motion.div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Typography */}
                       <motion.div variants={itemVariant}>
-                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
+                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/60 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-indigo-500/10 rounded-2xl text-indigo-500"><Type size={20} /></div>
+                                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Type size={20} /></div>
                                 <h3 className="font-bold text-lg">Typography Scale</h3>
                             </div>
                             <div className="space-y-3">
                                 {FONT_SIZES.map(size => (
-                                    <motion.button key={size} whileTap={{ scale: 0.98 }} onClick={() => handleInstantChange({ fontSize: size })}
-                                        className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${settings.fontSize === size ? "border-indigo-500/50 bg-indigo-500/5 shadow-inner" : "border-transparent bg-white/40 dark:bg-black/20 hover:bg-white/60"}`}
+                                    <button key={size} onClick={() => handleInstantChange({ fontSize: size })}
+                                        className={cn(
+                                          "w-full p-4 rounded-2xl border flex items-center justify-between transition-all",
+                                          settings.fontSize === size ? "border-primary/50 bg-primary/5 shadow-sm" : "border-transparent bg-white/50 dark:bg-black/20 hover:bg-white/80"
+                                        )}
                                     >
-                                        <span className={`text-sm ${settings.fontSize === size ? "font-extrabold text-indigo-600 dark:text-indigo-400" : "font-bold text-muted-foreground"}`}>{size === 14 ? "Compact" : size === 16 ? "Standard" : "Comfort"}</span>
+                                        <span className={cn("text-sm", settings.fontSize === size ? "font-extrabold text-primary" : "font-bold text-muted-foreground")}>{size === 14 ? "Compact" : size === 16 ? "Standard" : "Comfort"}</span>
                                         <span className="text-sm font-serif opacity-70" style={{ fontSize: size }}>Aa</span>
-                                    </motion.button>
+                                    </button>
                                 ))}
                             </div>
                         </Card>
                       </motion.div>
 
-                      {/* Accent Color */}
                       <motion.div variants={itemVariant}>
-                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
+                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/60 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
                             <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-pink-500/10 rounded-2xl text-pink-500"><Palette size={20} /></div>
-                                <h3 className="font-bold text-lg">Interface Accent</h3>
+                                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Palette size={20} /></div>
+                                <h3 className="font-bold text-lg">Accent Color</h3>
                             </div>
-                            <div className="grid grid-cols-3 gap-3 md:gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 {Object.entries(ACCENT).map(([key, color]) => (
-                                    <motion.button key={key} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleInstantChange({ colorTheme: key as any })}
-                                        className="flex flex-col items-center gap-2 group"
-                                    >
+                                    <button key={key} onClick={() => handleInstantChange({ colorTheme: key as any })} className="flex flex-col items-center gap-2 group">
                                         <div 
-                                            className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl shadow-sm transition-all flex items-center justify-center ${settings.colorTheme === key ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-400 scale-110" : "opacity-80 group-hover:opacity-100"}`}
+                                            className={cn("w-12 h-12 rounded-2xl shadow-sm transition-all flex items-center justify-center", settings.colorTheme === key ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-400 scale-110" : "opacity-80 group-hover:opacity-100")}
                                             style={{ backgroundColor: color }}
                                         >
-                                           {settings.colorTheme === key && <Check className="text-white w-5 h-5" strokeWidth={4} />}
+                                           {settings.colorTheme === key && <Check className="text-white w-6 h-6" strokeWidth={3} />}
                                         </div>
-                                    </motion.button>
+                                        <span className={cn("text-[10px] font-bold uppercase tracking-wider", settings.colorTheme === key ? "text-primary" : "text-muted-foreground")}>{THEME_NAMES[key as keyof typeof THEME_NAMES]}</span>
+                                    </button>
                                 ))}
                             </div>
                         </Card>
@@ -567,79 +318,81 @@ export default function SettingsPage() {
 
               {/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-6 m-0">
-                  {/* Profile Header */}
                   <motion.div variants={itemVariant}>
                     <Card className="relative p-6 md:p-8 border border-white/20 shadow-xl overflow-hidden backdrop-blur-2xl bg-white/60 dark:bg-slate-900/60 rounded-[2.5rem]">
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                         <div className="relative group">
-                           <motion.div whileHover={{ scale: 1.02 }} className="w-28 h-28 md:w-32 md:h-32 rounded-full p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 shadow-2xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                              <div className="w-full h-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative border-4 border-white dark:border-slate-900">
+                           <div className="w-28 h-28 md:w-32 md:h-32 rounded-full p-1.5 bg-gradient-to-br from-slate-200 to-slate-400 shadow-2xl">
+                              <div className={cn("w-full h-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative border-4", security.ring)}>
                                  {settings.avatar ? <img src={settings.avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-400">{settings.username?.slice(0,2).toUpperCase()}</div>}
-                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="text-white drop-shadow-md" /></div>
+                                 <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><Camera className="text-white" /></button>
                               </div>
-                           </motion.div>
+                           </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           <motion.div whileTap={{ scale: 0.9 }} onClick={() => setShowSecurityInfo(!showSecurityInfo)} className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-extrabold shadow-lg border-2 border-white dark:border-slate-900 flex items-center gap-1 ${security.color} bg-white dark:bg-slate-900 whitespace-nowrap cursor-pointer`}>
-                              <security.icon size={12} /> {security.label}
-                           </motion.div>
+                           <Dialog>
+                             <DialogTrigger asChild>
+                               <button className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-extrabold shadow-lg border-2 border-white dark:border-slate-900 flex items-center gap-1 whitespace-nowrap transition-transform active:scale-95", security.color)}>
+                                  <security.icon size={12} /> {security.label}
+                               </button>
+                             </DialogTrigger>
+                             <DialogContent>
+                               <DialogHeader>
+                                 <DialogTitle className="flex items-center gap-2"><security.icon className={security.color.split(' ')[1]} /> Account Security Status</DialogTitle>
+                                 <DialogDescription className="pt-2">{security.desc}</DialogDescription>
+                               </DialogHeader>
+                             </DialogContent>
+                           </Dialog>
                         </div>
 
                         <div className="flex-1 space-y-4 text-center md:text-left w-full">
                            <div className="flex flex-col md:items-start items-center gap-2">
                               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Display Identity</label>
                               <div className="flex items-center gap-3 w-full max-w-sm">
-                                 <Input value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-12 bg-white/50 dark:bg-black/20 border-transparent focus:border-indigo-500/50 shadow-inner rounded-2xl text-lg font-bold" />
-                                 <motion.button whileTap={{ scale: 0.95 }} onClick={handleUsernameSave} disabled={isSavingName} className="h-12 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all">
+                                 <Input value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-12 bg-white/50 dark:bg-black/20 border-transparent focus:border-primary/50 shadow-inner rounded-2xl text-lg font-bold" />
+                                 <button onClick={handleUsernameSave} disabled={!isNameDirty || isSavingName} className="h-12 px-6 rounded-2xl bg-primary disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">
                                     {isSavingName ? <Loader2 size={18} className="animate-spin" /> : "Save"}
-                                 </motion.button>
+                                 </button>
                               </div>
                            </div>
-                           <div className="flex items-center gap-4 justify-center md:justify-start text-xs font-medium">
-                              <div className="px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                                 <Sparkles size={12} /> Member since {memberSinceYear}
-                              </div>
-                              {settings.avatar && <button onClick={handleRemoveAvatar} className="text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors"><Trash2 size={12} /> Remove Photo</button>}
+                           <div className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold inline-flex items-center gap-2">
+                              <Sparkles size={12} /> Member since {memberSinceYear}
                            </div>
                         </div>
                       </div>
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                       
-                      {/* NEW PREMIUM EMAIL VERIFICATION CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
-                         <div className="absolute top-0 right-0 p-6 opacity-10"><Mail size={120} /></div>
-                         
-                         <div className="relative z-10">
-                            <h3 className="text-xl font-bold mb-1">Email Security</h3>
-                            <p className="text-sm text-muted-foreground mb-6">Manage account recovery & notifications.</p>
+                      {/* EMAIL SECURITY CARD */}
+                      <motion.div variants={itemVariant} className="rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 shadow-xl relative overflow-hidden h-full">
+                         <div className="absolute top-0 right-0 p-6 opacity-5"><Mail size={120} /></div>
+                         <div className="relative z-10 flex flex-col h-full justify-between">
+                            <div>
+                              <h3 className="text-xl font-bold mb-1">Email Security</h3>
+                              <p className="text-sm text-muted-foreground mb-6">Manage account recovery & notifications.</p>
 
-                            {/* Email Status Card */}
-                            <div className={`p-4 rounded-2xl border ${emailStatus === 'verified' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'} mb-6`}>
-                               <div className="flex items-center justify-between">
-                                  <div>
-                                     <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Registered Email</p>
-                                     <p className="font-mono font-semibold text-sm md:text-base">{userEmail || user?.email || "No email linked"}</p>
-                                  </div>
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${emailStatus === 'verified' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
-                                     {emailStatus === 'verified' ? <Check size={16} strokeWidth={3} /> : <AlertTriangle size={16} strokeWidth={3} />}
-                                  </div>
-                               </div>
+                              <div className={cn("p-4 rounded-2xl border mb-6", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
+                                 <div className="flex items-center justify-between">
+                                    <div className="overflow-hidden">
+                                       <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Registered Email</p>
+                                       <p className="font-mono font-semibold text-sm md:text-base truncate">{userEmail || "No email linked"}</p>
+                                    </div>
+                                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
+                                       {emailStatus === 'verified' ? <Check size={16} strokeWidth={3} /> : <AlertTriangle size={16} strokeWidth={3} />}
+                                    </div>
+                                 </div>
+                              </div>
                             </div>
 
                             {emailStatus === 'verified' ? (
-                               <div className="flex items-center justify-between">
+                               <div className="flex items-center justify-between mt-auto">
                                   <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><ShieldCheck size={14} /> Verified Account</span>
-                                  <button onClick={unlinkEmail} className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline">Unlink</button>
                                </div>
                             ) : (
-                               <div className="space-y-3">
-                                  {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-11" />}
-                                  
-                                  <motion.button 
-                                     whileTap={{ scale: 0.98 }} 
+                               <div className="space-y-3 mt-auto">
+                                  <button 
                                      onClick={sendEmailVerification} 
                                      disabled={emailStatus === "sending" || emailCountdown > 0} 
                                      className={cn(
@@ -647,63 +400,33 @@ export default function SettingsPage() {
                                         emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]"
                                      )}
                                   >
-                                    {emailStatus === "sending" ? (
-                                       <> <Loader2 size={16} className="animate-spin" /> Sending... </>
-                                    ) : emailCountdown > 0 ? (
-                                       `Resend in ${emailCountdown}s`
-                                    ) : (
-                                       <span className="flex items-center gap-2">Verify Email <ArrowRight size={16} className="opacity-70" /></span>
-                                    )}
-                                  </motion.button>
+                                    {emailStatus === "sending" ? <Loader2 size={16} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <span className="flex items-center gap-2">Verify Email <ArrowRight size={16} className="opacity-70" /></span>}
+                                  </button>
                                   <p className="text-[10px] text-center text-muted-foreground">You will receive a secure verification link.</p>
                                </div>
                             )}
                          </div>
                       </motion.div>
 
-                      {/* Password & Connected Accounts */}
+                      {/* CONNECTED ACCOUNTS & LOGOUT */}
                       <motion.div variants={itemVariant} className="space-y-6">
-                          {/* Google Status */}
                           <div className="flex items-center justify-between p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl">
                             <div className="flex items-center gap-4">
                                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm"><span className="text-2xl font-bold text-blue-600">G</span></div>
                                <div><h4 className="font-bold text-sm">Google Workspace</h4><p className="text-[10px] font-medium text-muted-foreground">{isGoogleUser ? "Connected (Primary)" : "Not Linked"}</p></div>
                             </div>
-                            {isGoogleUser ? <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span> : <button className="text-xs font-bold text-indigo-600 hover:underline">Connect</button>}
+                            {isGoogleUser && <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span>}
                           </div>
 
-                          {!isGoogleUser && (
-                            <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl">
-                               <div className="flex items-center gap-3 mb-5"><div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div><h4 className="font-bold text-sm">Password Reset</h4></div>
-                               <div className="space-y-3">
-                                  <Input type="password" placeholder="Current Password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                  {pwdStage !== "idle" && (
-                                     <div className="grid grid-cols-2 gap-3">
-                                        <Input type="password" placeholder="New Password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                        <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-11 rounded-xl bg-white/50 dark:bg-black/20" />
-                                     </div>
-                                  )}
-                                  <div className="flex justify-end gap-3 pt-2">
-                                     {pwdStage !== "idle" && <button onClick={() => setPwdStage("idle")} className="text-xs font-bold text-muted-foreground hover:text-foreground">Cancel</button>}
-                                     <motion.button whileTap={{ scale: 0.95 }} onClick={pwdStage === "verified" ? saveNewPassword : verifyCurrentPassword} className="px-5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-90">
-                                        {pwdStage === "verified" ? "Update Password" : "Verify Identity"}
-                                     </motion.button>
-                                  </div>
-                               </div>
-                            </div>
-                          )}
-                      </motion.div>
-
-                      {/* Logout Zone */}
-                      <motion.div variants={itemVariant} className="md:col-span-2">
+                          {/* Session Control */}
                           <div className="p-1 rounded-[2rem] bg-gradient-to-r from-rose-500/20 to-transparent border border-rose-500/10">
-                            <div className="flex flex-col md:flex-row items-center justify-between p-6 gap-6 md:gap-0">
-                               <div className="flex gap-4">
+                            <div className="flex flex-col items-center justify-between p-6 gap-4">
+                               <div className="flex gap-4 w-full">
                                   <div className="p-3 bg-white dark:bg-slate-950 rounded-2xl text-rose-500 shadow-sm"><LogOut size={24} /></div>
                                   <div><h4 className="font-bold text-base text-foreground">Session Control</h4><p className="text-xs font-medium text-muted-foreground">Securely terminate your current session.</p></div>
                                </div>
                                <div 
-                                  className="relative w-full md:w-48 h-12 bg-white dark:bg-slate-950 rounded-xl border border-rose-200 dark:border-rose-900/30 shadow-sm overflow-hidden cursor-pointer select-none group"
+                                  className="relative w-full h-12 bg-white dark:bg-slate-950 rounded-xl border border-rose-200 dark:border-rose-900/30 shadow-sm overflow-hidden cursor-pointer select-none group"
                                   onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
                                >
                                   <div className="absolute left-0 top-0 bottom-0 bg-rose-500 transition-all ease-linear opacity-90" style={{ width: `${logoutProgress}%` }} />
@@ -722,181 +445,50 @@ export default function SettingsPage() {
                   <motion.div variants={itemVariant}>
                     <div className="p-8 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex gap-5 items-center">
-                          <div className="p-5 bg-blue-500/10 text-blue-600 rounded-3xl"><FileJson size={32} /></div>
+                          <div className="p-5 bg-primary/10 text-primary rounded-3xl"><FileJson size={32} /></div>
                           <div><h3 className="font-bold text-xl">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your clinical logs & settings (JSON).</p></div>
                         </div>
-                        <motion.button whileTap={{ scale: 0.95 }} onClick={handleExportArchive} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2">
-                          <Download size={18} /> Download Data
-                        </motion.button>
+                        <button onClick={() => {}} className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-sm font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2"><Download size={18} /> Download Data</button>
                     </div>
                   </motion.div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <motion.div variants={itemVariant}>
-                       <Card className="p-8 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] shadow-lg h-full">
-                          <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Local Storage</h3></div>
-                          <div className="space-y-4">
-                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
-                                 <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Removes temporary files.</p></div></div>
-                                 <button onClick={handleClearCache} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
-                             </div>
-                             <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-black/20 border border-transparent hover:border-slate-200 transition-all">
-                                 <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Restore default theme.</p></div></div>
-                                 <button onClick={handleResetPreferences} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
-                             </div>
-                          </div>
-                       </Card>
-                    </motion.div>
-
-                    <motion.div variants={itemVariant}>
-                       <div className="p-8 h-full rounded-[2.5rem] border border-rose-500/20 bg-rose-500/5 backdrop-blur-xl flex flex-col justify-between">
-                           <div>
-                              <h3 className="font-bold text-rose-600 flex items-center gap-2 text-lg mb-2"><AlertTriangle size={20} /> Danger Zone</h3>
-                              <p className="text-xs text-rose-500/70 leading-relaxed">Actions here cannot be undone. Proceed with caution.</p>
-                           </div>
-                           
-                           <div className="space-y-3 mt-8">
-                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                                   <div className="text-xs font-bold text-rose-700">Journal Data</div>
-                                   <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
-                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Delete All</button></AlertDialogTrigger>
-                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-rose-600">Delete</AlertDialogAction></div></AlertDialogContent>
-                                   </AlertDialog>
-                               </div>
-                               <div className="flex items-center justify-between p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                                   <div className="text-xs font-bold text-rose-700">Full Account</div>
-                                   <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
-                                      <AlertDialogTrigger asChild><button className="px-3 py-1.5 text-[10px] font-bold text-white bg-rose-600 rounded-lg hover:bg-rose-700">Factory Reset</button></AlertDialogTrigger>
-                                      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Everything?</AlertDialogTitle><AlertDialogDescription>This will wipe your account completely.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleFactoryReset} className="bg-rose-600">Wipe</AlertDialogAction></div></AlertDialogContent>
-                                   </AlertDialog>
-                               </div>
-                           </div>
-                       </div>
-                    </motion.div>
-                  </div>
               </TabsContent>
 
               {/* ======================= TAB: SUPPORT ======================= */}
               <TabsContent value="support" className="space-y-6 m-0">
-                  <motion.div variants={itemVariant}>
-                      <motion.div 
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleCopyEmail}
-                        className="relative p-8 md:p-12 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group"
-                      >
-                        <div className="relative z-10 flex flex-col items-center text-center gap-4">
-                           <div className="p-4 bg-white/10 rounded-full backdrop-blur-lg border border-white/20 mb-2">
-                              <Fingerprint size={48} className="text-white opacity-90" />
-                           </div>
+                  <motion.div variants={itemVariant} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Direct Support */}
+                      <div onClick={() => { navigator.clipboard.writeText("adithyachary09@gmail.com"); setCopied(true); setTimeout(()=>setCopied(false),2000); }} className="relative p-8 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group hover:scale-[1.02] transition-transform">
+                        <div className="relative z-10 flex flex-col h-full justify-between">
                            <div>
-                              <h2 className="text-sm font-bold uppercase tracking-[0.3em] opacity-70 mb-2">Direct Support Line</h2>
-                              <div className="text-2xl md:text-4xl font-black font-mono tracking-tight group-hover:scale-105 transition-transform duration-300 break-all">
-                                  {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
-                              </div>
+                              <div className="p-4 bg-white/10 rounded-full w-fit backdrop-blur-lg border border-white/20 mb-4"><Fingerprint size={32} /></div>
+                              <h2 className="text-xs font-bold uppercase tracking-[0.2em] opacity-70 mb-1">Direct Support</h2>
+                              <div className="text-xl md:text-2xl font-mono font-bold break-all">{copied ? "COPIED!" : "adithyachary09@gmail.com"}</div>
                            </div>
-                           <div className="mt-6 flex items-center gap-2 px-5 py-2 bg-white/20 rounded-full backdrop-blur-md text-sm font-bold border border-white/10 group-hover:bg-white group-hover:text-violet-700 transition-all">
-                              {copied ? <Check size={16} /> : <Copy size={16} />}
-                              {copied ? "Address Copied" : "Click card to copy address"}
-                           </div>
+                           <div className="mt-6 flex items-center gap-2 text-xs font-bold opacity-80"><Copy size={14} /> Click to copy address</div>
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-y-full group-hover:-translate-y-full transition-transform duration-700 pointer-events-none" />
-                      </motion.div>
+                      </div>
+
+                      {/* RESTORED TEAM SECTION */}
+                      <div className="p-8 rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl shadow-lg">
+                         <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Users size={20} className="text-primary"/> Project Team</h3>
+                         <div className="space-y-3">
+                            {[
+                               { name: "Adithya", role: "Lead Architect", color: "bg-gradient-to-r from-primary to-violet-500", link: "https://www.linkedin.com/in/adithya-chary/" },
+                               { name: "Abhinaya", role: "Research Lead", color: "bg-gradient-to-r from-blue-400 to-cyan-400", link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320" },
+                               { name: "Sushmitha", role: "Compliance", color: "bg-gradient-to-r from-emerald-400 to-teal-400", link: "https://www.linkedin.com/in/sushmitha-dongara-805350348" }
+                            ].map((member, i) => (
+                               <a key={i} href={member.link} target="_blank" className="flex items-center gap-4 p-3 rounded-2xl bg-white/50 dark:bg-black/20 hover:bg-white/80 transition-colors border border-transparent hover:border-slate-200">
+                                  <div className={`w-10 h-10 rounded-xl ${member.color} flex items-center justify-center text-white font-bold shadow-md`}>{member.name[0]}</div>
+                                  <div>
+                                     <p className="text-sm font-bold">{member.name}</p>
+                                     <p className="text-[10px] font-medium text-muted-foreground">{member.role}</p>
+                                  </div>
+                                  <ExternalLink size={14} className="ml-auto opacity-50" />
+                               </a>
+                            ))}
+                         </div>
+                      </div>
                   </motion.div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <motion.div variants={itemVariant} className="md:col-span-2">
-                        <Card className="p-6 border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] h-full shadow-lg">
-                           <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
-                           <div className="space-y-3">
-                              {[
-                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
-                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
-                                  { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
-                              ].map((item, idx) => (
-                                  <div key={idx} className="bg-white/40 dark:bg-black/20 rounded-2xl overflow-hidden border border-transparent hover:border-slate-200/50 transition-all">
-                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
-                                         <span className="font-bold text-sm">{item.q}</span>
-                                         <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
-                                     </button>
-                                     <AnimatePresence>
-                                         {openFaq === idx && (
-                                            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                                                <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
-                                            </motion.div>
-                                         )}
-                                     </AnimatePresence>
-                                  </div>
-                              ))}
-                           </div>
-                        </Card>
-                      </motion.div>
-
-                      <motion.div variants={itemVariant} className="flex flex-col gap-4">
-                        <div className="p-5 rounded-[2rem] border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
-                           <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
-                           <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
-                           <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
-                        </div>
-                        
-                        {/* About Project Sheet */}
-                        <Sheet>
-                           <SheetTrigger asChild>
-                              <motion.button 
-                                  whileHover={{ scale: 1.02 }} 
-                                  whileTap={{ scale: 0.98 }}
-                                  className="w-full p-5 rounded-[2rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl flex items-center justify-between transition-all group relative overflow-hidden shadow-lg"
-                              >
-                                  <div className="flex items-center gap-3 relative z-10">
-                                     <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-500 group-hover:rotate-12 transition-transform"><Info size={18} /></div>
-                                     <span className="font-bold text-sm">About Project</span>
-                                  </div>
-                                  <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-indigo-500 transition-colors relative z-10" />
-                              </motion.button>
-                           </SheetTrigger>
-                           <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl border-l border-white/20">
-                              <motion.div 
-                                  initial="hidden" animate="show"
-                                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
-                                  className="h-full flex flex-col"
-                              >
-                                  <SheetHeader className="p-8 pb-4 relative overflow-hidden">
-                                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-indigo-500/20 blur-[50px] rounded-full pointer-events-none" />
-                                     <motion.div variants={{ hidden: { y: -20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="flex items-center gap-4 relative z-10">
-                                         <div className="relative">
-                                            <div className="w-16 h-16 bg-white rounded-2xl relative z-10 border border-white/50 shadow-xl flex items-center justify-center overflow-hidden p-2">
-                                                <img src="/logo.png" alt="CogniSync" className="w-full h-full object-contain" />
-                                            </div>
-                                         </div>
-                                         <div>
-                                            <SheetTitle className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">CogniSync</SheetTitle>
-                                            <p className="text-xs font-bold text-indigo-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"/> Capstone Initiative
-                                            </p>
-                                         </div>
-                                     </motion.div>
-                                  </SheetHeader>
-                                  <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-10 relative z-10">
-                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-                                         <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-transparent rounded-full opacity-50" />
-                                         <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Target size={18} className="text-blue-500"/> Project Objective</h4>
-                                         <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed pl-2 font-medium">To develop a scalable, privacy-first interface for psychological state analysis using modern web technologies.</p>
-                                     </motion.section>
-                                     
-                                     {/* Rest of the about content remains structurally same but styled ... */}
-                                      <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 items-center justify-center text-center">
-                                         <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                            <p className="text-[10px] font-bold text-slate-400 tracking-wider">ACADEMIC RELEASE • 2026</p>
-                                         </div>
-                                         <p className="text-[10px] font-medium text-slate-400">Engineered with <Heart size={10} className="inline text-red-500 fill-red-500 mx-0.5" /> in India.</p>
-                                      </motion.div>
-                                  </div>
-                              </motion.div>
-                           </SheetContent>
-                        </Sheet>
-                      </motion.div>   
-                  </div>
               </TabsContent>
 
             </motion.div>
