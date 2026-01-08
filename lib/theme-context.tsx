@@ -24,6 +24,7 @@ interface ThemeContextType {
   settings: ThemeSettings;
   updateSettings: (patch: Partial<ThemeSettings>) => void;
   applySettings: () => void;
+  resetTheme: () => void; // Added reset capability
   getModeLabel: () => string;
 }
 
@@ -71,6 +72,8 @@ function sanitize(raw: any): ThemeSettings {
 }
 
 function applyThemeDOM(s: ThemeSettings) {
+  if (typeof document === "undefined") return;
+  
   const root = document.documentElement;
   const colors = colorMap[s.colorTheme];
 
@@ -96,35 +99,44 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const activeUserRef = useRef<string | null>(null);
   const notifyRef = useRef<number | null>(null);
 
-  /* ---- SYNC ON LOGIN / LOGOUT / USER SWITCH ---- */
+  /* ---- SYNC LOGIC ---- */
+  const sync = () => {
+    const uid = localStorage.getItem(ACTIVE_USER_KEY);
+
+    // LOGOUT → reset instantly
+    if (!uid) {
+      activeUserRef.current = null;
+      setSettings(DEFAULT_SETTINGS);
+      applyThemeDOM(DEFAULT_SETTINGS);
+      return;
+    }
+
+    // USER SWITCH or RELOAD
+    // We remove the check `if (activeUserRef.current !== uid)` to force a refresh on login
+    activeUserRef.current = uid;
+    const raw = localStorage.getItem(storageKey(uid));
+    const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
+    setSettings(next);
+    applyThemeDOM(next);
+  };
+
+  /* ---- LISTENERS ---- */
   useEffect(() => {
-    const sync = () => {
-      const uid = localStorage.getItem(ACTIVE_USER_KEY);
+    sync(); // Initial load
 
-      // LOGOUT → reset instantly
-      if (!uid) {
-        activeUserRef.current = null;
-        setSettings(DEFAULT_SETTINGS);
-        applyThemeDOM(DEFAULT_SETTINGS);
-        return;
-      }
-
-      // USER SWITCH
-      if (activeUserRef.current !== uid) {
-        activeUserRef.current = uid;
-        const raw = localStorage.getItem(storageKey(uid));
-        const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
-        setSettings(next);
-        applyThemeDOM(next);
-      }
-    };
-
-    sync();
+    // Standard storage event (for other tabs)
     window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
+    
+    // Custom event (for SAME tab instant updates from UserContext)
+    window.addEventListener("cognisync-auth-change", sync);
+
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("cognisync-auth-change", sync);
+    };
   }, []);
 
-  /* ---- UPDATE ---- */
+  /* ---- ACTIONS ---- */
   const updateSettings = (patch: Partial<ThemeSettings>) => {
     const uid = localStorage.getItem(ACTIVE_USER_KEY);
     if (!uid) return;
@@ -157,12 +169,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const resetTheme = () => {
+    activeUserRef.current = null;
+    setSettings(DEFAULT_SETTINGS);
+    applyThemeDOM(DEFAULT_SETTINGS);
+  };
+
   return (
     <ThemeContext.Provider
       value={{
         settings,
         updateSettings,
         applySettings: () => applyThemeDOM(settings),
+        resetTheme,
         getModeLabel: () => (settings.darkMode ? "Dark Mode" : "Light Mode"),
       }}
     >

@@ -56,10 +56,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   /* ---- SET USER (LOGIN / SWITCH USER) ---- */
   const setUser = (u: User | null) => {
     if (!u) {
-      // immediate logout-style reset
+      // Logic for explicit null passed to setUser (treat as logout)
       localStorage.removeItem(ACTIVE_USER_KEY);
       localStorage.removeItem(USER_CACHE_KEY);
       setUserState(null);
+      // Notify ThemeContext to reset immediately
+      window.dispatchEvent(new Event("cognisync-auth-change"));
       return;
     }
 
@@ -67,27 +69,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(ACTIVE_USER_KEY, u.id);
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
 
-    // then update state
+    // update state
     setUserState(u);
+
+    // Notify ThemeContext to load new user settings immediately
+    window.dispatchEvent(new Event("cognisync-auth-change"));
   };
 
   /* ---- LOGOUT (INSTANT, NON-DESTRUCTIVE) ---- */
   const logout = () => {
-    /**
-     * DO NOT:
-     * - delete user settings
-     * - delete avatars
-     * - delete theme prefs
-     *
-     * DO:
-     * - clear active session immediately
-     */
-
     localStorage.removeItem(ACTIVE_USER_KEY);
     localStorage.removeItem(USER_CACHE_KEY);
 
     // force immediate rerender everywhere
     setUserState(null);
+
+    // Notify ThemeContext to reset to default blue immediately
+    window.dispatchEvent(new Event("cognisync-auth-change"));
   };
 
   return (

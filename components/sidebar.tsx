@@ -41,7 +41,7 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { logout } = useUser();
-  const { settings } = useTheme();
+  const { settings, resetTheme } = useTheme(); // Import resetTheme
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home },
@@ -60,8 +60,15 @@ export function Sidebar({
   };
 
   const handleLogout = async () => {
-    await onLogout();     // server / supabase sign out
-    logout();             // local + UI scoped cleanup
+    // 1. Reset theme visually first (Instant UX feedback)
+    resetTheme();
+    
+    // 2. Clear user session locally
+    logout();
+
+    // 3. Perform server-side sign out
+    await onLogout(); 
+    
     setMobileOpen(false);
   };
 
