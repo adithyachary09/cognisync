@@ -1,37 +1,49 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
-    // FIX: Read 'password' instead of 'newPassword' to match frontend
-    const { email, password } = await request.json();
+    // Frontend sends 'newPassword', we map it here
+    const { email, newPassword } = await request.json();
 
-    if (!email || !password) {
+    if (!email || !newPassword) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
     }
 
-    if (password.length < 6) {
+    if (newPassword.length < 6) {
        return NextResponse.json({ error: 'Password too short' }, { status: 400 });
     }
 
-    // 1. Hash new password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // 1. Find User ID by Email (Admin Privilege Required)
+    // We list users filtering by email to get the correct UUID
+    const { data, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (searchError) {
+       console.error("User Search Error:", searchError);
+       return NextResponse.json({ error: 'System lookup failed' }, { status: 500 });
+    }
 
-    // 2. Update DB
-    const { error } = await supabaseAdmin
-      .from('users')
-      .update({ password_hash: hashedPassword })
-      .eq('email', email);
+    const user = data.users.find((u) => u.email === email);
 
-    if (error) {
-      console.error("DB Update Error:", error);
-      throw error;
+    if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // 2. Update the Password in Supabase Auth
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error("Auth Update Error:", updateError);
+      return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
+
   } catch (err) {
-    console.error("Update Password Error:", err);
-    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+    console.error("Update Password API Error:", err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
