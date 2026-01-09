@@ -243,24 +243,30 @@ export default function SettingsPage() {
 
   const saveNewPassword = async () => {
      if (!user) return;
-     if (newPwd.length < 8 || newPwd !== confirmPwd) {
-        showNotification({ type: "warning", message: "Check password requirements.", duration: 2000 });
+     if (newPwd.length < 6 || newPwd !== confirmPwd) {
+        showNotification({ type: "warning", message: "Password must be 6+ chars & match.", duration: 3000 });
         return;
      }
      setPwdStage("saving");
+     
+     // USE SUPABASE CLIENT DIRECTLY (No API Route needed)
+     const supabase = createBrowserClient(
+       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+     );
+
      try {
-       const res = await fetch('/api/auth/update-password', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, newPassword: newPwd }) 
-       });
-       if (!res.ok) throw new Error();
+       const { error } = await supabase.auth.updateUser({ password: newPwd });
+       
+       if (error) throw error;
+
        setPwdStage("idle");
        setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-       showNotification({ type: "success", message: "Password updated!", duration: 2000 });
-     } catch (e) {
+       showNotification({ type: "success", message: "Password updated successfully!", duration: 2000 });
+     } catch (e: any) {
+       console.error("Pwd Update Error:", e);
        setPwdStage("verified"); 
-       showNotification({ type: "error", message: "Update failed.", duration: 3000 });
+       showNotification({ type: "error", message: e.message || "Update failed.", duration: 3000 });
      }
   };
 
