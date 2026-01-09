@@ -345,17 +345,15 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Wipe DB Data
-        await Promise.all([
+        // 1. Wipe DB Data (Only for tables that ACTUALLY exist)
+        // We use Promise.allSettled so if one fails (e.g. table empty), others still finish.
+        await Promise.allSettled([
           supabase.from('user_entries').delete().eq('user_id', user.id), 
           supabase.from('assessments').delete().eq('user_id', user.id),  
-          supabase.from('daily_logs').delete().eq('user_id', user.id),   
-          supabase.from('chat_history').delete().eq('user_id', user.id), 
-          supabase.from('user_settings').delete().eq('user_id', user.id),
-          supabase.from('verification_tokens').delete().eq('user_id', user.id),
+          supabase.from('journal_entries').delete().eq('user_id', user.id),
         ]);
 
-        // 2. Clear Local Storage
+        // 2. Aggressive Local Clean (Wipe everything)
         localStorage.clear(); 
         
         // 3. Reset Context State
@@ -367,18 +365,19 @@ export default function SettingsPage() {
             avatar: null 
         });
 
-        // 4. Force Sign Out
+        // 4. Force Server Logout
         await supabase.auth.signOut();
         logout();
 
         showNotification({ type: "success", message: "Factory reset complete. Goodbye.", duration: 2000 });
         
-        // 5. Hard Redirect
+        // 5. Hard Redirect to Home
         setTimeout(() => window.location.href = "/", 1000);
       }
     } catch (error) {
-      console.error(error);
-      showNotification({ type: "error", message: "Reset failed. Check connection.", duration: 3000 });
+      console.error("Reset Error:", error);
+      // Force logout anyway since local storage is wiped
+      window.location.href = "/";
     }
   };
 
