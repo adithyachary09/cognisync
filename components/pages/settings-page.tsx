@@ -631,7 +631,7 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-             {/* ======================= TAB: ACCOUNT ======================= */}
+              {/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-8 m-0">
                   <motion.div variants={itemVariant}>
                     <Card className="relative p-8 border border-white/20 shadow-2xl overflow-hidden backdrop-blur-3xl bg-gradient-to-br from-white/90 via-white/60 to-white/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-slate-900/30 rounded-[3rem]">
@@ -651,7 +651,6 @@ export default function SettingsPage() {
                                     </div>
                                  )}
                                  
-                                 {/* Hover Overlay */}
                                  <button 
                                     onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
@@ -732,8 +731,8 @@ export default function SettingsPage() {
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                      {/* EMAIL SECURITY CARD - Enhanced Height & Visuals */}
+                  <div className={cn("grid gap-8 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
+                      {/* EMAIL SECURITY CARD */}
                       <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-10 shadow-2xl relative overflow-hidden flex flex-col gap-10 transition-all hover:-translate-y-1 hover:shadow-primary/5 min-h-[400px]">
                          <div className={cn("absolute -top-20 -right-20 w-80 h-80 rounded-full blur-[90px] opacity-25 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
                          <div className="absolute top-10 right-10 opacity-[0.04] rotate-12"><Mail size={180} /></div>
@@ -796,21 +795,42 @@ export default function SettingsPage() {
                          </div>
                       </motion.div>
 
-                      {/* CONNECTED ACCOUNTS / ACCESS CONTROL */}
+                      {/* ACCESS CONTROL (OR GOOGLE) */}
                       <motion.div variants={itemVariant} className="flex flex-col h-full gap-8">
-                          {/* Google Workspace */}
-                          <div className="flex items-center justify-between p-8 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[3rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-blue-500/5 opacity-50 group-hover:bg-blue-500/10 transition-colors" />
-                            <div className="flex items-center gap-6 relative z-10">
-                               <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/50"><span className="text-3xl font-black text-blue-600">G</span></div>
-                               <div><h4 className="font-bold text-lg text-foreground">Google Workspace</h4><p className="text-[11px] font-bold text-muted-foreground/70 mt-1 uppercase tracking-wide">{isGoogleUser ? "Connected (Primary)" : "Not Linked"}</p></div>
-                            </div>
-                            {isGoogleUser && <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>}
-                          </div>
-
-                          {!isGoogleUser && (
+                          {isGoogleUser ? (
+                            <>
+                              <div className="flex items-center justify-between p-8 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[3rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-blue-500/5 opacity-50 group-hover:bg-blue-500/10 transition-colors" />
+                                <div className="flex items-center gap-6 relative z-10">
+                                   <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/50"><span className="text-3xl font-black text-blue-600">G</span></div>
+                                   <div><h4 className="font-bold text-lg text-foreground">Google Workspace</h4><p className="text-[11px] font-bold text-muted-foreground/70 mt-1 uppercase tracking-wide">Connected (Primary)</p></div>
+                                </div>
+                                <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>
+                              </div>
+                              
+                              {/* OAuth User Session Control (Small) */}
+                              <div className="p-2 rounded-[2.5rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 mt-auto shadow-lg backdrop-blur-md">
+                                <div className="flex flex-col items-center justify-between p-6 gap-6">
+                                   <div className="flex gap-5 w-full items-center">
+                                      <div className="w-12 h-12 bg-white dark:bg-rose-950/30 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-200/50 dark:border-rose-900/50"><LogOut size={22} strokeWidth={2.5} /></div>
+                                      <div><h4 className="font-black text-base text-foreground tracking-tight">Session Control</h4><p className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider mt-0.5">Termination Protocol</p></div>
+                                   </div>
+                                   <div 
+                                      className="relative w-full h-14 bg-white/80 dark:bg-black/40 rounded-2xl border border-rose-200 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none group touch-none"
+                                      onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
+                                   >
+                                      <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 to-red-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }} />
+                                      <div className="absolute inset-0 flex items-center justify-center gap-3 z-10">
+                                         <span className={cn("text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-300", logoutProgress > 50 ? "text-white" : "text-rose-500/80")}>
+                                            {logoutProgress > 0 ? "DISCONNECTING..." : "HOLD TO DISCONNECT"}
+                                         </span>
+                                      </div>
+                                   </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
                              <div className="p-10 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[3rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
-                                {/* Decor */}
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-bl-[100px] pointer-events-none" />
                                 
                                 <div className="flex items-center gap-4 mb-8 relative z-10">
@@ -819,9 +839,9 @@ export default function SettingsPage() {
                                 </div>
 
                                 <div className="space-y-5 relative z-10">
-                                   {/* View 1: Verify Current Password (Shown only if NOT verified) */}
                                    <AnimatePresence mode="wait">
                                      {pwdStage !== "verified" && pwdStage !== "saving" ? (
+                                       /* View 1: Verify Old Password */
                                        <motion.div 
                                           key="verify-step"
                                           initial={{ opacity: 0, x: -20 }}
@@ -856,7 +876,7 @@ export default function SettingsPage() {
                                           </button>
                                        </motion.div>
                                      ) : (
-                                       /* View 2: Update New Password (Shown ONLY after verification) */
+                                       /* View 2: Update New Password */
                                        <motion.div 
                                           key="update-step"
                                           initial={{ opacity: 0, scale: 0.95 }}
@@ -923,44 +943,42 @@ export default function SettingsPage() {
                       </motion.div>
                   </div>
 
-                  {/* SESSION CONTROL - Full Width Premium Slider */}
-                  <motion.div variants={itemVariant} className="mt-8">
-                      <div className="p-2 rounded-[3rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 shadow-2xl backdrop-blur-2xl group">
-                        <div className="flex flex-col md:flex-row items-center justify-between p-8 gap-8">
-                           <div className="flex gap-6 items-center text-center md:text-left">
-                              <div className="w-16 h-16 bg-white dark:bg-rose-950/30 rounded-[1.5rem] flex items-center justify-center text-rose-500 shadow-xl border border-rose-200/50 dark:border-rose-900/50 group-hover:scale-110 transition-transform duration-500"><LogOut size={28} strokeWidth={2.5} /></div>
-                              <div>
-                                <h4 className="font-black text-2xl text-foreground tracking-tight mb-1">System Termination</h4>
-                                <p className="text-xs font-bold text-muted-foreground/70 uppercase tracking-[0.15em]">Secure Session Logout Protocol</p>
-                              </div>
-                           </div>
-                           
-                           <div className="w-full md:max-w-md">
-                               <div 
-                                  className="relative w-full h-20 bg-white/80 dark:bg-black/40 rounded-[1.5rem] border-2 border-rose-100 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none touch-none transition-all active:scale-[0.98]"
-                                  onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
-                               >
-                                  {/* Background Pattern */}
-                                  <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-                                  
-                                  {/* Liquid Fill */}
-                                  <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }}>
-                                     <div className="absolute right-0 top-0 bottom-0 w-px bg-white/50 box-shadow-[0_0_20px_white]" />
-                                  </div>
-                                  
-                                  <div className="absolute inset-0 flex items-center justify-center gap-4 z-10 pointer-events-none">
-                                     <span className={cn("text-xs font-black uppercase tracking-[0.25em] transition-all duration-300 drop-shadow-sm", logoutProgress > 50 ? "text-white translate-x-2" : "text-rose-500/60")}>
-                                        {logoutProgress > 0 ? (logoutProgress >= 100 ? "DISCONNECTING..." : `HOLDING ${Math.floor(logoutProgress)}%`) : "HOLD TO DISCONNECT"}
-                                     </span>
-                                  </div>
-                               </div>
-                           </div>
+                  {/* SESSION CONTROL - Full Width (Only for Manual Users) */}
+                  {!isGoogleUser && (
+                    <motion.div variants={itemVariant} className="mt-8">
+                        <div className="p-2 rounded-[3rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 shadow-2xl backdrop-blur-2xl group">
+                          <div className="flex flex-col md:flex-row items-center justify-between p-8 gap-8">
+                             <div className="flex gap-6 items-center text-center md:text-left">
+                                <div className="w-16 h-16 bg-white dark:bg-rose-950/30 rounded-[1.5rem] flex items-center justify-center text-rose-500 shadow-xl border border-rose-200/50 dark:border-rose-900/50 group-hover:scale-110 transition-transform duration-500"><LogOut size={28} strokeWidth={2.5} /></div>
+                                <div>
+                                  <h4 className="font-black text-2xl text-foreground tracking-tight mb-1">System Termination</h4>
+                                  <p className="text-xs font-bold text-muted-foreground/70 uppercase tracking-[0.15em]">Secure Session Logout Protocol</p>
+                                </div>
+                             </div>
+                             
+                             <div className="w-full md:max-w-md">
+                                 <div 
+                                    className="relative w-full h-20 bg-white/80 dark:bg-black/40 rounded-[1.5rem] border-2 border-rose-100 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none touch-none transition-all active:scale-[0.98]"
+                                    onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
+                                 >
+                                    <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+                                    <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }}>
+                                       <div className="absolute right-0 top-0 bottom-0 w-px bg-white/50 box-shadow-[0_0_20px_white]" />
+                                    </div>
+                                    <div className="absolute inset-0 flex items-center justify-center gap-4 z-10 pointer-events-none">
+                                       <span className={cn("text-xs font-black uppercase tracking-[0.25em] transition-all duration-300 drop-shadow-sm", logoutProgress > 50 ? "text-white translate-x-2" : "text-rose-500/60")}>
+                                          {logoutProgress > 0 ? (logoutProgress >= 100 ? "DISCONNECTING..." : `HOLDING ${Math.floor(logoutProgress)}%`) : "HOLD TO DISCONNECT"}
+                                       </span>
+                                    </div>
+                                 </div>
+                             </div>
+                          </div>
                         </div>
-                      </div>
-                  </motion.div>
-              </TabsContent> 
+                    </motion.div>
+                  )}
+              </TabsContent>
 
-
+              
       {/* ======================= TAB: DATA ======================= */}
 
               <TabsContent value="data" className="space-y-6 m-0">

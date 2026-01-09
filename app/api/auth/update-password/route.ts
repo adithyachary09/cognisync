@@ -3,40 +3,38 @@ import { supabaseAdmin } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
-    // Frontend sends 'newPassword', we map it here
     const { email, newPassword } = await request.json();
 
     if (!email || !newPassword) {
-      return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
 
     if (newPassword.length < 6) {
-       return NextResponse.json({ error: 'Password too short' }, { status: 400 });
+       return NextResponse.json({ error: 'Password must be 6+ characters' }, { status: 400 });
     }
 
-    // 1. Find User ID by Email (Admin Privilege Required)
-    // We list users filtering by email to get the correct UUID
-    const { data, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
+    // 1. Locate User ID reliably by Email
+    const { data: { users }, error: findError } = await supabaseAdmin.auth.admin.listUsers();
     
-    if (searchError) {
-       console.error("User Search Error:", searchError);
-       return NextResponse.json({ error: 'System lookup failed' }, { status: 500 });
+    if (findError) {
+        console.error("Admin List Error:", findError);
+        return NextResponse.json({ error: 'System error' }, { status: 500 });
     }
 
-    const user = data.users.find((u) => u.email === email);
+    const targetUser = users.find(u => u.email === email);
 
-    if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!targetUser) {
+        return NextResponse.json({ error: 'User account not found' }, { status: 404 });
     }
 
-    // 2. Update the Password in Supabase Auth
+    // 2. Force Update Password
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      targetUser.id,
       { password: newPassword }
     );
 
     if (updateError) {
-      console.error("Auth Update Error:", updateError);
+      console.error("Password Update Failed:", updateError);
       return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
     }
 
