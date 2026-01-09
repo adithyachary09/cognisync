@@ -339,26 +339,30 @@ export default function SettingsPage() {
     );
 
     setShowFactoryResetDialog(false);
-    showNotification({ type: "warning", message: "Wiping all data...", duration: 4000 });
+    showNotification({ type: "warning", message: "Factory Reset Initiated...", duration: 5000 });
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Wipe DB Data (Using allSettled to ignore missing table errors)
+        // 1. Wipe DB Data (Targeting ONLY your existing 7 tables)
+        // Using allSettled to ensure one failure doesn't stop the rest
         await Promise.allSettled([
-          supabase.from('user_entries').delete().eq('user_id', user.id), 
-          supabase.from('assessments').delete().eq('user_id', user.id),  
-          supabase.from('daily_logs').delete().eq('user_id', user.id),   
-          supabase.from('chat_history').delete().eq('user_id', user.id), 
-          supabase.from('user_settings').delete().eq('user_id', user.id),
-          supabase.from('verification_tokens').delete().eq('user_id', user.id),
+          supabase.from('user_entries').delete().eq('user_id', user.id),       // Journal
+          supabase.from('assessments').delete().eq('user_id', user.id),        // Assessments
+          supabase.from('journal_entries').delete().eq('user_id', user.id),    // Extra Journal table
+          supabase.from('verification_codes').delete().eq('identifier', user.email), // Codes
+          supabase.from('verification_tokens').delete().eq('user_id', user.id), // Tokens
+          supabase.from('password_reset_tokens').delete().eq('user_id', user.id), // Reset tokens
+          // Note: We do NOT delete from 'users' table directly as that is the auth record itself.
+          // Supabase Auth handles user deletion, but we are just resetting DATA here.
         ]);
 
-        // 2. Aggressive Local Clean (Wipe everything)
+        // 2. Clear Local Storage (Wipes cached Views, Themes, Username, etc.)
         localStorage.clear(); 
-        
-        // 3. Reset Context State
+        sessionStorage.clear();
+
+        // 3. Reset Context State (Visual Feedback)
         updateSettings({ 
             darkMode: false, 
             fontSize: 16 as const, 
@@ -371,16 +375,17 @@ export default function SettingsPage() {
         await supabase.auth.signOut();
         logout();
 
-        showNotification({ type: "success", message: "Factory reset complete. Goodbye.", duration: 2000 });
-        
-        // 5. Hard Redirect to Home
-        setTimeout(() => window.location.href = "/", 1000);
+        showNotification({ type: "success", message: "System Reset Complete. Goodbye.", duration: 2000 });
       }
     } catch (error) {
       console.error("Reset Error:", error);
-      // Fallback: If DB fails, still kill local session to protect user
-      localStorage.clear();
-      window.location.href = "/";
+      // Even if DB fails, we proceed to kill the local session in 'finally'
+    } finally {
+       // 5. GUARANTEED HARD RELOAD -> LOGIN PAGE
+       // This forces the browser to drop all state and re-fetch '0' values from the empty DB.
+       setTimeout(() => {
+          window.location.href = "/"; 
+       }, 1000);
     }
   };
 
@@ -438,69 +443,163 @@ export default function SettingsPage() {
               {/* ======================= TAB: APPEARANCE ======================= */}
               <TabsContent value="appearance" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
-                    <Card className={`p-6 md:p-8 border border-white/20 shadow-xl relative overflow-hidden transition-all duration-500 rounded-[2rem] ${settings.darkMode ? "bg-slate-900/60" : "bg-orange-50/80"} backdrop-blur-2xl`}>
+                    <Card className={`p-6 md:p-8 border border-white/20 shadow-xl relative overflow-hidden transition-all duration-500 rounded-[2rem] ${settings.darkMode ? "bg-slate-900/80 border-slate-800" : "bg-gradient-to-br from-amber-50 to-orange-100/80 border-orange-100"} backdrop-blur-3xl`}>
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                       <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
                         <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ${settings.darkMode ? "bg-slate-800 text-primary" : "bg-white text-primary"}`}>
-                            {settings.darkMode ? <Moon size={40} /> : <Sun size={40} />}
-                          </div>
+                          <motion.div 
+                            whileHover={{ scale: 1.05, rotate: 5 }}
+                            className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg ${settings.darkMode ? "bg-slate-800 text-indigo-400" : "bg-white text-orange-500"}`}
+                          >
+                            {settings.darkMode ? <Moon size={36} className="drop-shadow-md" /> : <Sun size={36} className="drop-shadow-md" />}
+                          </motion.div>
                           <div>
                             <h3 className="font-bold text-2xl text-foreground mb-1">{getModeLabel()}</h3>
-                            <p className="text-muted-foreground font-medium text-sm">Choose the interface theme that best fits your environment.</p>
+                            <p className="text-muted-foreground font-medium text-sm max-w-sm">
+                               Switch between a clean, vibrant light theme and an easy-on-the-eyes dark mode.
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-full border border-slate-200 dark:border-slate-700">
-                          <Switch checked={settings.darkMode} onCheckedChange={(c) => handleInstantChange({ darkMode: c })} className="data-[state=checked]:bg-primary" />
+                        <div className="flex items-center gap-3 bg-white/40 dark:bg-black/20 p-1.5 pl-4 pr-2 rounded-full border border-white/20 backdrop-blur-md shadow-sm">
+                          <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Mode</span>
+                          <Switch checked={settings.darkMode} onCheckedChange={(c) => handleInstantChange({ darkMode: c })} className="data-[state=checked]:bg-primary scale-110" />
                         </div>
                       </div>
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <motion.div variants={itemVariant}>
-                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/60 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Type size={20} /></div>
-                                <h3 className="font-bold text-lg">Typography Scale</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Typography Scale - Enhanced */}
+                      <motion.div variants={itemVariant} className="h-full">
+                        <Card className="group h-full p-8 border border-white/20 shadow-2xl bg-gradient-to-br from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-2xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-primary/5">
+                            {/* Decorative Background Glow */}
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-primary/20 transition-all duration-700" />
+                            
+                            <div className="flex items-center gap-4 mb-8 relative z-10">
+                                <div className="p-3.5 bg-background/80 shadow-sm border border-black/5 dark:border-white/5 rounded-2xl text-primary backdrop-blur-md">
+                                  <Type size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                  <h3 className="font-black text-xl text-foreground tracking-tight">Typography</h3>
+                                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider opacity-70">Readability Scale</p>
+                                </div>
                             </div>
-                            <div className="space-y-3">
-                                {FONT_SIZES.map(size => (
-                                    <button key={size} onClick={() => handleInstantChange({ fontSize: size })}
-                                        className={cn(
-                                          "w-full p-4 rounded-2xl border flex items-center justify-between transition-all",
-                                          settings.fontSize === size ? "border-primary/50 bg-primary/5 shadow-sm" : "border-transparent bg-white/50 dark:bg-black/20 hover:bg-white/80"
-                                        )}
+                            
+                            <div className="space-y-4 relative z-10">
+                                {FONT_SIZES.map(size => {
+                                  const isActive = settings.fontSize === size;
+                                  return (
+                                    <button 
+                                      key={size} 
+                                      onClick={() => handleInstantChange({ fontSize: size })}
+                                      className="relative w-full group/btn"
                                     >
-                                        <span className={cn("text-sm", settings.fontSize === size ? "font-extrabold text-primary" : "font-bold text-muted-foreground")}>{size === 14 ? "Compact" : size === 16 ? "Standard" : "Comfort"}</span>
-                                        <span className="text-sm font-serif opacity-70" style={{ fontSize: size }}>Aa</span>
+                                      <div className={cn(
+                                        "relative z-10 flex items-center justify-between p-5 rounded-3xl border transition-all duration-300",
+                                        isActive ? "border-primary/50 text-primary shadow-lg shadow-primary/10" : "border-transparent bg-white/40 dark:bg-black/20 hover:bg-white/60 dark:hover:bg-black/30 hover:scale-[1.02]"
+                                      )}>
+                                        {isActive && (
+                                          <motion.div
+                                            layoutId="active-type-bg"
+                                            className="absolute inset-0 bg-primary/5 rounded-3xl"
+                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                          />
+                                        )}
+                                        
+                                        <div className="flex flex-col items-start gap-1">
+                                          <span className={cn("text-xs font-extrabold tracking-widest uppercase", isActive ? "text-primary" : "text-muted-foreground/70")}>
+                                            {size === 14 ? "Compact" : size === 16 ? "Balanced" : "Relaxed"}
+                                          </span>
+                                          <span className="text-[10px] font-medium opacity-50">{size}px</span>
+                                        </div>
+
+                                        <div className="flex items-center justify-center w-12 h-12 bg-background/50 rounded-2xl border border-black/5 dark:border-white/5 shadow-inner">
+                                          <motion.span 
+                                            animate={{ fontSize: size }} 
+                                            className={cn("font-serif leading-none", isActive ? "text-primary" : "text-foreground/60")}
+                                          >
+                                            Aa
+                                          </motion.span>
+                                        </div>
+                                      </div>
                                     </button>
-                                ))}
+                                  );
+                                })}
                             </div>
                         </Card>
                       </motion.div>
 
-                      <motion.div variants={itemVariant}>
-                        <Card className="p-6 h-full border border-white/20 shadow-lg bg-white/60 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[2rem]">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Palette size={20} /></div>
-                                <h3 className="font-bold text-lg">Accent Color</h3>
+                      {/* Accent Color - Enhanced */}
+                      <motion.div variants={itemVariant} className="h-full">
+                        <Card className="group h-full p-8 border border-white/20 shadow-2xl bg-gradient-to-bl from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-2xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-primary/5">
+                            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none group-hover:bg-primary/20 transition-all duration-700" />
+
+                            <div className="flex items-center gap-4 mb-8 relative z-10">
+                                <div className="p-3.5 bg-background/80 shadow-sm border border-black/5 dark:border-white/5 rounded-2xl text-primary backdrop-blur-md">
+                                  <Palette size={22} strokeWidth={2.5} />
+                                </div>
+                                <div>
+                                  <h3 className="font-black text-xl text-foreground tracking-tight">Vibrancy</h3>
+                                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider opacity-70">System Accent</p>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
-                                {Object.entries(ACCENT).map(([key, color]) => (
-                                    <button key={key} onClick={() => handleInstantChange({ colorTheme: key as any })} className="flex flex-col items-center gap-2 group">
-                                        <div 
-                                            className={cn("w-12 h-12 rounded-2xl shadow-sm transition-all flex items-center justify-center", settings.colorTheme === key ? "ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 ring-slate-400 scale-110" : "opacity-80 group-hover:opacity-100")}
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5 relative z-10">
+                                {Object.entries(ACCENT).map(([key, color]) => {
+                                  const isActive = settings.colorTheme === key;
+                                  return (
+                                    <button 
+                                      key={key} 
+                                      onClick={() => handleInstantChange({ colorTheme: key as any })} 
+                                      className="group/color flex flex-col items-center gap-3 relative p-2"
+                                    >
+                                      <div className="relative">
+                                        {/* Selection Ring Animation */}
+                                        {isActive && (
+                                          <motion.div
+                                            layoutId="active-color-ring"
+                                            className="absolute -inset-2 rounded-full border-2 border-primary/30"
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                          />
+                                        )}
+                                        
+                                        <motion.div 
+                                            whileHover={{ scale: 1.15, rotate: 10 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            className={cn(
+                                              "w-14 h-14 rounded-full shadow-xl flex items-center justify-center relative overflow-hidden transition-all duration-500",
+                                              isActive ? "shadow-primary/40 ring-4 ring-background" : "shadow-black/5 hover:shadow-lg opacity-90 hover:opacity-100"
+                                            )}
                                             style={{ backgroundColor: color }}
                                         >
-                                           {settings.colorTheme === key && <Check className="text-white w-6 h-6" strokeWidth={3} />}
-                                        </div>
-                                        <span className={cn("text-[10px] font-bold uppercase tracking-wider", settings.colorTheme === key ? "text-primary" : "text-muted-foreground")}>{THEME_NAMES[key as keyof typeof THEME_NAMES]}</span>
+                                           <div className="absolute inset-0 bg-gradient-to-tr from-black/10 to-white/20" />
+                                           <AnimatePresence>
+                                             {isActive && (
+                                               <motion.div 
+                                                 initial={{ scale: 0, opacity: 0 }} 
+                                                 animate={{ scale: 1, opacity: 1 }} 
+                                                 exit={{ scale: 0, opacity: 0 }}
+                                               >
+                                                 <Check className="text-white drop-shadow-md" size={20} strokeWidth={4} />
+                                               </motion.div>
+                                             )}
+                                           </AnimatePresence>
+                                        </motion.div>
+                                      </div>
+                                      
+                                      <span className={cn(
+                                        "text-[10px] font-extrabold uppercase tracking-widest transition-colors duration-300", 
+                                        isActive ? "text-foreground translate-y-0" : "text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1 opacity-70 group-hover/color:opacity-100 group-hover/color:translate-y-0"
+                                      )}>
+                                        {THEME_NAMES[key as keyof typeof THEME_NAMES].split(' ')[1]}
+                                      </span>
                                     </button>
-                                ))}
+                                  );
+                                })}
                             </div>
                         </Card>
                       </motion.div>
-                  </div>
+                  </div>  
               </TabsContent>
 
               {/* ======================= TAB: ACCOUNT ======================= */}
