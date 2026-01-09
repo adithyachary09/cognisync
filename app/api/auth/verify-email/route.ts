@@ -12,24 +12,35 @@ export async function POST(request: Request) {
       .from('verification_tokens')
       .select('id, user_id, expires_at')
       .eq('token', token)
-      .gt('expires_at', new Date().toISOString()) // Must not be expired
-      .maybeSingle();
+      .maybeSingle(); // We check expiry manually below for clearer errors
 
+    // Detailed Error Handling
     if (tokenError || !verificationEntry) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // 2. Update User as Verified
-    const { error: userUpdateError } = await supabaseAdmin
+    if (new Date(verificationEntry.expires_at) < new Date()) {
+      return NextResponse.json({ error: 'Link Expired' }, { status: 410 }); // 410 Gone
+    }
+
+    // 2. Update Supabase AUTH User (Critical: This updates the actual system session)
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+      verificationEntry.user_id,
+      { email_confirm: true } // This sets the system 'email_confirmed_at'
+    );
+
+    if (authError) {
+      console.error("Auth Update Failed:", authError);
+      return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
+    }
+
+    // 3. Optional: Sync to public 'users' table if you use one
+    await supabaseAdmin
       .from('users')
       .update({ email_confirmed_at: new Date().toISOString() })
       .eq('id', verificationEntry.user_id);
 
-    if (userUpdateError) {
-      return NextResponse.json({ error: 'Failed to verify user' }, { status: 500 });
-    }
-
-    // 3. Cleanup: Delete the used token
+    // 4. Cleanup: Delete the used token
     await supabaseAdmin
       .from('verification_tokens')
       .delete()

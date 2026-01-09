@@ -631,22 +631,22 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-              {/* ======================= TAB: ACCOUNT ======================= */}
-              <TabsContent value="account" className="space-y-6 m-0">
+             {/* ======================= TAB: ACCOUNT ======================= */}
+              <TabsContent value="account" className="space-y-8 m-0">
                   <motion.div variants={itemVariant}>
-                    <Card className="relative p-8 border border-white/20 shadow-2xl overflow-hidden backdrop-blur-3xl bg-gradient-to-br from-white/80 via-white/50 to-white/20 dark:from-slate-900/80 dark:via-slate-900/50 dark:to-slate-900/20 rounded-[3rem]">
+                    <Card className="relative p-8 border border-white/20 shadow-2xl overflow-hidden backdrop-blur-3xl bg-gradient-to-br from-white/90 via-white/60 to-white/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-slate-900/30 rounded-[3rem]">
                       {/* Ambient Glow */}
                       <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
                       
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
                         <div className="relative group">
                            {/* Avatar Container */}
-                           <div className="relative w-36 h-36 rounded-full p-1 bg-gradient-to-tr from-white/50 to-primary/20 backdrop-blur-md shadow-2xl">
+                           <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-white/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-slate-100 dark:bg-black overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
                                  {settings.avatar ? (
                                     <img src={settings.avatar} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-4xl font-black text-slate-300 dark:text-slate-700 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-black">
+                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-slate-300 dark:text-slate-700 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-black">
                                        {settings.username?.slice(0,2).toUpperCase()}
                                     </div>
                                  )}
@@ -656,7 +656,7 @@ export default function SettingsPage() {
                                     onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
                                  >
-                                    <Camera className="text-white drop-shadow-md" size={24} />
+                                    <Camera className="text-white drop-shadow-md" size={28} />
                                     <span className="text-[9px] font-bold text-white uppercase tracking-widest">Edit</span>
                                  </button>
                               </div>
@@ -667,7 +667,7 @@ export default function SettingsPage() {
                            <button 
                              onClick={() => setShowSecurityInfo(!showSecurityInfo)}
                              className={cn(
-                                "absolute -bottom-4 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-xl border-2 border-white dark:border-black flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-20 hover:-translate-y-1", 
+                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-white dark:border-slate-950 flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-20 hover:-translate-y-1 hover:shadow-2xl", 
                                 security.color
                              )}
                            >
@@ -677,53 +677,53 @@ export default function SettingsPage() {
                            <AnimatePresence>
                               {showSecurityInfo && (
                                 <motion.div 
-                                   initial={{ opacity: 0, y: 10, scale: 0.9 }} 
-                                   animate={{ opacity: 1, y: 0, scale: 1 }} 
-                                   exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                   className="absolute top-[110%] left-1/2 -translate-x-1/2 mt-2 w-56 p-4 bg-white/90 dark:bg-black/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-white/10 z-50 text-center ring-1 ring-black/5"
+                                   initial={{ opacity: 0, y: 15, scale: 0.9 }} 
+                                   animate={{ opacity: 1, y: 5, scale: 1 }} 
+                                   exit={{ opacity: 0, y: 15, scale: 0.9 }}
+                                   className="absolute top-[100%] left-1/2 -translate-x-1/2 mt-2 w-64 p-5 bg-white/95 dark:bg-black/95 backdrop-blur-xl rounded-[1.5rem] shadow-2xl border border-white/20 dark:border-white/10 z-50 text-center ring-1 ring-black/5"
                                 >
-                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/90 dark:bg-black/90 rotate-45 border-l border-t border-white/20 dark:border-white/10" />
-                                  <p className="text-xs font-black uppercase tracking-widest mb-1.5 text-primary">Status Report</p>
+                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 dark:bg-black/95 rotate-45 border-l border-t border-white/20 dark:border-white/10" />
+                                  <p className="text-xs font-black uppercase tracking-widest mb-2 text-primary">Security Protocol</p>
                                   <p className="text-[11px] text-muted-foreground font-medium leading-relaxed">{security.desc}</p>
                                 </motion.div>
                               )}
                            </AnimatePresence>
                         </div>
 
-                        <div className="flex-1 space-y-6 text-center md:text-left w-full max-w-xl">
-                           <div className="flex flex-col md:items-start items-center gap-3">
-                              <label className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground/60 pl-1">Public Identity</label>
+                        <div className="flex-1 space-y-8 text-center md:text-left w-full max-w-2xl">
+                           <div className="flex flex-col md:items-start items-center gap-4">
+                              <label className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/50 pl-1">Public Identity</label>
                               <div className="flex items-center gap-4 w-full">
                                  <div className="relative flex-1 group/input">
                                     <Input 
                                        value={pendingUsername} 
                                        onChange={(e) => setPendingUsername(e.target.value)} 
-                                       className="h-14 bg-white/40 dark:bg-black/20 border-transparent focus:border-primary/30 hover:bg-white/60 dark:hover:bg-black/30 shadow-sm transition-all rounded-2xl text-2xl font-black tracking-tight px-5" 
+                                       className="h-16 bg-white/40 dark:bg-black/20 border-2 border-transparent focus:border-primary/20 hover:bg-white/60 dark:hover:bg-black/30 shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6" 
                                     />
-                                    {!isNameDirty && <span className="absolute right-5 top-1/2 -translate-y-1/2 opacity-30 pointer-events-none"><Check size={18} /></span>}
+                                    {!isNameDirty && <span className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={24} /></span>}
                                  </div>
                                  <button 
                                     onClick={handleUsernameSave} 
                                     disabled={!isNameDirty || isSavingName} 
-                                    className="h-14 px-8 rounded-2xl bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-xl shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+                                    className="h-16 px-10 rounded-[1.2rem] bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95"
                                  >
-                                    {isSavingName ? <Loader2 size={20} className="animate-spin" /> : "Save"}
+                                    {isSavingName ? <Loader2 size={24} className="animate-spin" /> : "Save"}
                                  </button>
                               </div>
                            </div>
                            
-                           <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
+                           <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
                            <div className="flex items-center gap-6 justify-center md:justify-start">
-                             <div className="h-9 px-4 rounded-xl bg-white/50 dark:bg-white/5 border border-white/20 dark:border-white/10 text-muted-foreground text-[11px] font-bold inline-flex items-center gap-2.5 shadow-sm backdrop-blur-sm">
-                                <Sparkles size={14} className="text-amber-400" /> Joined {memberSinceYear}
+                             <div className="h-10 px-5 rounded-2xl bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 text-muted-foreground text-[11px] font-bold inline-flex items-center gap-3 shadow-sm backdrop-blur-sm">
+                                <Sparkles size={14} className="text-amber-400 fill-amber-400" /> Member since {memberSinceYear}
                              </div>
                              {settings.avatar && (
                                 <button 
                                    onClick={handleRemoveAvatar} 
-                                   className="text-[11px] font-bold text-rose-500/80 hover:text-rose-600 hover:bg-rose-500/10 px-4 py-2 rounded-xl transition-all flex items-center gap-2"
+                                   className="text-[11px] font-bold text-rose-500/80 hover:text-rose-600 hover:bg-rose-500/10 px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 group"
                                 >
-                                   <Trash2 size={14} /> Reset Photo
+                                   <Trash2 size={14} className="group-hover:rotate-12 transition-transform" /> Remove Photo
                                 </button>
                              )}
                            </div>
@@ -732,47 +732,55 @@ export default function SettingsPage() {
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                      {/* EMAIL SECURITY CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-primary/5">
-                         <div className={cn("absolute -top-10 -right-10 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
-                         <div className="absolute top-6 right-6 opacity-[0.03]"><Mail size={140} /></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                      {/* EMAIL SECURITY CARD - Enhanced Height & Visuals */}
+                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-10 shadow-2xl relative overflow-hidden flex flex-col gap-10 transition-all hover:-translate-y-1 hover:shadow-primary/5 min-h-[400px]">
+                         <div className={cn("absolute -top-20 -right-20 w-80 h-80 rounded-full blur-[90px] opacity-25 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
+                         <div className="absolute top-10 right-10 opacity-[0.04] rotate-12"><Mail size={180} /></div>
                          
-                         <div className="relative z-10 flex flex-col gap-8">
-                           <div>
-                             <h3 className="text-xl font-black mb-2 flex items-center gap-2"><Mail size={20} className="text-primary" /> Email Security</h3>
-                             <p className="text-sm text-muted-foreground font-medium leading-relaxed">Secure your account recovery channels.</p>
+                         <div className="relative z-10 flex-1">
+                             <div className="flex items-center gap-4 mb-3">
+                               <div className={cn("p-3 rounded-2xl", emailStatus === 'verified' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600")}>
+                                  <Mail size={24} strokeWidth={2.5} />
+                               </div>
+                               <h3 className="text-2xl font-black tracking-tight">Email Security</h3>
+                             </div>
+                             <p className="text-sm text-muted-foreground font-medium leading-relaxed pl-1">Secure your primary communication and account recovery channels.</p>
 
-                             <div className={cn("mt-6 p-5 rounded-3xl border backdrop-blur-md transition-all duration-500", emailStatus === 'verified' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-amber-500/10 border-amber-500/20")}>
+                             <div className={cn("mt-8 p-6 rounded-[2rem] border backdrop-blur-md transition-all duration-500", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
                                 <div className="flex items-center justify-between">
                                    <div className="overflow-hidden mr-4">
-                                      <p className={cn("text-[10px] font-extrabold uppercase tracking-widest mb-1", emailStatus === 'verified' ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>Primary Address</p>
-                                      <p className="font-mono font-bold text-sm md:text-base truncate tracking-tight">{userEmail || "No email linked"}</p>
+                                      <p className={cn("text-[10px] font-extrabold uppercase tracking-[0.2em] mb-2", emailStatus === 'verified' ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>Linked Address</p>
+                                      <p className="font-mono font-bold text-lg truncate tracking-tight">{userEmail || "No email linked"}</p>
                                    </div>
-                                   <div className={cn("w-10 h-10 rounded-2xl flex-shrink-0 flex items-center justify-center text-white shadow-lg ring-4 ring-white/20 dark:ring-black/20", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
-                                      {emailStatus === 'verified' ? <Check size={20} strokeWidth={4} /> : <AlertTriangle size={20} strokeWidth={3} />}
+                                   <div className={cn("w-12 h-12 rounded-[1.2rem] flex-shrink-0 flex items-center justify-center text-white shadow-xl ring-4 ring-white/30 dark:ring-black/20", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
+                                      {emailStatus === 'verified' ? <Check size={24} strokeWidth={4} /> : <AlertTriangle size={24} strokeWidth={3} />}
                                    </div>
                                 </div>
                              </div>
-                           </div>
+                         </div>
 
-                           <div>
+                         <div className="relative z-10">
                              {emailStatus === 'verified' ? (
-                                <div className="flex items-center justify-between pt-6 border-t border-dashed border-slate-200 dark:border-white/10">
-                                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Protected
+                                <div className="flex items-center justify-between pt-8 border-t border-dashed border-slate-200 dark:border-white/10">
+                                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                                      <span className="relative flex h-3 w-3">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                                      </span>
+                                      Account Protected
                                    </span>
-                                   <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-4 py-2 rounded-lg transition-all">Unlink</button>
+                                   <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-5 py-2.5 rounded-xl transition-all">Unlink Address</button>
                                 </div>
                              ) : (
-                                <div className="space-y-4">
-                                   {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-12 rounded-xl" />}
+                                <div className="space-y-5">
+                                   {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-14 rounded-2xl text-lg" />}
                                    
                                    <button 
                                       onClick={sendEmailVerification} 
                                       disabled={emailStatus === "sending" || emailCountdown > 0} 
                                       className={cn(
-                                        "w-full h-14 rounded-2xl text-sm font-bold text-white shadow-xl transition-all flex items-center justify-center gap-3 relative overflow-hidden group",
+                                        "w-full h-16 rounded-[1.2rem] text-sm font-bold text-white shadow-2xl transition-all flex items-center justify-center gap-3 relative overflow-hidden group",
                                         emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900 dark:bg-white dark:text-black hover:scale-[1.02] active:scale-95"
                                       )}
                                    >
@@ -780,175 +788,179 @@ export default function SettingsPage() {
                                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                                       )}
                                       
-                                      {emailStatus === "sending" ? <Loader2 size={18} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <span className="flex items-center gap-2">Send Verification Link <ArrowRight size={16} className="opacity-70 group-hover:translate-x-1 transition-transform" /></span>}
+                                      {emailStatus === "sending" ? <Loader2 size={20} className="animate-spin" /> : emailCountdown > 0 ? `Resend Link in ${emailCountdown}s` : <span className="flex items-center gap-2">Send Verification Link <ArrowRight size={18} className="opacity-70 group-hover:translate-x-1 transition-transform" /></span>}
                                    </button>
-                                   <p className="text-[10px] text-center font-medium text-muted-foreground opacity-70">A secure link will be sent to your inbox.</p>
+                                   <p className="text-[10px] text-center font-bold uppercase tracking-wide text-muted-foreground/60">Secure Verification Protocol</p>
                                 </div>
                              )}
-                           </div>
                          </div>
                       </motion.div>
 
-                      {/* CONNECTED ACCOUNTS & LOGOUT */}
-                      <motion.div variants={itemVariant} className="space-y-6 flex flex-col">
-                          <div className="flex items-center justify-between p-6 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[2.5rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden">
-                            <div className="absolute inset-0 bg-blue-500/5 opacity-50" />
-                            <div className="flex items-center gap-5 relative z-10">
-                               <div className="w-14 h-14 bg-white rounded-[1.2rem] flex items-center justify-center shadow-md border border-white/50"><span className="text-2xl font-black text-blue-600">G</span></div>
-                               <div><h4 className="font-bold text-sm">Google Workspace</h4><p className="text-[10px] font-semibold text-muted-foreground mt-0.5">{isGoogleUser ? "Connected (Primary)" : "Not Linked"}</p></div>
+                      {/* CONNECTED ACCOUNTS / ACCESS CONTROL */}
+                      <motion.div variants={itemVariant} className="flex flex-col h-full gap-8">
+                          {/* Google Workspace */}
+                          <div className="flex items-center justify-between p-8 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[3rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden group">
+                            <div className="absolute inset-0 bg-blue-500/5 opacity-50 group-hover:bg-blue-500/10 transition-colors" />
+                            <div className="flex items-center gap-6 relative z-10">
+                               <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/50"><span className="text-3xl font-black text-blue-600">G</span></div>
+                               <div><h4 className="font-bold text-lg text-foreground">Google Workspace</h4><p className="text-[11px] font-bold text-muted-foreground/70 mt-1 uppercase tracking-wide">{isGoogleUser ? "Connected (Primary)" : "Not Linked"}</p></div>
                             </div>
-                            {isGoogleUser && <div className="relative z-10 px-3 py-1.5 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[9px] font-black rounded-lg border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active</div>}
+                            {isGoogleUser && <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>}
                           </div>
 
                           {!isGoogleUser && (
-                             <div className="p-8 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[2.5rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex flex-col">
-                                <div className="flex items-center gap-3 mb-6">
-                                   <div className="w-10 h-10 flex items-center justify-center bg-primary/10 rounded-xl text-primary"><Lock size={20} strokeWidth={2.5} /></div>
-                                   <h4 className="font-black text-lg tracking-tight">Access Control</h4>
+                             <div className="p-10 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[3rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
+                                {/* Decor */}
+                                <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-bl-[100px] pointer-events-none" />
+                                
+                                <div className="flex items-center gap-4 mb-8 relative z-10">
+                                   <div className="w-12 h-12 flex items-center justify-center bg-primary/10 rounded-2xl text-primary border border-primary/10"><Lock size={24} strokeWidth={2.5} /></div>
+                                   <div><h4 className="font-black text-xl tracking-tight text-foreground">Access Control</h4><p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Credential Management</p></div>
                                 </div>
 
-                                <div className="space-y-4">
-                                   {/* Step 1: Verify Current Password */}
-                                   <div className="relative group/field">
-                                     <Input 
-                                       type={showCurrent ? "text" : "password"} 
-                                       placeholder="Current Password" 
-                                       value={currentPwd} 
-                                       onChange={(e) => setCurrentPwd(e.target.value)} 
-                                       disabled={pwdStage === "verified" || pwdStage === "saving"}
-                                       className={cn(
-                                         "h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 transition-all font-medium border-transparent focus:border-primary/30",
-                                         pwdStage === "verified" && "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400"
-                                       )} 
-                                     />
-                                     <button 
-                                       type="button"
-                                       onClick={() => setShowCurrent(!showCurrent)}
-                                       className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
-                                     >
-                                       {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
-                                     </button>
-                                   </div>
-
-                                   {/* Step 2: New Password Fields (Only appears after verification) */}
-                                   <AnimatePresence>
-                                     {pwdStage === "verified" && (
+                                <div className="space-y-5 relative z-10">
+                                   {/* View 1: Verify Current Password (Shown only if NOT verified) */}
+                                   <AnimatePresence mode="wait">
+                                     {pwdStage !== "verified" && pwdStage !== "saving" ? (
                                        <motion.div 
-                                         initial={{ opacity: 0, height: 0 }} 
-                                         animate={{ opacity: 1, height: "auto" }} 
-                                         exit={{ opacity: 0, height: 0 }}
-                                         className="space-y-3 overflow-hidden"
+                                          key="verify-step"
+                                          initial={{ opacity: 0, x: -20 }}
+                                          animate={{ opacity: 1, x: 0 }}
+                                          exit={{ opacity: 0, x: 20 }}
+                                          className="space-y-5"
                                        >
-                                         <div className="grid grid-cols-1 gap-3 pt-1">
-                                           <div className="relative">
-                                             <Input 
-                                               type={showNew ? "text" : "password"} 
-                                               placeholder="New Strong Password" 
-                                               value={newPwd} 
-                                               onChange={(e) => setNewPwd(e.target.value)} 
-                                               className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
-                                             />
+                                          <div className="relative group/field">
+                                            <Input 
+                                              type={showCurrent ? "text" : "password"} 
+                                              placeholder="Current Password" 
+                                              value={currentPwd} 
+                                              onChange={(e) => setCurrentPwd(e.target.value)} 
+                                              disabled={pwdStage === "verifying"}
+                                              className="h-16 rounded-[1.2rem] bg-white/40 dark:bg-black/20 pr-14 transition-all font-bold text-lg border-2 border-transparent focus:border-primary/20 hover:bg-white/60 dark:hover:bg-black/30" 
+                                            />
+                                            <button 
+                                              type="button"
+                                              onClick={() => setShowCurrent(!showCurrent)}
+                                              className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
+                                            >
+                                              {showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}
+                                            </button>
+                                          </div>
+                                          
+                                          <button 
+                                            onClick={verifyCurrentPassword} 
+                                            disabled={!currentPwd || pwdStage === "verifying"}
+                                            className="w-full h-16 bg-foreground text-background text-sm font-black uppercase tracking-[0.15em] rounded-[1.2rem] shadow-2xl hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all flex items-center justify-center gap-3"
+                                          >
+                                            {pwdStage === "verifying" ? <Loader2 size={18} className="animate-spin" /> : <div className="flex items-center gap-2">Verify Identity <ArrowRight size={18} /></div>}
+                                          </button>
+                                       </motion.div>
+                                     ) : (
+                                       /* View 2: Update New Password (Shown ONLY after verification) */
+                                       <motion.div 
+                                          key="update-step"
+                                          initial={{ opacity: 0, scale: 0.95 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          className="space-y-4"
+                                       >
+                                          <div className="p-3 mb-2 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center gap-2 text-green-600 font-bold text-xs">
+                                             <Check size={14} strokeWidth={3} /> Identity Verified
+                                          </div>
+                                          <div className="space-y-3">
+                                            <div className="relative">
+                                              <Input 
+                                                type={showNew ? "text" : "password"} 
+                                                placeholder="New Strong Password" 
+                                                value={newPwd} 
+                                                onChange={(e) => setNewPwd(e.target.value)} 
+                                                className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
+                                              />
+                                              <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">
+                                                {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+                                              </button>
+                                            </div>
+                                            <div className="relative">
+                                              <Input 
+                                                type={showConfirm ? "text" : "password"} 
+                                                placeholder="Confirm New Password" 
+                                                value={confirmPwd} 
+                                                onChange={(e) => setConfirmPwd(e.target.value)} 
+                                                className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
+                                              />
+                                              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">
+                                                {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                              </button>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex gap-3 pt-2">
                                              <button 
-                                               type="button"
-                                               onClick={() => setShowNew(!showNew)}
-                                               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground"
+                                               onClick={() => {
+                                                 setPwdStage("idle");
+                                                 setCurrentPwd("");
+                                                 setNewPwd("");
+                                                 setConfirmPwd("");
+                                               }} 
+                                               className="flex-1 h-14 rounded-2xl border border-transparent hover:bg-muted/50 text-xs font-black uppercase tracking-wider text-muted-foreground transition-all"
                                              >
-                                               {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+                                               Cancel
                                              </button>
-                                           </div>
-                                           <div className="relative">
-                                             <Input 
-                                               type={showConfirm ? "text" : "password"} 
-                                               placeholder="Confirm Password" 
-                                               value={confirmPwd} 
-                                               onChange={(e) => setConfirmPwd(e.target.value)} 
-                                               className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
-                                             />
                                              <button 
-                                               type="button"
-                                               onClick={() => setShowConfirm(!showConfirm)}
-                                               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground"
+                                               onClick={saveNewPassword} 
+                                               disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
+                                               className="flex-[2] h-14 bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg hover:bg-emerald-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 hover:shadow-emerald-500/20"
                                              >
-                                               {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                               {pwdStage === "saving" && <Loader2 size={16} className="animate-spin" />}
+                                               Update Credentials
                                              </button>
-                                           </div>
-                                         </div>
+                                          </div>
                                        </motion.div>
                                      )}
                                    </AnimatePresence>
-
-                                   {/* Action Buttons */}
-                                   <div className="flex justify-end gap-3 pt-3">
-                                      {pwdStage !== "idle" && (
-                                        <button 
-                                          onClick={() => {
-                                            setPwdStage("idle");
-                                            setCurrentPwd("");
-                                            setNewPwd("");
-                                            setConfirmPwd("");
-                                          }} 
-                                          className="text-[11px] font-extrabold text-muted-foreground hover:text-foreground px-4 uppercase tracking-wider"
-                                        >
-                                          Cancel
-                                        </button>
-                                      )}
-                                      
-                                      {pwdStage === "idle" || pwdStage === "verifying" ? (
-                                        <button 
-                                          onClick={verifyCurrentPassword} 
-                                          disabled={!currentPwd || pwdStage === "verifying"}
-                                          className="h-12 px-6 bg-foreground text-background text-xs font-black uppercase tracking-wider rounded-xl shadow-xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all flex items-center gap-2"
-                                        >
-                                          {pwdStage === "verifying" && <Loader2 size={14} className="animate-spin" />}
-                                          Verify to Edit
-                                        </button>
-                                      ) : (
-                                        <button 
-                                          onClick={saveNewPassword} 
-                                          disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
-                                          className="h-12 px-6 bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-lg hover:bg-emerald-600 disabled:opacity-50 transition-all flex items-center gap-2"
-                                        >
-                                          {pwdStage === "saving" && <Loader2 size={14} className="animate-spin" />}
-                                          Update Securely
-                                        </button>
-                                      )}
-                                   </div>
-                               </div>
+                                </div>
                              </div>
                           )}
+                      </motion.div>
+                  </div>
 
-                          {/* Session Control - Premium Slider */}
-                          <div className="p-2 rounded-[2.5rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 mt-auto shadow-lg backdrop-blur-md">
-                            <div className="flex flex-col items-center justify-between p-6 gap-6">
-                               <div className="flex gap-5 w-full items-center">
-                                  <div className="w-12 h-12 bg-white dark:bg-rose-950/30 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-200/50 dark:border-rose-900/50"><LogOut size={22} strokeWidth={2.5} /></div>
-                                  <div><h4 className="font-black text-base text-foreground tracking-tight">Session Control</h4><p className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider mt-0.5">Termination Protocol</p></div>
-                               </div>
-                               
+                  {/* SESSION CONTROL - Full Width Premium Slider */}
+                  <motion.div variants={itemVariant} className="mt-8">
+                      <div className="p-2 rounded-[3rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 shadow-2xl backdrop-blur-2xl group">
+                        <div className="flex flex-col md:flex-row items-center justify-between p-8 gap-8">
+                           <div className="flex gap-6 items-center text-center md:text-left">
+                              <div className="w-16 h-16 bg-white dark:bg-rose-950/30 rounded-[1.5rem] flex items-center justify-center text-rose-500 shadow-xl border border-rose-200/50 dark:border-rose-900/50 group-hover:scale-110 transition-transform duration-500"><LogOut size={28} strokeWidth={2.5} /></div>
+                              <div>
+                                <h4 className="font-black text-2xl text-foreground tracking-tight mb-1">System Termination</h4>
+                                <p className="text-xs font-bold text-muted-foreground/70 uppercase tracking-[0.15em]">Secure Session Logout Protocol</p>
+                              </div>
+                           </div>
+                           
+                           <div className="w-full md:max-w-md">
                                <div 
-                                  className="relative w-full h-14 bg-white/80 dark:bg-black/40 rounded-2xl border border-rose-200 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none group touch-none"
+                                  className="relative w-full h-20 bg-white/80 dark:bg-black/40 rounded-[1.5rem] border-2 border-rose-100 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none touch-none transition-all active:scale-[0.98]"
                                   onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
                                >
-                                  {/* Animated Stripes Background */}
-                                  <div className="absolute inset-0 opacity-10 bg-[length:10px_10px] bg-[linear-gradient(45deg,transparent_25%,#000_25%,#000_50%,transparent_50%,transparent_75%,#000_75%,#000_100%)] dark:bg-[linear-gradient(45deg,transparent_25%,#fff_25%,#fff_50%,transparent_50%,transparent_75%,#fff_75%,#fff_100%)]" />
+                                  {/* Background Pattern */}
+                                  <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
                                   
-                                  {/* Progress Fill */}
-                                  <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 to-red-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }} />
+                                  {/* Liquid Fill */}
+                                  <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }}>
+                                     <div className="absolute right-0 top-0 bottom-0 w-px bg-white/50 box-shadow-[0_0_20px_white]" />
+                                  </div>
                                   
-                                  <div className="absolute inset-0 flex items-center justify-center gap-3 z-10">
-                                     <div className={cn("transition-transform duration-300", logoutProgress > 0 ? "scale-110" : "scale-100")}>
-                                        <Loader2 size={16} className={cn("animate-spin transition-opacity", logoutProgress > 0 ? "opacity-100 text-white" : "opacity-0")} />
-                                     </div>
-                                     <span className={cn("text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-300", logoutProgress > 50 ? "text-white" : "text-rose-500/80")}>
-                                        {logoutProgress > 0 ? (logoutProgress >= 100 ? "GOODBYE" : "HOLDING...") : "HOLD TO DISCONNECT"}
+                                  <div className="absolute inset-0 flex items-center justify-center gap-4 z-10 pointer-events-none">
+                                     <span className={cn("text-xs font-black uppercase tracking-[0.25em] transition-all duration-300 drop-shadow-sm", logoutProgress > 50 ? "text-white translate-x-2" : "text-rose-500/60")}>
+                                        {logoutProgress > 0 ? (logoutProgress >= 100 ? "DISCONNECTING..." : `HOLDING ${Math.floor(logoutProgress)}%`) : "HOLD TO DISCONNECT"}
                                      </span>
                                   </div>
                                </div>
-                            </div>
-                          </div>
-                      </motion.div>
-                  </div>
-              </TabsContent>
+                           </div>
+                        </div>
+                      </div>
+                  </motion.div>
+              </TabsContent> 
+
+
       {/* ======================= TAB: DATA ======================= */}
 
               <TabsContent value="data" className="space-y-6 m-0">

@@ -42,12 +42,16 @@ function VerifyEmailContent() {
         }
 
         setStatus("success");
-        setMessage("Your identity has been confirmed.");
+        setMessage("Your identity has been confirmed. You may now close this tab.");
         
-        // Auto-close attempt after 3 seconds
-        setTimeout(() => {
-           handleCloseOrRedirect();
-        }, 3000);
+        // Notify other tabs (Settings Page) to auto-reload
+        try {
+          const channel = new BroadcastChannel('cognisync-auth-events');
+          channel.postMessage({ event: 'email_verified' });
+          channel.close();
+        } catch (e) {
+          // Fallback for older browsers if needed
+        }
 
       } catch (err: any) {
         console.error("Verification Error:", err);
