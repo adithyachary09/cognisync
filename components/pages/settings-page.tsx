@@ -631,7 +631,7 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-            {/* ======================= TAB: ACCOUNT ======================= */}
+              {/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
                     <Card className="relative p-8 border border-white/20 shadow-2xl overflow-hidden backdrop-blur-3xl bg-gradient-to-br from-white/80 via-white/50 to-white/20 dark:from-slate-900/80 dark:via-slate-900/50 dark:to-slate-900/20 rounded-[3rem]">
@@ -732,13 +732,13 @@ export default function SettingsPage() {
                     </Card>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                       {/* EMAIL SECURITY CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-8 shadow-2xl relative overflow-hidden h-full flex flex-col transition-all hover:-translate-y-1 hover:shadow-primary/5">
+                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-8 shadow-2xl relative overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-primary/5">
                          <div className={cn("absolute -top-10 -right-10 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
                          <div className="absolute top-6 right-6 opacity-[0.03]"><Mail size={140} /></div>
                          
-                         <div className="relative z-10 flex-1 flex flex-col justify-between gap-8">
+                         <div className="relative z-10 flex flex-col gap-8">
                            <div>
                              <h3 className="text-xl font-black mb-2 flex items-center gap-2"><Mail size={20} className="text-primary" /> Email Security</h3>
                              <p className="text-sm text-muted-foreground font-medium leading-relaxed">Secure your account recovery channels.</p>
@@ -756,7 +756,7 @@ export default function SettingsPage() {
                              </div>
                            </div>
 
-                           <div className="mt-auto">
+                           <div>
                              {emailStatus === 'verified' ? (
                                 <div className="flex items-center justify-between pt-6 border-t border-dashed border-slate-200 dark:border-white/10">
                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
@@ -790,7 +790,7 @@ export default function SettingsPage() {
                       </motion.div>
 
                       {/* CONNECTED ACCOUNTS & LOGOUT */}
-                      <motion.div variants={itemVariant} className="space-y-6 flex flex-col h-full">
+                      <motion.div variants={itemVariant} className="space-y-6 flex flex-col">
                           <div className="flex items-center justify-between p-6 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[2.5rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden">
                             <div className="absolute inset-0 bg-blue-500/5 opacity-50" />
                             <div className="flex items-center gap-5 relative z-10">
@@ -801,7 +801,7 @@ export default function SettingsPage() {
                           </div>
 
                           {!isGoogleUser && (
-                             <div className="p-8 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[2.5rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center">
+                             <div className="p-8 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[2.5rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex flex-col">
                                 <div className="flex items-center gap-3 mb-6">
                                    <div className="w-10 h-10 flex items-center justify-center bg-primary/10 rounded-xl text-primary"><Lock size={20} strokeWidth={2.5} /></div>
                                    <h4 className="font-black text-lg tracking-tight">Access Control</h4>
@@ -948,7 +948,7 @@ export default function SettingsPage() {
                           </div>
                       </motion.div>
                   </div>
-              </TabsContent>  
+              </TabsContent>
       {/* ======================= TAB: DATA ======================= */}
 
               <TabsContent value="data" className="space-y-6 m-0">
