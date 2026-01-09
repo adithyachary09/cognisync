@@ -303,7 +303,7 @@ export default function SettingsPage() {
     // 2. Update Context
     updateSettings(defaults);
     
-    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme)
+    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme & 'emerald' accent)
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
       detail: { 
         ...defaults, 
@@ -345,12 +345,14 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Wipe DB Data (Only for tables that ACTUALLY exist)
-        // We use Promise.allSettled so if one fails (e.g. table empty), others still finish.
+        // 1. Wipe DB Data (Using allSettled to ignore missing table errors)
         await Promise.allSettled([
           supabase.from('user_entries').delete().eq('user_id', user.id), 
           supabase.from('assessments').delete().eq('user_id', user.id),  
-          supabase.from('journal_entries').delete().eq('user_id', user.id),
+          supabase.from('daily_logs').delete().eq('user_id', user.id),   
+          supabase.from('chat_history').delete().eq('user_id', user.id), 
+          supabase.from('user_settings').delete().eq('user_id', user.id),
+          supabase.from('verification_tokens').delete().eq('user_id', user.id),
         ]);
 
         // 2. Aggressive Local Clean (Wipe everything)
@@ -376,7 +378,8 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("Reset Error:", error);
-      // Force logout anyway since local storage is wiped
+      // Fallback: If DB fails, still kill local session to protect user
+      localStorage.clear();
       window.location.href = "/";
     }
   };
