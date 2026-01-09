@@ -4,20 +4,21 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
-    const { email, newPassword } = await request.json(); // Note: Frontend sends 'newPassword' here manually
+    // FIX: Read 'password' instead of 'newPassword' to match frontend
+    const { email, password } = await request.json();
 
-    if (!email || !newPassword) {
+    if (!email || !password) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
     }
 
-    if (newPassword.length < 6) {
+    if (password.length < 6) {
        return NextResponse.json({ error: 'Password too short' }, { status: 400 });
     }
 
     // 1. Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // 2. Update DB (This effectively trashes the old password)
+    // 2. Update DB
     const { error } = await supabaseAdmin
       .from('users')
       .update({ password_hash: hashedPassword })

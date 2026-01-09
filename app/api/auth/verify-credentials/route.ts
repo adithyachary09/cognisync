@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !user || !user.password_hash) {
-      return NextResponse.json({ error: 'User not found or invalid' }, { status: 404 });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // 2. Verify Password

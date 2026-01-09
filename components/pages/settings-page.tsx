@@ -84,12 +84,12 @@ export default function SettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  
+   
   const isGoogleUser = 
     (user as any)?.app_metadata?.provider === 'google' || 
     (user as any)?.app_metadata?.providers?.includes('google') ||
     (user as any)?.identities?.some((id: any) => id.provider === 'google');
-   
+    
   const memberSinceYear = (user as any)?.created_at ? new Date((user as any).created_at).getFullYear() : new Date().getFullYear();
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
@@ -252,7 +252,6 @@ export default function SettingsPage() {
        const res = await fetch('/api/auth/update-password', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
-         // FIX: Changed 'password' to 'newPassword' to match your backend
          body: JSON.stringify({ email: userEmail, newPassword: newPwd }) 
        });
        if (!res.ok) throw new Error();
@@ -294,7 +293,7 @@ export default function SettingsPage() {
   };
 
   const handleResetPreferences = () => {
-    // 1. Define Defaults with strict types to fix TS Error
+    // 1. Define Defaults with strict types
     const defaults = { 
       darkMode: false, 
       fontSize: 16 as const, 
@@ -304,7 +303,7 @@ export default function SettingsPage() {
     // 2. Update Context
     updateSettings(defaults);
     
-    // 3. Force Immediate UI Patch (Fixes color not changing instantly)
+    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme)
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
       detail: { 
         ...defaults, 
@@ -314,7 +313,7 @@ export default function SettingsPage() {
       } 
     }));
 
-    showNotification({ type: "success", message: "Preferences reset to default.", duration: 2000 });
+    showNotification({ type: "success", message: "Interface reset to default.", duration: 2000 });
   };
 
   const handleDeleteJournals = async () => {
@@ -346,7 +345,7 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Wipe DB Data (Including tokens)
+        // 1. Wipe DB Data
         await Promise.all([
           supabase.from('user_entries').delete().eq('user_id', user.id), 
           supabase.from('assessments').delete().eq('user_id', user.id),  
@@ -356,10 +355,10 @@ export default function SettingsPage() {
           supabase.from('verification_tokens').delete().eq('user_id', user.id),
         ]);
 
-        // 2. Aggressive Local Clean (Wipe everything)
+        // 2. Clear Local Storage
         localStorage.clear(); 
         
-        // 3. Reset State & Logout
+        // 3. Reset Context State
         updateSettings({ 
             darkMode: false, 
             fontSize: 16 as const, 
@@ -368,13 +367,13 @@ export default function SettingsPage() {
             avatar: null 
         });
 
-        // 4. Force Server Logout
+        // 4. Force Sign Out
         await supabase.auth.signOut();
         logout();
 
         showNotification({ type: "success", message: "Factory reset complete. Goodbye.", duration: 2000 });
         
-        // 5. Hard Redirect to Home
+        // 5. Hard Redirect
         setTimeout(() => window.location.href = "/", 1000);
       }
     } catch (error) {
@@ -562,48 +561,48 @@ export default function SettingsPage() {
                       <motion.div variants={itemVariant} className="rounded-[2.5rem] border border-white/20 bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 shadow-xl relative overflow-hidden h-full flex flex-col">
                          <div className="absolute top-0 right-0 p-6 opacity-5"><Mail size={120} /></div>
                          <div className="relative z-10 flex-1 flex flex-col justify-between">
-                            <div>
-                              <h3 className="text-xl font-bold mb-1">Email Security</h3>
-                              <p className="text-sm text-muted-foreground mb-6">Manage account recovery & notifications.</p>
+                           <div>
+                             <h3 className="text-xl font-bold mb-1">Email Security</h3>
+                             <p className="text-sm text-muted-foreground mb-6">Manage account recovery & notifications.</p>
 
-                              <div className={cn("p-4 rounded-2xl border mb-6", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
-                                 <div className="flex items-center justify-between">
-                                    <div className="overflow-hidden mr-4">
-                                       <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Registered Email</p>
-                                       <p className="font-mono font-semibold text-sm md:text-base truncate">{userEmail || "No email linked"}</p>
-                                    </div>
-                                    <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white shadow-md", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
-                                       {emailStatus === 'verified' ? <Check size={16} strokeWidth={3} /> : <AlertTriangle size={16} strokeWidth={3} />}
-                                    </div>
-                                 </div>
-                              </div>
-                            </div>
+                             <div className={cn("p-4 rounded-2xl border mb-6", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
+                                <div className="flex items-center justify-between">
+                                   <div className="overflow-hidden mr-4">
+                                      <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Registered Email</p>
+                                      <p className="font-mono font-semibold text-sm md:text-base truncate">{userEmail || "No email linked"}</p>
+                                   </div>
+                                   <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white shadow-md", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
+                                      {emailStatus === 'verified' ? <Check size={16} strokeWidth={3} /> : <AlertTriangle size={16} strokeWidth={3} />}
+                                   </div>
+                                </div>
+                             </div>
+                           </div>
 
-                            {/* FIXED: RESTORED UNLINK & VERIFY BUTTONS */}
-                            <div className="mt-auto">
-                              {emailStatus === 'verified' ? (
-                                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/50 dark:border-white/5">
-                                    <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><ShieldCheck size={14} /> Verified Account</span>
-                                    <button onClick={unlinkEmail} className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline px-3 py-1.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">Unlink Email</button>
-                                 </div>
-                              ) : (
-                                 <div className="space-y-3">
-                                    {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-11" />}
-                                    
-                                    <button 
-                                       onClick={sendEmailVerification} 
-                                       disabled={emailStatus === "sending" || emailCountdown > 0} 
-                                       className={cn(
-                                          "w-full h-12 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2",
-                                          emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]"
-                                       )}
-                                    >
+                           {/* FIXED: RESTORED UNLINK & VERIFY BUTTONS */}
+                           <div className="mt-auto">
+                             {emailStatus === 'verified' ? (
+                                <div className="flex items-center justify-between pt-4 border-t border-slate-200/50 dark:border-white/5">
+                                   <span className="text-xs font-medium text-emerald-600 flex items-center gap-1"><ShieldCheck size={14} /> Verified Account</span>
+                                   <button onClick={unlinkEmail} className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline px-3 py-1.5 bg-rose-50 dark:bg-rose-900/20 rounded-lg">Unlink Email</button>
+                                </div>
+                             ) : (
+                                <div className="space-y-3">
+                                   {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-11" />}
+                                   
+                                   <button 
+                                      onClick={sendEmailVerification} 
+                                      disabled={emailStatus === "sending" || emailCountdown > 0} 
+                                      className={cn(
+                                        "w-full h-12 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2",
+                                        emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]"
+                                      )}
+                                   >
                                       {emailStatus === "sending" ? <Loader2 size={16} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <span className="flex items-center gap-2">Verify Email <ArrowRight size={16} className="opacity-70" /></span>}
-                                    </button>
-                                    <p className="text-[10px] text-center text-muted-foreground">You will receive a secure verification link.</p>
-                                 </div>
-                              )}
-                            </div>
+                                   </button>
+                                   <p className="text-[10px] text-center text-muted-foreground">You will receive a secure verification link.</p>
+                                </div>
+                             )}
+                           </div>
                          </div>
                       </motion.div>
 
@@ -617,7 +616,7 @@ export default function SettingsPage() {
                             {isGoogleUser && <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold rounded-full border border-emerald-500/20">ACTIVE</span>}
                           </div>
 
-                        {!isGoogleUser && (
+                         {!isGoogleUser && (
                             <div className="p-6 bg-white/40 dark:bg-slate-900/40 rounded-[2rem] border border-white/20 backdrop-blur-xl transition-all duration-300">
                                <div className="flex items-center gap-3 mb-5">
                                   <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg"><Lock size={18} /></div>
@@ -923,7 +922,7 @@ export default function SettingsPage() {
 
                               <div className="text-3xl md:text-4xl font-black font-mono tracking-tight group-hover:scale-105 transition-transform duration-300">
 
-                                 {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
+                                  {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
 
                               </div>
 
@@ -963,39 +962,39 @@ export default function SettingsPage() {
 
                               {[
 
-                                 { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
+                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
 
-                                 { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
+                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
 
-                                 { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
+                                  { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
 
                               ].map((item, idx) => (
 
-                                 <div key={idx} className="bg-muted/30 rounded-2xl overflow-hidden border border-transparent hover:border-border/50 transition-all">
+                                  <div key={idx} className="bg-muted/30 rounded-2xl overflow-hidden border border-transparent hover:border-border/50 transition-all">
 
-                                    <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
+                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
 
-                                       <span className="font-bold text-sm">{item.q}</span>
+                                         <span className="font-bold text-sm">{item.q}</span>
 
-                                       <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
+                                         <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
 
-                                    </button>
+                                     </button>
 
-                                    <AnimatePresence>
+                                     <AnimatePresence>
 
-                                       {openFaq === idx && (
+                                        {openFaq === idx && (
 
-                                          <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                                           <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
 
-                                             <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
+                                              <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
 
-                                          </motion.div>
+                                           </motion.div>
 
-                                       )}
+                                        )}
 
-                                    </AnimatePresence>
+                                     </AnimatePresence>
 
-                                 </div>
+                                  </div>
 
                               ))}
 
@@ -1205,39 +1204,39 @@ export default function SettingsPage() {
 
                                                       <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
 
-                                                       {member.image ? (
+                                                         {member.image ? (
 
-                                                          <img
+                                                            <img
 
-                                                            src={member.image}
+                                                               src={member.image}
 
-                                                            alt={member.name}
+                                                               alt={member.name}
 
-                                                            className="w-full h-full object-cover"
-
-                                                          />
-
-                                                        ) : (
-
-                                                          <>
-
-                                                            <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
-
-                                                              {member.name.charAt(0)}
-
-                                                            </span>
-
-                                                            <member.icon
-
-                                                              size={24}
-
-                                                              className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
+                                                               className="w-full h-full object-cover"
 
                                                             />
 
-                                                          </>
+                                                         ) : (
 
-                                                        )}
+                                                            <>
+
+                                                               <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
+
+                                                                  {member.name.charAt(0)}
+
+                                                               </span>
+
+                                                               <member.icon
+
+                                                                  size={24}
+
+                                                                  className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
+
+                                                               />
+
+                                                            </>
+
+                                                         )}
 
 
 
@@ -1295,7 +1294,7 @@ export default function SettingsPage() {
 
                         </Sheet>
 
-                      </motion.div>   
+                      </motion.div>    
 
                   </div>
 
