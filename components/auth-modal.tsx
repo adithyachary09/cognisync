@@ -7,8 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useUser } from "@/lib/user-context";
+import { useUser } from "@/lib/user-context"; // Ensure this path matches your project
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase"; // FIX: Import the cookie-aware client
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
 
@@ -59,7 +60,6 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
   const strength = passwordStrength(form.password);
 
-  // FIX: Ensure mismatch logic is disabled when in Forgot Password mode
   const isMismatch =
     !forgotMode &&
     isSignUp &&
@@ -82,32 +82,24 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         client_id: GOOGLE_CLIENT_ID,
         callback: async (res: any) => {
           try {
-            const payload = JSON.parse(
-              atob(res.credential.split(".")[1])
-            );
-
-            const resp = await fetch("/api/auth/register", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: payload.email,
-                name: payload.name,
-                google: true,
-              }),
+            // FIX: Use Supabase to handle the Google Token directly
+            // This ensures cookies are set correctly
+            const { data, error } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: res.credential,
             });
 
-            const data = await resp.json();
+            if (error) throw error;
+            if (!data.session) throw new Error("No session created");
 
-            if (!resp.ok || !data.user) {
-              setLoginError("Google authentication failed");
-              return;
-            }
-
+            // Update local user state
+            // @ts-ignore
             setUser(data.user); 
-            onSuccess(data.user.name || "User");
-          } catch (err) {
+            onSuccess(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || "User");
+            
+          } catch (err: any) {
             console.error("Google auth error:", err);
-            setLoginError("Google sign-in failed");
+            setLoginError(err.message || "Google sign-in failed");
           }
         },
       });
@@ -140,32 +132,40 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-      const endpoint = isSignUp
-        ? "/api/auth/register"
-        : "/api/auth/login";
+      if (isSignUp) {
+        // FIX: Direct Supabase Sign Up
+        const { data, error } = await supabase.auth.signUp({
+            email: form.email,
+            password: form.password,
+            options: {
+                data: {
+                    full_name: form.name,
+                }
+            }
+        });
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.email,
-          password: form.password,
-          name: isSignUp ? form.name : undefined,
-          google: false,
-        }),
-      });
+        if (error) throw error;
+        if (data.user) {
+            // @ts-ignore
+            setUser(data.user);
+            onSuccess(form.name || "User");
+        }
+      } else {
+        // FIX: Direct Supabase Sign In (Sets Cookies Automatically)
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: form.email,
+            password: form.password,
+        });
 
-      const data = await res.json();
-
-      if (!res.ok || !data.user) {
-        setLoginError(data.error || "Authentication failed");
-        return;
+        if (error) throw error;
+        if (data.user) {
+            // @ts-ignore
+            setUser(data.user);
+            onSuccess(data.user.user_metadata?.full_name || "User");
+        }
       }
-
-      setUser(data.user);
-      onSuccess(data.user.name || "User");
-    } catch {
-      setLoginError("Unexpected error occurred");
+    } catch (err: any) {
+      setLoginError(err.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +177,6 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     e.preventDefault();
     if (cooldown > 0) return;
 
-    // Basic client-side validation
     if (!form.email || !form.email.includes("@")) {
       setLoginError("Please enter a valid email address");
       return;
@@ -187,25 +186,18 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setLoginError("");
 
     try {
-      const res = await fetch("/api/auth/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email.trim() }), // Ensure trimmed email
+      // FIX: Use Supabase native reset
+      const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
+        redirectTo: `${window.location.origin}/auth/update-password`,
       });
 
-      // Even if the user doesn't exist, security best practice is to say "Sent"
-      // But if your API returns 400 for errors, we handle it:
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setLoginError(data.error || "Failed to send reset email");
-        return;
-      }
+      if (error) throw error;
 
       setResetSent(true);
       setCooldown(30);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setLoginError("Server connection error");
+      setLoginError(err.message || "Failed to send reset email");
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +211,6 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
       {/* Premium Ambient Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-100/60 blur-[100px] z-0 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-100/50 blur-[100px] z-0 pointer-events-none"></div>
-
 
       {/* Glassmorphism Card */}
       <motion.div 
@@ -405,7 +396,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
             type="submit"
             disabled={isLoading || (isMismatch && !forgotMode)}
             className={cn(
-              "w-full h-12 rounded-xl text-md font-bold text-white", // Ensure white text
+              "w-full h-12 rounded-xl text-md font-bold text-white",
               "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]",
               "shadow-lg shadow-slate-900/20 transition-all duration-300 hover:shadow-slate-900/30 active:scale-[0.98]"
             )}
@@ -433,7 +424,6 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
                 setResetSent(false);
                 setCooldown(0);
                 setLoginError("");
-                // Optional: Clear sign up state when toggling
                 if (!forgotMode) setIsSignUp(false);
               }}
             >
@@ -452,11 +442,11 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
         {/* Google */}
         <div 
-            ref={googleBtnRef} 
-            className={cn(
-                "flex justify-center min-h-[50px] transition-all", 
-                forgotMode ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto"
-            )} 
+           ref={googleBtnRef} 
+           className={cn(
+               "flex justify-center min-h-[50px] transition-all", 
+               forgotMode ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto"
+           )} 
         />
         
       </motion.div>
