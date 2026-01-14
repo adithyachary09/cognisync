@@ -1,3 +1,4 @@
+import { createBrowserClient } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -10,22 +11,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * Client-side Supabase instance
- * - Used in AuthModal
- * - Used in app/page.tsx
- * - Used in MainPage / MainContent
+ * UPDATED: Uses createBrowserClient for Cookie Support
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-})
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 /**
  * Server-side Supabase Admin instance
- * - Used ONLY in API routes
- * - NEVER imported in client components
+ * Kept as standard client for Admin tasks
  */
 export const supabaseAdmin =
   typeof window === "undefined"
