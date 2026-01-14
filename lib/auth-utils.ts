@@ -1,26 +1,28 @@
-// NOTE: These utilities are for server-side manual auth handling.
-// Since we switched to Supabase Native Auth, these might be unused but are kept for safety.
-
+import bcrypt from "bcrypt";
 import crypto from "crypto";
 
-// Basic email validation regex
-export function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+export function hashPassword(password: string) {
+  return bcrypt.hash(password, 10);
 }
 
-// Password length check
-export function isValidPassword(password: string) {
-  return password.length >= 8;
+export function verifyPassword(password: string, hash: string) {
+  return bcrypt.compare(password, hash);
 }
 
-// Helper to generate a random token (useful for manual flows if needed later)
 export function generateResetToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// Helper to calculate expiry time
 export function getTokenExpiration() {
   const expires = new Date();
   expires.setHours(expires.getHours() + 1);
   return expires.toISOString();
+}
+
+export function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+export function isValidPassword(password: string) {
+  return password.length >= 8;
 }

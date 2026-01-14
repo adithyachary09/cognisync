@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase"; // Correct Client Import
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
 
@@ -60,6 +59,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
   const strength = passwordStrength(form.password);
 
+  // FIX: Ensure mismatch logic is disabled when in Forgot Password mode
   const isMismatch =
     !forgotMode &&
     isSignUp &&
@@ -82,33 +82,32 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         client_id: GOOGLE_CLIENT_ID,
         callback: async (res: any) => {
           try {
-            setIsLoading(true);
-            setLoginError("");
+            const payload = JSON.parse(
+              atob(res.credential.split(".")[1])
+            );
 
-            // 1. Attempt Native Supabase Login (Required for Cookie Persistence)
-            const { data, error } = await supabase.auth.signInWithIdToken({
-              provider: 'google',
-              token: res.credential,
+            const resp = await fetch("/api/auth/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: payload.email,
+                name: payload.name,
+                google: true,
+              }),
             });
 
-            if (error) throw error;
-            
-            if (data?.session) {
-                // @ts-ignore
-                setUser(data.user); 
-                onSuccess(data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || "User");
+            const data = await resp.json();
+
+            if (!resp.ok || !data.user) {
+              setLoginError("Google authentication failed");
+              return;
             }
 
-          } catch (err: any) {
-            console.error("Google Auth Error:", err);
-            // Specific error message handling for the user
-            if (err.message?.includes("not enabled")) {
-                setLoginError("Google Login is disabled in system settings.");
-            } else {
-                setLoginError("Google sign-in failed. Please use email.");
-            }
-          } finally {
-            setIsLoading(false);
+            setUser(data.user); 
+            onSuccess(data.user.name || "User");
+          } catch (err) {
+            console.error("Google auth error:", err);
+            setLoginError("Google sign-in failed");
           }
         },
       });
@@ -141,40 +140,32 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-      if (isSignUp) {
-        // Sign Up Logic
-        const { data, error } = await supabase.auth.signUp({
-            email: form.email,
-            password: form.password,
-            options: {
-                data: {
-                    full_name: form.name,
-                }
-            }
-        });
+      const endpoint = isSignUp
+        ? "/api/auth/register"
+        : "/api/auth/login";
 
-        if (error) throw error;
-        if (data.user) {
-            // @ts-ignore
-            setUser(data.user);
-            onSuccess(form.name || "User");
-        }
-      } else {
-        // Sign In Logic
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: form.email,
-            password: form.password,
-        });
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          name: isSignUp ? form.name : undefined,
+          google: false,
+        }),
+      });
 
-        if (error) throw error;
-        if (data.user) {
-            // @ts-ignore
-            setUser(data.user);
-            onSuccess(data.user.user_metadata?.full_name || "User");
-        }
+      const data = await res.json();
+
+      if (!res.ok || !data.user) {
+        setLoginError(data.error || "Authentication failed");
+        return;
       }
-    } catch (err: any) {
-      setLoginError(err.message || "Authentication failed");
+
+      setUser(data.user);
+      onSuccess(data.user.name || "User");
+    } catch {
+      setLoginError("Unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -186,6 +177,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     e.preventDefault();
     if (cooldown > 0) return;
 
+    // Basic client-side validation
     if (!form.email || !form.email.includes("@")) {
       setLoginError("Please enter a valid email address");
       return;
@@ -195,17 +187,25 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setLoginError("");
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
+      const res = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim() }), // Ensure trimmed email
       });
 
-      if (error) throw error;
+      // Even if the user doesn't exist, security best practice is to say "Sent"
+      // But if your API returns 400 for errors, we handle it:
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setLoginError(data.error || "Failed to send reset email");
+        return;
+      }
 
       setResetSent(true);
       setCooldown(30);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setLoginError(err.message || "Failed to send reset email");
+      setLoginError("Server connection error");
     } finally {
       setIsLoading(false);
     }
@@ -216,10 +216,12 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative overflow-hidden bg-slate-50">
       
-      {/* Background Ambience */}
+      {/* Premium Ambient Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-100/60 blur-[100px] z-0 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-100/50 blur-[100px] z-0 pointer-events-none"></div>
 
+
+      {/* Glassmorphism Card */}
       <motion.div 
         initial={{ opacity: 0, y: 20, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -243,64 +245,130 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </p>
         </div>
 
-        {/* Tab Switcher */}
+        {/* Premium Tab Switcher */}
         {!forgotMode && (
           <div className="bg-slate-100/70 p-1.5 rounded-2xl flex items-center mb-8 relative border border-slate-200/50">
+            {/* Sliding Background Animation */}
             <motion.div
               className="absolute top-1.5 bottom-1.5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] rounded-xl border border-white/50"
               initial={false}
-              animate={{ x: isSignUp ? "100%" : "0%", width: "50%" }}
+              animate={{
+                x: isSignUp ? "100%" : "0%",
+                width: "50%"
+              }}
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
             />
+            
             <button
               onClick={() => { setIsSignUp(false); setLoginError(""); }}
-              className={cn("flex-1 relative z-10 py-2.5 text-sm font-bold transition-colors text-center", !isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700")}
+              className={cn(
+                "flex-1 relative z-10 py-2.5 text-sm font-bold transition-colors text-center",
+                !isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
+              )}
             >
               Log In
             </button>
             <button
               onClick={() => { setIsSignUp(true); setLoginError(""); }}
-              className={cn("flex-1 relative z-10 py-2.5 text-sm font-bold transition-colors text-center", isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700")}
+              className={cn(
+                "flex-1 relative z-10 py-2.5 text-sm font-bold transition-colors text-center",
+                isSignUp ? "text-slate-900" : "text-slate-500 hover:text-slate-700"
+              )}
             >
               Sign Up
             </button>
           </div>
         )}
 
-        {/* Form */}
+        {/* Animated Form Container */}
         <form onSubmit={forgotMode ? handleReset : handleAuthSubmit} className="space-y-5">
           <AnimatePresence mode="wait">
             
-            {/* NAME */}
+            {/* NAME INPUT */}
             {isSignUp && !forgotMode && (
-              <motion.div key="name-field" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <Input placeholder="Full Name" required={isSignUp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm" />
+              <motion.div
+                key="name-field"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <Input
+                  placeholder="Full Name"
+                  required={isSignUp}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm"
+                />
               </motion.div>
             )}
 
-            {/* EMAIL */}
+            {/* EMAIL INPUT */}
             <motion.div key="email-field" layout>
-              <Input placeholder="Email Address" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm" />
+              <Input
+                placeholder="Email Address"
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm"
+              />
             </motion.div>
 
-            {/* PASSWORD */}
+            {/* PASSWORD INPUT */}
             {!forgotMode && (
               <motion.div key="password-field" layout className="relative">
-                <Input type={showPassword ? "text" : "password"} placeholder="Password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm pr-10" />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors" onClick={() => setShowPassword((v) => !v)}>{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="bg-white/50 border-slate-200/80 focus:border-slate-400 focus:bg-white focus:ring-4 focus:ring-slate-100/50 transition-all h-12 rounded-xl text-base shadow-sm pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </motion.div>
             )}
 
             {/* CONFIRM PASSWORD */}
             {isSignUp && !forgotMode && (
-              <motion.div key="confirm-field" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden relative pt-1">
-                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" required={isSignUp} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} className={cn("bg-white/50 border-slate-200/80 focus:bg-white focus:ring-4 transition-all h-12 rounded-xl text-base shadow-sm pr-10", isMismatch ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100/50" : "focus:border-slate-400 focus:ring-slate-100/50")} />
-                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors pt-1" onClick={() => setShowConfirmPassword((v) => !v)}>{showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+              <motion.div
+                key="confirm-field"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden relative pt-1"
+              >
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  required={isSignUp}
+                  value={form.confirmPassword}
+                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                  className={cn(
+                    "bg-white/50 border-slate-200/80 focus:bg-white focus:ring-4 transition-all h-12 rounded-xl text-base shadow-sm pr-10",
+                    isMismatch ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100/50" : "focus:border-slate-400 focus:ring-slate-100/50"
+                  )}
+                />
+                 <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors pt-1"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                >
+                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </motion.div>
             )}
+
           </AnimatePresence>
 
-          {/* Messages */}
+          {/* Status Messages */}
           <div className="space-y-3">
             {isSignUp && !forgotMode && strength && (
               <div className="flex items-center justify-between text-xs px-1">
@@ -314,29 +382,67 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
             )}
 
             {isMismatch && !forgotMode && (
-              <motion.p initial={{opacity:0}} animate={{opacity:1}} className="text-sm text-rose-600 flex items-center gap-2 px-1 font-medium bg-rose-50/50 p-2 rounded-lg border border-rose-100"><AlertCircle size={16} /> Passwords do not match</motion.p>
+              <motion.p initial={{opacity:0}} animate={{opacity:1}} className="text-sm text-rose-600 flex items-center gap-2 px-1 font-medium bg-rose-50/50 p-2 rounded-lg border border-rose-100">
+                <AlertCircle size={16} /> Passwords do not match
+              </motion.p>
             )}
 
             {loginError && (
-              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-rose-50/80 backdrop-blur-sm text-rose-600 p-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-rose-200/50 shadow-sm"><AlertCircle size={18} /> {loginError}</motion.div>
+              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-rose-50/80 backdrop-blur-sm text-rose-600 p-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-rose-200/50 shadow-sm">
+                <AlertCircle size={18} /> {loginError}
+              </motion.div>
             )}
 
             {resetSent && (
-              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-emerald-50/80 backdrop-blur-sm text-emerald-600 p-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-emerald-200/50 shadow-sm"><CheckCircle2 size={18} /> Reset link sent {cooldown > 0 && `(retry ${cooldown}s)`}</motion.div>
+              <motion.div initial={{opacity:0, y: -5}} animate={{opacity:1, y: 0}} className="bg-emerald-50/80 backdrop-blur-sm text-emerald-600 p-3 rounded-xl text-sm font-medium flex items-center gap-2 border border-emerald-200/50 shadow-sm">
+                <CheckCircle2 size={18} /> Reset link sent {cooldown > 0 && `(retry ${cooldown}s)`}
+              </motion.div>
             )}
           </div>
 
-          <Button type="submit" disabled={isLoading || (isMismatch && !forgotMode)} className={cn("w-full h-12 rounded-xl text-md font-bold text-white", "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]", "shadow-lg shadow-slate-900/20 transition-all duration-300 hover:shadow-slate-900/30 active:scale-[0.98]")}>
-            {isLoading ? (<motion.div initial={{opacity: 0}} animate={{opacity:1}} className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...</motion.div>) : forgotMode ? ("Send Reset Link") : (<span className="flex items-center justify-center gap-2">{isSignUp ? "Create Account" : "Sign In"} <ArrowRight size={18} className="opacity-70" /></span>)}
+          {/* Primary Action Button */}
+          <Button
+            type="submit"
+            disabled={isLoading || (isMismatch && !forgotMode)}
+            className={cn(
+              "w-full h-12 rounded-xl text-md font-bold text-white", // Ensure white text
+              "bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 bg-[length:200%_100%] hover:bg-[right_center]",
+              "shadow-lg shadow-slate-900/20 transition-all duration-300 hover:shadow-slate-900/30 active:scale-[0.98]"
+            )}
+          >
+            {isLoading ? (
+                <motion.div initial={{opacity: 0}} animate={{opacity:1}} className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...
+                </motion.div>
+            ) : forgotMode ? (
+                "Send Reset Link"
+            ) : (
+                <span className="flex items-center justify-center gap-2">
+                    {isSignUp ? "Create Account" : "Sign In"} <ArrowRight size={18} className="opacity-70" />
+                </span>
+            )}
           </Button>
 
+          {/* Toggle Forgot / Back */}
           <div className="pt-2 text-center">
-             <button type="button" className="text-sm text-slate-500 hover:text-slate-900 font-semibold transition-colors underline-offset-4 hover:underline" onClick={() => { setForgotMode((v) => !v); setResetSent(false); setCooldown(0); setLoginError(""); if (!forgotMode) setIsSignUp(false); }}>
+             <button
+              type="button"
+              className="text-sm text-slate-500 hover:text-slate-900 font-semibold transition-colors underline-offset-4 hover:underline"
+              onClick={() => {
+                setForgotMode((v) => !v);
+                setResetSent(false);
+                setCooldown(0);
+                setLoginError("");
+                // Optional: Clear sign up state when toggling
+                if (!forgotMode) setIsSignUp(false);
+              }}
+            >
               {forgotMode ? "Back to login" : "Forgot your password?"}
             </button>
           </div>
         </form>
 
+        {/* Divider */}
         {!forgotMode && (
              <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200/80"></span></div>
@@ -344,7 +450,15 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
              </div>
         )}
 
-        <div ref={googleBtnRef} className={cn("flex justify-center min-h-[50px] transition-all", forgotMode ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto")} />
+        {/* Google */}
+        <div 
+            ref={googleBtnRef} 
+            className={cn(
+                "flex justify-center min-h-[50px] transition-all", 
+                forgotMode ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto"
+            )} 
+        />
+        
       </motion.div>
     </div>
   );
