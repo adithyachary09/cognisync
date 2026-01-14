@@ -16,12 +16,12 @@ interface JournalContextType {
   entries: Entry[];
   isLoading: boolean;
   userId: string | null;
-  setUserIdManual: (uid: string) => void;
-  // FIX: Added saveToDb optional parameter back to the type definition
   addEntry: (entry: Omit<Entry, 'id' | 'date'>, saveToDb?: boolean) => Promise<void>;
   deleteEntry: (id: string | number) => Promise<void>;
   refreshEntries: () => Promise<void>;
   getStats: () => any;
+  // Deprecated but kept to prevent immediate crash in MainPage, will be non-functional
+  setUserIdManual: (uid: string) => void;
 }
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
@@ -31,19 +31,56 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // 1. Initial Load
+  // 1. Strict Auth Listener
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        await fetchEntriesFromDb(user.id);
-      } else {
-        setIsLoading(false);
+    let mounted = true;
+
+    // A. Check active session immediately on mount
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          if (session?.user) {
+            console.log("Session found:", session.user.id);
+            setUserId(session.user.id);
+            fetchEntriesFromDb(session.user.id);
+          } else {
+            setUserId(null);
+            setEntries([]);
+            setIsLoading(false);
+          }
+        }
+      } catch (err) {
+        console.error("Session check failed", err);
+        if (mounted) setIsLoading(false);
       }
     };
-    init();
-  }, []);
+
+    checkSession();
+
+    // B. Listen for future changes (Login/Logout/Auto-Refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      
+      if (session?.user) {
+        // User logged in or switched
+        if (session.user.id !== userId) {
+          setUserId(session.user.id);
+          await fetchEntriesFromDb(session.user.id);
+        }
+      } else {
+        // User logged out
+        setUserId(null);
+        setEntries([]); // Clear sensitive data immediately
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []); // Empty dependency array: Run once on mount
 
   // 2. Fetch from DB
   const fetchEntriesFromDb = async (uid: string) => {
@@ -75,18 +112,16 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // No-op function to satisfy interface until we clean up MainPage
   const setUserIdManual = (uid: string) => {
-    if (uid && uid !== userId) {
-        setUserId(uid);
-        fetchEntriesFromDb(uid);
-    }
+    // Intentionally empty. Auth is now handled strictly by the Listener above.
   };
 
   const refreshEntries = async () => {
     if (userId) await fetchEntriesFromDb(userId);
   };
 
-  // 3. Add Entry (FIXED: Accepts saveToDb arg)
+  // 3. Add Entry
   const addEntry = async (newEntry: Omit<Entry, 'id' | 'date'>, saveToDb = true) => {
     const tempId = Date.now();
     const isoDate = new Date().toISOString();
@@ -95,7 +130,7 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     const optimisticEntry: Entry = { ...newEntry, id: tempId, date: isoDate };
     setEntries(prev => [optimisticEntry, ...prev]);
 
-    // DB Save - Only if requested
+    // DB Save - Only if requested and User exists
     if (saveToDb && userId) {
       try {
         const { data, error } = await supabase.from('user_entries').insert({
@@ -115,13 +150,16 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (err) {
         console.error("Failed to save entry:", err);
+        // Optional: Rollback optimistic update here if needed
       }
     }
   };
 
   const deleteEntry = async (id: string | number) => {
     setEntries(prev => prev.filter(e => e.id !== id));
-    if (userId) await supabase.from('user_entries').delete().eq('id', id);
+    if (userId) {
+        await supabase.from('user_entries').delete().eq('id', id);
+    }
   };
 
   const getStats = () => {
