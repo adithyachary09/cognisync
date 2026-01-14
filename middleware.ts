@@ -1,8 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// FIX 1: Use 'export default' to satisfy Vercel's build requirement
 export default async function middleware(request: NextRequest) {
+  // 1. Create an unmodified response
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -18,17 +18,21 @@ export default async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // FIX 2: Pass arguments one by one to fix the TypeScript red squiggly error
+          // Fix: Set cookie on request object
           request.cookies.set({
             name,
             value,
             ...options,
           })
+          
+          // Fix: Recreation of response to apply cookies
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
+          
+          // Fix: Set cookie on response object using correct arguments
           response.cookies.set({
             name,
             value,
@@ -36,16 +40,21 @@ export default async function middleware(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
+          // Fix: Remove cookie from request
           request.cookies.set({
             name,
             value: '',
             ...options,
           })
+          
+          // Fix: Recreation of response
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           })
+          
+          // Fix: Remove cookie from response
           response.cookies.set({
             name,
             value: '',
@@ -56,6 +65,7 @@ export default async function middleware(request: NextRequest) {
     }
   )
 
+  // 2. Refresh session if expired
   await supabase.auth.getUser()
 
   return response

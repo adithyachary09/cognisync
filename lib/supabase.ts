@@ -9,16 +9,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase public environment variables")
 }
 
-/**
- * Client-side Supabase instance
- * UPDATED: Uses createBrowserClient for Cookie Support
- */
+// UPDATED: Uses createBrowserClient for proper Cookie Sync
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
-/**
- * Server-side Supabase Admin instance
- * Kept as standard client for Admin tasks
- */
+// Server-side Admin instance (unchanged)
 export const supabaseAdmin =
   typeof window === "undefined"
     ? createClient(supabaseUrl, serviceRoleKey, {
