@@ -1,146 +1,166 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
+/**
+ * POST /api/emotion/analyze
+ * - Auth is derived from Supabase session (cookies)
+ * - No userId accepted from client
+ * - DB write happens ONLY here
+ */
 export async function POST(request: Request) {
   try {
-    // 1. Parse Request
-    const body = await request.json();
-    const { text, userId } = body;
-
-    console.log("🔹 API /analyze called");
-    console.log("🔹 Received User ID:", userId);
-    console.log("🔹 Received Text length:", text?.length);
-
-    if (!text) return NextResponse.json({ error: "Text required" }, { status: 400 });
-    if (!userId) {
-      console.error("❌ API Error: User ID is missing in request body.");
-      return NextResponse.json({ error: "User ID is mandatory for saving data." }, { status: 400 });
+    // 1) Parse request
+    const { text } = await request.json();
+    if (!text || typeof text !== "string") {
+      return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    // 2. Initialize Supabase (Prefer Service Role for Admin Writes)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.warn("⚠️ Warning: SUPABASE_SERVICE_ROLE_KEY is missing. Falling back to Anon Key. RLS might block writes.");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: false, // API routes shouldn't persist sessions
-        autoRefreshToken: false,
+    // 2) Create SSR-safe Supabase client (reads auth from cookies)
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          async get(name: string) {
+            return (await cookieStore).get(name)?.value;
+          },
+        },
       }
-    });
+    );
 
-    // 3. Analyze with Hugging Face (or Mock if API Key missing)
-    let detected = "calm";
-    let wellnessScore = 5;
-    let randomResponse = "Take a moment to breathe and center yourself.";
+    // 3) Resolve authenticated user from session
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // 4) Emotion analysis (HF if available; safe fallback)
+    let detected: string = "calm";
+    let wellnessScore: number = 5;
+    let guidance: string =
+      "Take a moment to breathe and center yourself.";
 
     if (process.env.HUGGINGFACE_API_KEY) {
       try {
-        const response = await fetch(
+        const hfRes = await fetch(
           "https://router.huggingface.co/hf-inference/models/j-hartmann/emotion-english-distilroberta-base",
           {
+            method: "POST",
             headers: {
               Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
               "Content-Type": "application/json",
             },
-            method: "POST",
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               inputs: text,
-              options: { wait_for_model: true } 
+              options: { wait_for_model: true },
             }),
           }
         );
 
-        const result = await response.json();
+        const result = await hfRes.json();
 
         if (Array.isArray(result) && result[0]) {
-          const scores = result[0];
-          // @ts-ignore
-          const sorted = [...scores].sort((a, b) => b.score - a.score);
-          const top = sorted[0];
-          
-          const lowercaseText = text.toLowerCase();
-          let finalLabel = top.label;
+          const scores = result[0] as Array<{ label: string; score: number }>;
+          const top = [...scores].sort((a, b) => b.score - a.score)[0];
 
-          // --- SMART OVERRIDES ---
-          if (lowercaseText.includes("lonely") || lowercaseText.includes("alone") || lowercaseText.includes("isolated")) {
-            finalLabel = "lonely";
-          } else if (lowercaseText.includes("sick") || lowercaseText.includes("overwhelmed")) {
-            finalLabel = "disgust"; // Maps to Stressed
-          }
-
-          // --- MAPPING ---
           const labelMap: Record<string, string> = {
-            anger: "angry", disgust: "stressed", fear: "anxious",
-            joy: "happy", neutral: "calm", sadness: "sad", surprise: "confused",
-            lonely: "lonely"
+            anger: "angry",
+            disgust: "stressed",
+            fear: "anxious",
+            joy: "happy",
+            neutral: "calm",
+            sadness: "sad",
+            surprise: "confused",
           };
 
           const scoreMap: Record<string, number> = {
-            happy: 9, calm: 8, confused: 6, surprise: 6,
-            sad: 4, lonely: 3, anxious: 3, stressed: 2, angry: 2
+            happy: 9,
+            calm: 8,
+            confused: 6,
+            sad: 4,
+            anxious: 3,
+            stressed: 2,
+            angry: 2,
           };
 
-          detected = labelMap[finalLabel] || "calm";
-          wellnessScore = scoreMap[detected] || 5;
+          detected = labelMap[top.label] ?? "calm";
+          wellnessScore = scoreMap[detected] ?? 5;
 
-          // Guidance Map
           const guidanceMap: Record<string, string[]> = {
-            happy: ["Joy is a vital resource. Share this news with a loved one. [Resource: Positive Psychology Savoring]"],
-            sad: ["Low mood creates a 'lethargy trap'. Try moving for 2 minutes. [Resource: CBT Behavioral Activation]"],
-            anxious: ["Use 'Box Breathing': Inhale 4s, hold 4s, exhale 4s, hold 4s. [Resource: Polyvagal Theory]"],
-            stressed: ["Try 'Progressive Muscle Relaxation': squeeze shoulders for 5s, release. [Resource: PMR Guide]"],
-            calm: ["Use this balance for 'Mindful Reflection'. [Resource: EQ Training]"],
-            lonely: ["Try 'Micro-Connections': text a friend. [Resource: Social Connectivity]"],
-            confused: ["Practice 'Values Alignment'. [Resource: ACT Therapy]"],
-            angry: ["Use 'The 90-Second Rule': breathe through the surge. [Resource: Neuroanatomy of Emotion]"]
+            happy: [
+              "Joy is a resource—share it with someone. [Resource: Savoring]",
+            ],
+            sad: [
+              "Try 2 minutes of movement to break inertia. [Resource: Behavioral Activation]",
+            ],
+            anxious: [
+              "Box breathing: 4–4–4–4. [Resource: Polyvagal]",
+            ],
+            stressed: [
+              "Progressive muscle relaxation can help. [Resource: PMR]",
+            ],
+            calm: [
+              "Use this balance for mindful reflection. [Resource: EQ Training]",
+            ],
+            confused: [
+              "Clarify values and next steps. [Resource: ACT]",
+            ],
+            angry: [
+              "Breathe through the surge for 90 seconds. [Resource: Neuroanatomy]",
+            ],
           };
 
-          const variations = guidanceMap[detected] || ["Take a deep breath."];
-          randomResponse = variations[Math.floor(Math.random() * variations.length)];
+          const variations = guidanceMap[detected] ?? [
+            "Take a slow breath.",
+          ];
+          guidance =
+            variations[Math.floor(Math.random() * variations.length)];
         }
-      } catch (hfError) {
-        console.error("HuggingFace Error:", hfError);
-        // Fallback to basic keyword matching if API fails
-        if (text.includes("sad")) detected = "sad";
-        else if (text.includes("happy")) detected = "happy";
+      } catch {
+        // Silent fallback
       }
     }
 
-    // 4. Persist to Database (The Critical Fix)
-    console.log(`📝 Saving to DB: User ${userId}, Emotion ${detected}`);
-    
-    const { data: newEntry, error } = await supabase
-      .from('user_entries')
-      .insert([{
-        user_id: userId, // Ensuring this is strictly passed
+    // 5) Persist entry (RLS enforced via session)
+    const { data: newEntry, error: insertError } = await supabase
+      .from("user_entries")
+      .insert({
+        user_id: user.id,
         input_text: text,
         detected_emotion: detected,
         emotion_score: wellnessScore,
-        // created_at is auto-generated by DB, usually
-      }])
+        source: "dashboard",
+      })
       .select()
       .single();
-    
-    if (error) {
-      console.error("❌ DB Insert Error:", error.message);
-      throw new Error(`Database Error: ${error.message}`);
+
+    if (insertError) {
+      return NextResponse.json(
+        { error: insertError.message },
+        { status: 500 }
+      );
     }
 
-    console.log("✅ DB Save Success. New ID:", newEntry?.id);
-
-    return NextResponse.json({ 
+    // 6) Respond
+    return NextResponse.json({
       emotion: detected,
-      guidance: randomResponse,
+      guidance,
       score: wellnessScore,
-      newEntry: newEntry 
+      newEntry,
     });
-
-  } catch (error: any) {
-    console.error("🔥 Analysis API Critical Error:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err?.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

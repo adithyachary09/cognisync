@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useJournal, Entry } from "@/components/pages/journal-context";
+import { useUser } from "@/lib/user-context"; // <--- Added Auth Check
 import { Search, Calendar, Plus, Edit2, Mic, Check, Loader2, Filter, X, Trash2, MicOff, Save, BookOpen, Sparkles, Sun, Droplets, Flame, CloudRain, ChevronDown, Zap, Frown } from 'lucide-react';
 
 const analyzeEmotion = (text: string) => {
@@ -28,6 +29,7 @@ const analyzeEmotion = (text: string) => {
 
 export function JournalPage() {
   const { entries, addEntry, deleteEntry } = useJournal();
+  const { user } = useUser(); // <--- Auth Context
   
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,6 +89,13 @@ export function JournalPage() {
 
   const handleSave = async () => {
     if (!inputText.trim()) return;
+    
+    // Auth Check
+    if (!user) {
+        alert("Please sign in to save journal entries.");
+        return;
+    }
+
     setIsSaving(true);
     const { emotion, intensity } = analyzeEmotion(inputText);
     
@@ -109,7 +118,7 @@ export function JournalPage() {
   };
 
   const handleDelete = async (id: string | number) => { 
-      if (window.confirm("Delete this memory?")) await deleteEntry(id);
+      if (window.confirm("Delete this memory?")) await deleteEntry(id.toString());
   };
 
   const handleUpdate = async () => {
