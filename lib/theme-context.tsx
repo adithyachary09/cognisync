@@ -4,11 +4,11 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   ReactNode,
 } from "react";
 import { useNotification } from "./notification-context";
+import { useUser } from "./user-context";
 
 /* ===================== TYPES ===================== */
 
@@ -24,7 +24,7 @@ interface ThemeContextType {
   settings: ThemeSettings;
   updateSettings: (patch: Partial<ThemeSettings>) => void;
   applySettings: () => void;
-  resetTheme: () => void; // Added reset capability
+  resetTheme: () => void;
   getModeLabel: () => string;
 }
 
@@ -34,7 +34,6 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 /* ===================== CONSTANTS ===================== */
 
-const ACTIVE_USER_KEY = "cognisync:active-user";
 const STORAGE_PREFIX = "cognisync:settings:";
 
 const DEFAULT_SETTINGS: ThemeSettings = {
@@ -73,7 +72,7 @@ function sanitize(raw: any): ThemeSettings {
 
 function applyThemeDOM(s: ThemeSettings) {
   if (typeof document === "undefined") return;
-  
+
   const root = document.documentElement;
   const colors = colorMap[s.colorTheme];
 
@@ -94,85 +93,64 @@ function storageKey(uid: string) {
 /* ===================== PROVIDER ===================== */
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const { user } = useUser(); // Connect directly to UserContext
   const { showNotification } = useNotification();
   const [settings, setSettings] = useState<ThemeSettings>(DEFAULT_SETTINGS);
-  const activeUserRef = useRef<string | null>(null);
-  const notifyRef = useRef<number | null>(null);
 
   /* ---- SYNC LOGIC ---- */
-  const sync = () => {
-    const uid = localStorage.getItem(ACTIVE_USER_KEY);
-
-    // LOGOUT → reset instantly
-    if (!uid) {
-      activeUserRef.current = null;
+  useEffect(() => {
+    if (!user) {
+      // No user? Reset to defaults
       setSettings(DEFAULT_SETTINGS);
       applyThemeDOM(DEFAULT_SETTINGS);
       return;
     }
 
-    // USER SWITCH or RELOAD
-    // We remove the check `if (activeUserRef.current !== uid)` to force a refresh on login
-    activeUserRef.current = uid;
-    const raw = localStorage.getItem(storageKey(uid));
+    // User present? Load their unique settings
+    const key = storageKey(user.id);
+    const raw = localStorage.getItem(key);
     const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
+
+    // Optional: Sync name from Auth if not set in Theme
+    // if (user.name && next.username === "User") next.username = user.name;
+
     setSettings(next);
     applyThemeDOM(next);
-  };
-
-  /* ---- LISTENERS ---- */
-  useEffect(() => {
-    sync(); // Initial load
-
-    // Standard storage event (for other tabs)
-    window.addEventListener("storage", sync);
-    
-    // Custom event (for SAME tab instant updates from UserContext)
-    window.addEventListener("cognisync-auth-change", sync);
-
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("cognisync-auth-change", sync);
-    };
-  }, []);
+  }, [user]);
 
   /* ---- ACTIONS ---- */
   const updateSettings = (patch: Partial<ThemeSettings>) => {
-    const uid = localStorage.getItem(ACTIVE_USER_KEY);
-    if (!uid) return;
+    if (!user) return; // Cannot save settings if not logged in
 
     setSettings((prev) => {
       const next = sanitize({ ...prev, ...patch });
-      localStorage.setItem(storageKey(uid), JSON.stringify(next));
+      localStorage.setItem(storageKey(user.id), JSON.stringify(next));
       applyThemeDOM(next);
 
-      if (notifyRef.current) clearTimeout(notifyRef.current);
-      notifyRef.current = window.setTimeout(() => {
-        if ("darkMode" in patch)
-          showNotification({
-            type: "info",
-            message: next.darkMode ? "Dark mode enabled." : "Light mode enabled.",
-          });
-        if ("fontSize" in patch)
-          showNotification({
-            type: "info",
-            message: `Font size set to ${next.fontSize}px.`,
-          });
-        if ("colorTheme" in patch)
-          showNotification({
-            type: "success",
-            message: "Accent color updated.",
-          });
-      }, 40);
+      // Simple notifications
+      if ("darkMode" in patch && prev.darkMode !== next.darkMode) {
+        showNotification({
+          type: "info",
+          message: next.darkMode ? "Dark mode enabled." : "Light mode enabled.",
+        });
+      }
+      if ("colorTheme" in patch && prev.colorTheme !== next.colorTheme) {
+        showNotification({
+          type: "success",
+          message: "Theme color updated.",
+        });
+      }
 
       return next;
     });
   };
 
   const resetTheme = () => {
-    activeUserRef.current = null;
     setSettings(DEFAULT_SETTINGS);
     applyThemeDOM(DEFAULT_SETTINGS);
+    if (user) {
+      localStorage.removeItem(storageKey(user.id));
+    }
   };
 
   return (

@@ -7,6 +7,8 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import { supabase } from "@/lib/supabase";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 
 /* ===================== TYPES ===================== */
 
@@ -14,82 +16,92 @@ export interface User {
   id: string;
   name?: string;
   email: string;
+  avatarUrl?: string;
 }
 
 interface UserContextType {
   user: User | null;
+  isLoading: boolean;
   setUser: (user: User | null) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 /* ===================== CONTEXT ===================== */
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-/* ===================== STORAGE KEYS ===================== */
-
-const ACTIVE_USER_KEY = "cognisync:active-user";
-const USER_CACHE_KEY = "cognisync:user-cache";
-
 /* ===================== PROVIDER ===================== */
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  /* ---- RESTORE SESSION ON LOAD ---- */
-  useEffect(() => {
-    const uid = localStorage.getItem(ACTIVE_USER_KEY);
-    const cached = localStorage.getItem(USER_CACHE_KEY);
-
-    if (!uid || !cached) return;
-
-    try {
-      const parsed: User = JSON.parse(cached);
-      if (parsed.id === uid) {
-        setUserState(parsed);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  /* ---- SET USER (LOGIN / SWITCH USER) ---- */
-  const setUser = (u: User | null) => {
-    if (!u) {
-      // Logic for explicit null passed to setUser (treat as logout)
-      localStorage.removeItem(ACTIVE_USER_KEY);
-      localStorage.removeItem(USER_CACHE_KEY);
-      setUserState(null);
-      // Notify ThemeContext to reset immediately
-      window.dispatchEvent(new Event("cognisync-auth-change"));
-      return;
-    }
-
-    // write session first
-    localStorage.setItem(ACTIVE_USER_KEY, u.id);
-    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(u));
-
-    // update state
-    setUserState(u);
-
-    // Notify ThemeContext to load new user settings immediately
-    window.dispatchEvent(new Event("cognisync-auth-change"));
+  // Helper to map Supabase user to our App's User interface
+  const mapSupabaseUser = (sbUser: SupabaseUser): User => {
+    return {
+      id: sbUser.id,
+      email: sbUser.email || "",
+      name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
+      avatarUrl: sbUser.user_metadata?.avatar_url || "",
+    };
   };
 
-  /* ---- LOGOUT (INSTANT, NON-DESTRUCTIVE) ---- */
-  const logout = () => {
-    localStorage.removeItem(ACTIVE_USER_KEY);
-    localStorage.removeItem(USER_CACHE_KEY);
+  useEffect(() => {
+    // 1. Check active session on mount
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-    // force immediate rerender everywhere
+        if (session?.user) {
+          setUserState(mapSupabaseUser(session.user));
+        } else {
+          setUserState(null);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // 2. Listen for Auth Changes (OAuth redirects, Magic Links, Sign outs)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUserState(mapSupabaseUser(session.user));
+        // Notify other components (like theme) that auth changed
+        window.dispatchEvent(new Event("cognisync-auth-change"));
+      } else {
+        setUserState(null);
+        window.dispatchEvent(new Event("cognisync-auth-change"));
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Manual SetUser (mostly for updates, though Supabase handles auth state)
+  const setUser = (u: User | null) => {
+    setUserState(u);
+  };
+
+  // Logout function
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUserState(null);
-
-    // Notify ThemeContext to reset to default blue immediately
     window.dispatchEvent(new Event("cognisync-auth-change"));
   };
 
   return (
-    <UserContext.Provider value={{ user, setUser, logout }}>
+    <UserContext.Provider value={{ user, isLoading, setUser, logout }}>
       {children}
     </UserContext.Provider>
   );
