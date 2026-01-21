@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,12 +8,13 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts"
 import { 
-  ChevronRight, Award, Sparkles, ClipboardCheck, Search, 
-  Brain, Heart, Activity, Zap, Users, Smile, Clock, 
+  ChevronRight, Award, ClipboardCheck, Search, 
+  Brain, Heart, Activity, Users, Smile, Clock, 
   ArrowRight, Wind, MessageSquare, PenTool
 } from "lucide-react"
 import { motion } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
+import { useUser } from "@/lib/user-context" // <--- Added for consistency
 
 // --- TYPES ---
 interface Test {
@@ -200,6 +201,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   })
   const [searchTerm, setSearchTerm] = useState("")
   const router = useRouter()
+  const { user } = useUser(); // <--- Centralized User Context
 
   // Initialize Supabase Client (Stable instance)
   const [supabase] = useState(() => createBrowserClient(
@@ -225,13 +227,11 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
     try {
         console.log("Saving Assessment Result...", payload)
         
-        // 1. Try Supabase Auth
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user?.id) {
+        // 1. Check Centralized User Context
+        if (user?.id) {
             // ONLINE MODE: Save to DB
             const { error } = await supabase.from('assessments').insert({
-                user_id: session.user.id,
+                user_id: user.id, // <--- Using ID from context
                 test_id: payload.testId,
                 test_name: payload.testName,
                 category: payload.category,
@@ -240,7 +240,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
             if (error) throw error
             console.log("✅ Saved to Database (Online)")
         } else {
-            // OFFLINE/NO-AUTH MODE: Throw to catch block to trigger local save
+            // OFFLINE/NO-AUTH MODE
             throw new Error("No User Session")
         }
 
@@ -288,7 +288,8 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
      if (onNavigate) {
          onNavigate(routeKey)
      } else {
-         const paths: any = { regulation: '/regulation', chatbot: '/chat', journal: '/journal' }
+         // Fallback manual navigation mapping if onNavigate isn't passed (e.g. standalone page)
+         const paths: any = { regulation: '/awareness', chatbot: '/chatbot', journal: '/journal' }
          router.push(paths[routeKey] || '/')
      }
   }
@@ -445,7 +446,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
           <Card className="p-8 shadow-lg mb-8 bg-card border-border rounded-2xl">
                 <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
-                    <Sparkles size={20} className="text-purple-500"/> Detailed Recommendations
+                    <Brain size={20} className="text-purple-500"/> Detailed Recommendations
                 </h2>
                 <ul className="space-y-3">
                     {recommendations.map((rec, idx) => (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useUser } from "@/lib/user-context";
+import { useState } from "react";
+import { useUser } from "@/lib/user-context"; // <--- Direct connection
 import { useTheme } from "@/lib/theme-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -26,23 +26,27 @@ import {
 interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
-  isOpen: boolean; // Kept for prop compatibility
-  userName: string;
+  isOpen: boolean;
+  userName: string; // Kept for interface compatibility but we use Context
   onLogout: () => Promise<void>;
 }
 
 export function Sidebar({
   activePage,
   onPageChange,
-  userName,
   onLogout,
 }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { logout } = useUser();
+  // 1. Get Live User Data Immediately
+  const { user, logout: contextLogout } = useUser();
   const { settings, resetTheme } = useTheme();
+
+  // 2. Prioritize Live Data -> Then Settings -> Then Defaults
+  const displayName = user?.name || settings.username || "User";
+  const displayAvatar = user?.avatarUrl || settings.avatar;
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home },
@@ -62,8 +66,8 @@ export function Sidebar({
 
   const handleLogout = async () => {
     resetTheme();
-    logout();
-    await onLogout();
+    contextLogout(); // Clear context
+    await onLogout(); // Run parent cleanup
     setMobileOpen(false);
   };
 
@@ -149,8 +153,8 @@ export function Sidebar({
             <div className="flex items-center gap-3 relative z-10">
               <div className="relative shrink-0">
                 <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center shadow-sm">
-                  {settings.avatar ? (
-                    <img src={settings.avatar} className="w-full h-full object-cover" />
+                  {displayAvatar ? (
+                    <img src={displayAvatar} className="w-full h-full object-cover" alt="User" />
                   ) : (
                     <User size={16} className="text-muted-foreground" />
                   )}
@@ -161,7 +165,7 @@ export function Sidebar({
               {!isCollapsed && (
                 <div className="overflow-hidden">
                   <p className="text-xs font-bold text-foreground truncate max-w-[120px]">
-                    {settings.username || userName || "User"}
+                    {displayName}
                   </p>
                   <p className="text-[9px] font-medium text-muted-foreground/80 bg-primary/10 px-1.5 py-0.5 rounded-md w-fit mt-0.5">Free Plan</p>
                 </div>

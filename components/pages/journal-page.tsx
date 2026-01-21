@@ -114,15 +114,26 @@ export function JournalPage() {
 
   const handleUpdate = async () => {
     if (!editingEntry || !editingEntry.text.trim()) return;
-    await deleteEntry(editingEntry.id);
-    const { emotion, intensity } = analyzeEmotion(editingEntry.text);
-    await addEntry({
-        text: editingEntry.text,
-        emotion,
-        intensity,
-        source: 'journal'
-    }, true);
-    setEditingEntry(null); 
+    
+    // SAFE UPDATE: Add new one first, then delete old one
+    try {
+        const { emotion, intensity } = analyzeEmotion(editingEntry.text);
+        
+        await addEntry({
+            text: editingEntry.text,
+            emotion,
+            intensity,
+            source: 'journal'
+        }, true);
+        
+        // Only delete if add was successful (to prevent data loss)
+        await deleteEntry(editingEntry.id);
+        
+        setEditingEntry(null); 
+    } catch (err) {
+        console.error("Update failed", err);
+        alert("Failed to update entry. Please try again.");
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSave(); } };
@@ -130,7 +141,7 @@ export function JournalPage() {
   // --- FILTER: JOURNAL ONLY ---
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // 1. ISOLATION: Only show 'journal' entries
+      // 1. ISOLATION: Only show 'journal' entries (Strict Filter)
       if (entry.source !== 'journal') return false;
 
       const matchesSearch = entry.text.toLowerCase().includes(searchQuery.toLowerCase());

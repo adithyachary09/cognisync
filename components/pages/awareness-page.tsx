@@ -110,11 +110,6 @@ function getDailySelection<T>(items: T[], count: number, salt: string): T[] {
   return shuffled.slice(0, count)
 }
 
-// Helper to check same day status (for localStorage)
-const getTodayKey = (key: string) => {
-    return `${key}_${new Date().toISOString().split('T')[0]}`;
-};
-
 export function AwarenessPage() {
   const { addEntry } = useJournal();
   const [dailyExercises, setDailyExercises] = useState<typeof ALL_EXERCISES>([])
@@ -123,7 +118,7 @@ export function AwarenessPage() {
   // Persisted States (Local Storage + Date Key)
   const [completedExercises, setCompletedExercises] = useState<string[]>([])
   const [isCheckInComplete, setIsCheckInComplete] = useState(false)
-  const [isCheckInHidden, setIsCheckInHidden] = useState(false) // New state to hide card completely
+  const [isCheckInHidden, setIsCheckInHidden] = useState(false) 
   
   const [flippedCards, setFlippedCards] = useState<string[]>([])
   const [mood, setMood] = useState<number | null>(null)
@@ -132,7 +127,7 @@ export function AwarenessPage() {
   const [activeExercise, setActiveExercise] = useState<typeof ALL_EXERCISES[0] | null>(null)
   const [showSOSModal, setShowSOSModal] = useState(false)
   
-  // 1. Initial Load & Hydration (Reset Logic)
+  // 1. Initial Load & Hydration
   useEffect(() => {
     setDailyExercises(getDailySelection(ALL_EXERCISES, 3, "exercises"))
     setDailyScience(getDailySelection(SCIENCE_CARDS, 4, "science"))
@@ -156,30 +151,37 @@ export function AwarenessPage() {
     }
   }, [])
 
-  // Handle Mood Selection (CONNECTS TO DB NOW)
+  // Handle Mood Selection (CONNECTS TO DB)
   const handleMoodSelect = async (val: number) => {
-    setMood(val)
-    const emotionMap = ["Overwhelmed", "Anxious", "Neutral", "Calm", "Happy"];
-    const selectedEmotion = emotionMap[val - 1];
+    try {
+        setMood(val)
+        const emotionMap = ["Overwhelmed", "Anxious", "Neutral", "Calm", "Happy"];
+        const selectedEmotion = emotionMap[val - 1];
 
-    await addEntry({
-        text: "Daily Mood Check-in",
-        emotion: selectedEmotion,
-        intensity: val * 2,
-        source: 'awareness'
-    }, true);
+        // Ensure source matches 'awareness' exactly
+        await addEntry({
+            text: "Daily Mood Check-in",
+            emotion: selectedEmotion,
+            intensity: val * 2,
+            source: 'awareness'
+        }, true);
 
-    setIsCheckInComplete(true);
-    
-    // Save to LocalStorage for persistence today
-    const today = new Date().toISOString().split('T')[0];
-    localStorage.setItem(`checkin_${today}`, JSON.stringify({ mood: val, timestamp: Date.now() }));
+        setIsCheckInComplete(true);
+        
+        // Save to LocalStorage for persistence today
+        const today = new Date().toISOString().split('T')[0];
+        localStorage.setItem(`checkin_${today}`, JSON.stringify({ mood: val, timestamp: Date.now() }));
 
-    // Auto-Disappear Timer (7 Seconds)
-    setTimeout(() => {
-        setIsCheckInHidden(true);
-        localStorage.setItem(`hidden_${today}`, 'true');
-    }, 7000);
+        // Auto-Disappear Timer (7 Seconds)
+        setTimeout(() => {
+            setIsCheckInHidden(true);
+            localStorage.setItem(`hidden_${today}`, 'true');
+        }, 7000);
+    } catch (error) {
+        console.error("Failed to save mood:", error);
+        // Fallback: still show complete state locally so user isn't stuck
+        setIsCheckInComplete(true);
+    }
   }
 
   const startExerciseSession = (exercise: typeof ALL_EXERCISES[0]) => setActiveExercise(exercise);
@@ -219,11 +221,10 @@ export function AwarenessPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#05050A] font-sans selection:bg-primary/20 relative pb-20">
       
-      {/* 1. SOS BANNER - FIXED & ADJUSTED */}
+      {/* 1. SOS BANNER */}
       <div className="w-full bg-rose-600 text-white px-4 py-4 text-sm font-medium shadow-md relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
-            {/* Added pl-16 to dodge the sidebar icon on the left */}
-           <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
+            <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
                 <AlertCircle size={20} className="shrink-0" />
                 <span>In crisis? Press the SOS button or call your local helpline immediately.</span>
             </div>
@@ -286,22 +287,20 @@ export function AwarenessPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-20">
         
-        {/* NEW TITLE BLOCK: Matches Sidebar 'Activity' Icon & Standard Sizing */}
+        {/* NEW TITLE BLOCK */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                {/* Changed BrainCircuit to Activity to match Sidebar 'Regulation' icon */}
                 <Activity className="text-slate-800 dark:text-white h-8 w-8" />
             </div>
-            {/* Standardized Text Size: text-4xl md:text-5xl */}
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Regulation
-          </h1>
+               Regulation
+            </h1>
           </div>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system and expand emotional intelligence.</p>
         </div>
 
-        {/* 2. MOOD CHECK-IN (With Auto-Disappear Logic) */}
+        {/* 2. MOOD CHECK-IN */}
         {!isCheckInHidden && (
         <Card className="p-8 md:p-10 border-slate-200 dark:border-slate-800 shadow-xl bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
           <AnimatePresence mode="wait">
@@ -350,14 +349,13 @@ export function AwarenessPage() {
               <div className="w-full max-w-md mt-6">
                 <input type="text" value={journalNote} onChange={(e) => setJournalNote(e.target.value)} placeholder="Optional: Add a quick note about why..." className="w-full text-center text-sm bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-slate-800 rounded-xl py-3 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
               </div>
-              {/* Note: Undo removed to prevent disrupting the timer logic */}
             </motion.div>
           )}
           </AnimatePresence>
         </Card>
         )}
 
-        {/* 3. DAILY PRACTICE (ALL 12 ITEMS + SHOW MORE) */}
+        {/* 3. DAILY PRACTICE */}
         <section className="space-y-8">
           <div className="flex items-center justify-between px-1 border-l-4 border-primary pl-4">
               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3"><Play className="text-primary h-6 w-6 fill-primary/20" /> Your Daily Practice</h2>
@@ -430,7 +428,7 @@ export function AwarenessPage() {
           </div>
         </section>
 
-        {/* 5. RESOURCES (DYNAMIC & CONDITIONAL) */}
+        {/* 5. RESOURCES (DYNAMIC) */}
         <div className="min-h-[200px]">
             <AnimatePresence mode="wait">
             {!isCheckInComplete ? (
@@ -452,11 +450,11 @@ export function AwarenessPage() {
                                 <ul className="space-y-4">
                                     {currentRecs?.books.map((book, i) => (
                                     <li key={i} className="flex flex-col p-5 bg-slate-50 dark:bg-black/20 rounded-2xl border border-slate-100 hover:border-primary/30 transition-all hover:shadow-md cursor-pointer group">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-bold text-slate-800 text-base group-hover:text-primary transition-colors">{book.title}</span>
-                                        </div>
-                                        <span className="text-xs font-semibold text-slate-400">by {book.author}</span>
-                                        <p className="text-xs text-slate-500 mt-2 italic border-l-2 border-slate-200 pl-3">{book.desc}</p>
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="font-bold text-slate-800 text-base group-hover:text-primary transition-colors">{book.title}</span>
+                                            </div>
+                                            <span className="text-xs font-semibold text-slate-400">by {book.author}</span>
+                                            <p className="text-xs text-slate-500 mt-2 italic border-l-2 border-slate-200 pl-3">{book.desc}</p>
                                     </li>
                                     ))}
                                 </ul>

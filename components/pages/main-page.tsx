@@ -38,7 +38,6 @@ const TOOL_DETAILS: any = {
   planning: { title: "Intention Setting", steps: ["Identify top goal", "Visualize success", "Identify one blocker", "Plan the first step"], icon: <ArrowUpRight size={40}/> } 
 };
 
-// FIX: Lonely and Confused removed as requested
 const EMOTION_RESPONSES = { 
   happy: { emotion: "Happy", color: "text-amber-500", border: "border-amber-500/20", bg: "bg-amber-500/10", icon: "😊", fill: "#f59e0b" }, 
   sad: { emotion: "Sad", color: "text-blue-500", border: "border-blue-500/20", bg: "bg-blue-500/10", icon: "😢", fill: "#3b82f6" }, 
@@ -47,21 +46,16 @@ const EMOTION_RESPONSES = {
   angry: { emotion: "Angry", color: "text-rose-600", border: "border-rose-600/20", bg: "bg-rose-600/10", icon: "😠", fill: "#e11d48" } 
 }
 
-interface MainPageProps { userName: string; userId: string; }
+interface MainPageProps { userName?: string; userId?: string; }
 
 export function MainPage({ userName, userId }: MainPageProps) {
-  const { entries, addEntry, deleteEntry, setUserIdManual } = useJournal(); 
+  // 1. USE CONTEXT DIRECTLY (Ignore props for data fetching)
+  const { entries, addEntry, deleteEntry, isLoading: isJournalLoading } = useJournal(); 
   
-  useEffect(() => {
-    if (userId) {
-        setUserIdManual(userId);
-    }
-  }, [userId]);
-
   const [input, setInput] = useState("")
   const [response, setResponse] = useState<string | null>(null)
   const [emotionData, setEmotionData] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [quoteIndex, setQuoteIndex] = useState(0);
@@ -112,7 +106,10 @@ export function MainPage({ userName, userId }: MainPageProps) {
     const uniqueDates = Array.from(new Set(dashboardEntries.map(e => new Date(e.date).setHours(0,0,0,0)))).sort((a, b) => b - a);
     const today = new Date().setHours(0,0,0,0);
     const yesterday = today - 86400000;
+    
+    // Check if streak is active (today or yesterday)
     if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) return 0;
+    
     let streak = 1;
     for (let i = 0; i < uniqueDates.length - 1; i++) {
       if (uniqueDates[i] - uniqueDates[i+1] === 86400000) streak++; else break;
@@ -158,14 +155,15 @@ export function MainPage({ userName, userId }: MainPageProps) {
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
-    setIsLoading(true);
+    setIsAnalyzing(true);
     setEmotionData({ loading: true }); 
 
     try {
+      // 1. Call API
       const res = await fetch("/api/emotion/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, userId }),
+        body: JSON.stringify({ text: input }), // Removed explicit userId, API should handle session or just analyze
       });
 
       const contentType = res.headers.get("content-type");
@@ -176,19 +174,21 @@ export function MainPage({ userName, userId }: MainPageProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // --- FIX: pass 'false' to addEntry to avoid double save ---
+      // 2. Add to Context (and DB via Context)
       if (data.newEntry) {
+          // We pass 'false' to saveToDb only if the API ALREADY saved it.
+          // Assuming API creates entry -> We update local state
           await addEntry({
             text: data.newEntry.input_text || input,
             emotion: data.newEntry.detected_emotion ? data.newEntry.detected_emotion.charAt(0).toUpperCase() + data.newEntry.detected_emotion.slice(1) : "Calm",
             intensity: data.newEntry.emotion_score || 5,
             source: 'dashboard' 
-          }, false); 
+          }, false); // Set to true if API does NOT save to DB
       }
       
       const mappedEmotion = data.emotion === 'stressed' ? 'anxious' : data.emotion;
       let responseKey = mappedEmotion;
-      // Fallback for excluded emotions to show 'something' valid in card
+      
       if (!EMOTION_RESPONSES.hasOwnProperty(responseKey)) {
          if (responseKey === 'lonely') responseKey = 'sad';
          else if (responseKey === 'confused') responseKey = 'anxious';
@@ -206,7 +206,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
       setEmotionData(null); 
       alert(`Error: ${error.message}`);
     } finally { 
-      setIsLoading(false); 
+      setIsAnalyzing(false); 
     }
   };
 
@@ -222,15 +222,13 @@ export function MainPage({ userName, userId }: MainPageProps) {
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto p-4 md:p-8">
-        {/* NEW TITLE BLOCK: Matches Sidebar 'Home' Icon & Standard Sizing */}
+        {/* TITLE BLOCK */}
         <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-4">
                 <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                    {/* Changed LayoutGrid to Home to match Sidebar */}
                     <Home className="text-slate-800 dark:text-white h-8 w-8" />
                 </div>
                 <div>
-                    {/* Standardized Text Size: text-4xl md:text-5xl */}
                     <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>
                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
                         <Activity size={12} className="text-emerald-500 animate-pulse" /> System Active
@@ -238,10 +236,11 @@ export function MainPage({ userName, userId }: MainPageProps) {
                 </div>
             </div>
             
-            {/* Live Session Badge (Preserved Style) */}
             <div className="hidden md:flex items-center gap-3 px-5 py-2.5 bg-white/40 dark:bg-black/40 backdrop-blur-xl rounded-full border border-white/20 dark:border-white/10 ring-1 ring-black/5 shadow-sm">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"/>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wide">LIVE SESSION</span>
+                <div className={`w-2 h-2 rounded-full ${isJournalLoading ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]`}/>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wide">
+                  {isJournalLoading ? "SYNCING..." : "LIVE SESSION"}
+                </span>
             </div>
         </div>
 
@@ -255,12 +254,12 @@ export function MainPage({ userName, userId }: MainPageProps) {
                             <span className="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 tracking-wider border border-indigo-100 dark:border-indigo-800">AI ANALYSIS v2.0</span>
                         </div>
                         <div className="relative group">
-                            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="What's on your mind? (Press Enter)" className="min-h-[220px] bg-white/50 dark:bg-black/20 border-0 rounded-3xl p-6 text-xl leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-400/70 shadow-inner" disabled={isLoading || countdown !== null} />
+                            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="What's on your mind? (Press Enter)" className="min-h-[220px] bg-white/50 dark:bg-black/20 border-0 rounded-3xl p-6 text-xl leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-400/70 shadow-inner" disabled={isAnalyzing || countdown !== null} />
                             <div className="absolute bottom-5 right-6 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-60"><Command size={10} /> Private & Secure</div>
                         </div>
                         <div className="mt-6 flex justify-end">
                             <Button onClick={countdown !== null ? handleManualReset : handleAnalyze} className={`h-14 px-10 rounded-2xl font-bold text-md transition-all shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-95 ${countdown !== null ? 'bg-slate-100 text-slate-500 dark:bg-slate-800' : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/30'}`} disabled={(!input.trim() && countdown === null)}>
-                                {isLoading ? <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Analyzing...</span> : countdown !== null ? `Cooldown: ${countdown}s` : <span className="flex items-center gap-2">Analyze Pattern <ArrowRight size={18}/></span>}
+                                {isAnalyzing ? <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Analyzing...</span> : countdown !== null ? `Cooldown: ${countdown}s` : <span className="flex items-center gap-2">Analyze Pattern <ArrowRight size={18}/></span>}
                             </Button>
                         </div>
                     </div>
@@ -312,7 +311,11 @@ export function MainPage({ userName, userId }: MainPageProps) {
                     <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-orange-50/80 to-white/50 dark:from-orange-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-orange-100/50 dark:border-orange-500/10 shadow-lg shadow-orange-500/5 relative overflow-hidden transition-all hover:shadow-orange-500/20">
                         <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-start">
-                            <div><div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2"><Target size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Streak</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{currentStreak}</div><div className="text-xs font-bold text-slate-400 mt-1">days consistent</div></div>
+                            <div><div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2"><Target size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Streak</span></div>
+                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">
+                              {isJournalLoading ? <span className="text-2xl opacity-50">...</span> : currentStreak}
+                            </div>
+                            <div className="text-xs font-bold text-slate-400 mt-1">days consistent</div></div>
                             <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500 text-orange-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
@@ -322,7 +325,11 @@ export function MainPage({ userName, userId }: MainPageProps) {
                     <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-emerald-50/80 to-white/50 dark:from-emerald-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-emerald-100/50 dark:border-emerald-500/10 shadow-lg shadow-emerald-500/5 relative overflow-hidden transition-all hover:shadow-emerald-500/20">
                         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-start">
-                            <div><div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-2"><Activity size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Wellness</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{moodScore}</div><div className="text-xs font-bold text-slate-400 mt-1">stability index / 10</div></div>
+                            <div><div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-2"><Activity size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Wellness</span></div>
+                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">
+                              {isJournalLoading ? <span className="text-2xl opacity-50">...</span> : moodScore}
+                            </div>
+                            <div className="text-xs font-bold text-slate-400 mt-1">stability index / 10</div></div>
                             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 text-emerald-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
@@ -332,7 +339,11 @@ export function MainPage({ userName, userId }: MainPageProps) {
                     <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-blue-50/80 to-white/50 dark:from-blue-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-blue-100/50 dark:border-blue-500/10 shadow-lg shadow-blue-500/5 relative overflow-hidden transition-all hover:shadow-blue-500/20">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-center">
-                            <div><div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2"><BookOpen size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Logs</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{dashboardEntries.length}</div><div className="text-xs font-bold text-slate-400 mt-1">total entries</div></div>
+                            <div><div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2"><BookOpen size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Logs</span></div>
+                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">
+                              {isJournalLoading ? <span className="text-2xl opacity-50">...</span> : dashboardEntries.length}
+                            </div>
+                            <div className="text-xs font-bold text-slate-400 mt-1">total entries</div></div>
                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 text-blue-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
@@ -411,7 +422,22 @@ export function MainPage({ userName, userId }: MainPageProps) {
                     </div>
                   </div>
                 );
-              })) : (<div className="h-full flex flex-col items-center justify-center text-center opacity-50 p-10 mt-10"><div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6 animate-pulse"><BookOpen size={32} className="text-slate-400" /></div><h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Your journal is empty</h3><p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">Start by analyzing your feelings. Your emotional history will appear here automatically.</p></div>)}
+              })) : (
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-50 p-10 mt-10">
+                    {isJournalLoading ? (
+                        <div className="flex flex-col items-center">
+                            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                            <p>Loading entries...</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6 animate-pulse"><BookOpen size={32} className="text-slate-400" /></div>
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Your journal is empty</h3>
+                            <p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">Start by analyzing your feelings. Your emotional history will appear here automatically.</p>
+                        </>
+                    )}
+                </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
