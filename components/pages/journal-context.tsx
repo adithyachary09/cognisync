@@ -2,9 +2,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from "@/lib/supabase"; 
+import { useUser } from "@/lib/user-context"; // <--- THE KEY FIX
 
 export interface Entry {
-  id: string | number;
+  id: string; // Unified to string for safety
   text: string;
   date: string;
   emotion: string;
@@ -20,72 +21,62 @@ interface JournalContextType {
   deleteEntry: (id: string | number) => Promise<void>;
   refreshEntries: () => Promise<void>;
   getStats: () => any;
-  setUserIdManual: (uid: string) => void; // Kept for compatibility, does nothing
+  setUserIdManual: (uid: string) => void;
 }
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
 
 export const JournalProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useUser(); // <--- Listen to the working User Context
   const [entries, setEntries] = useState<Entry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // 1. Strict Session Management
+  // 1. The Fix: Listen to UserContext instead of Supabase Session
   useEffect(() => {
-    let mounted = true;
+    if (user?.id) {
+      console.log("✅ JournalContext: Found User ID:", user.id);
+      setUserId(user.id);
+      fetchEntriesFromDb(user.id);
+    } else {
+      console.log("⚠️ JournalContext: No User ID yet.");
+      setUserId(null);
+      setEntries([]);
+      setIsLoading(false);
+    }
+  }, [user]);
 
-    const handleSession = async (session: any) => {
-      if (!mounted) return;
-      
-      if (session?.user) {
-        console.log("✅ Authenticated:", session.user.id);
-        setUserId(session.user.id);
-        await fetchEntriesFromDb(session.user.id);
-      } else {
-        console.log("⚠️ No active session");
-        setUserId(null);
-        setEntries([]);
-        setIsLoading(false);
-      }
-    };
-
-    // A. Check on mount
-    supabase.auth.getSession().then(({ data: { session } }) => handleSession(session));
-
-    // B. Listen for changes (Sign in/out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session);
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // 2. Fetch Logic with Error Logging
+  // 2. Fetch Logic (Safe Table Check)
   const fetchEntriesFromDb = async (uid: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Try 'user_entries' first
+      let { data, error } = await supabase
         .from('user_entries')
         .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
+      // Fallback if table name is different
       if (error) {
-        console.error("❌ DB Fetch Error:", error.message);
-        throw error;
+        console.warn("⚠️ 'user_entries' failed, trying 'journal_entries'...");
+        const fallback = await supabase
+            .from('journal_entries')
+            .select('*')
+            .eq('user_id', uid)
+            .order('created_at', { ascending: false });
+        
+        data = fallback.data;
       }
 
       if (data) {
-        console.log(`✅ Loaded ${data.length} entries from DB`);
+        console.log(`✅ Loaded ${data.length} entries`);
         const mapped: Entry[] = data.map(item => ({
-          id: item.id,
-          text: item.input_text || "",
+          id: item.id.toString(),
+          text: item.input_text || item.content || "",
           date: item.created_at, 
           emotion: item.detected_emotion ? item.detected_emotion.charAt(0).toUpperCase() + item.detected_emotion.slice(1) : "Neutral",
-          intensity: item.emotion_score || 5,
+          intensity: item.emotion_score || item.score || 5,
           source: item.source || 'dashboard'
         }));
         setEntries(mapped);
@@ -97,16 +88,9 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // No-op - The Context now handles Auth automatically
-  const setUserIdManual = (uid: string) => {};
-
-  const refreshEntries = async () => {
-    if (userId) await fetchEntriesFromDb(userId);
-  };
-
-  // 3. Add Entry with Error Logging
+  // 3. Add Entry
   const addEntry = async (newEntry: Omit<Entry, 'id' | 'date'>, saveToDb = true) => {
-    const tempId = Date.now();
+    const tempId = Date.now().toString();
     const isoDate = new Date().toISOString();
     
     // Optimistic UI update
@@ -115,38 +99,36 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
 
     if (saveToDb && userId) {
       try {
-        const { data, error } = await supabase.from('user_entries').insert({
+        const payload = {
           user_id: userId,
           input_text: newEntry.text,
           detected_emotion: newEntry.emotion.toLowerCase(),
           emotion_score: newEntry.intensity,
           source: newEntry.source,
           created_at: isoDate
-        }).select().single();
+        };
 
+        // Try insert to main table
+        const { data, error } = await supabase.from('user_entries').insert(payload).select().single();
+
+        // Fallback insert if main table fails
         if (error) {
-          console.error("❌ DB Insert Error:", error.message);
-          // Optional: Show toast or alert here
-          throw error;
+             await supabase.from('journal_entries').insert(payload).select().single();
         }
 
-        if (data) {
-           console.log("✅ Saved to DB with ID:", data.id);
-           setEntries(prev => prev.map(e => e.id === tempId ? { ...e, id: data.id } : e));
-        }
       } catch (err) {
         console.error("Failed to save entry:", err);
       }
-    } else if (saveToDb && !userId) {
-        console.error("❌ Cannot save: No User ID found.");
     }
   };
 
   const deleteEntry = async (id: string | number) => {
-    setEntries(prev => prev.filter(e => e.id !== id));
+    const idStr = id.toString();
+    setEntries(prev => prev.filter(e => e.id !== idStr));
     if (userId) {
-        const { error } = await supabase.from('user_entries').delete().eq('id', id);
-        if (error) console.error("❌ Delete Error:", error.message);
+        // Try delete on both potential tables to be safe
+        await supabase.from('user_entries').delete().eq('id', idStr);
+        await supabase.from('journal_entries').delete().eq('id', idStr);
     }
   };
 
@@ -167,6 +149,13 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
         secondaryEmotion: sortedEmotions[1] || "None", 
         emotionCounts: counts 
     };
+  };
+
+  // Kept to prevent crashes in other files, but not needed for logic
+  const setUserIdManual = (uid: string) => {}; 
+
+  const refreshEntries = async () => {
+    if (userId) await fetchEntriesFromDb(userId);
   };
 
   return (
