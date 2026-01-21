@@ -1,30 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Eye, EyeOff, CheckCircle2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
+import { Eye, EyeOff, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
-import { createBrowserClient } from "@supabase/ssr";
 import { cn } from "@/lib/utils";
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
 
 interface AuthModalProps {
   onSuccess: (name: string) => void;
+}
+
+declare global {
+  interface Window {
+    google?: any;
+  }
 }
 
 export function AuthModal({ onSuccess }: AuthModalProps) {
   /* ===================== STATE ===================== */
 
   const { setUser } = useUser();
-  
-  // Initialize Supabase Client for Client-Side Auth
-  const [supabase] = useState(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ));
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
@@ -37,6 +38,8 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const googleBtnRef = useRef<HTMLDivElement | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -56,41 +59,80 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
 
   const strength = passwordStrength(form.password);
 
+  // FIX: Ensure mismatch logic is disabled when in Forgot Password mode
   const isMismatch =
     !forgotMode &&
     isSignUp &&
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
-  /* ===================== GOOGLE AUTH (THE FIX) ===================== */
+  /* ===================== GOOGLE AUTH ===================== */
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setLoginError("");
-    
-    try {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                // Dynamically determine the redirect URL to work on both localhost and Vercel
-                redirectTo: `${window.location.origin}/auth/callback`,
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
-                },
-            },
-        });
-        
-        if (error) throw error;
-        // User will be redirected to Google, so we don't turn off loading here.
-    } catch (error: any) {
-        console.error("Google Auth Error:", error);
-        setLoginError(error.message || "Google sign-in failed");
-        setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-  /* ===================== EMAIL AUTH SUBMIT ===================== */
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+
+    script.onload = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: async (res: any) => {
+          try {
+            const payload = JSON.parse(
+              atob(res.credential.split(".")[1])
+            );
+
+            const resp = await fetch("/api/auth/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: payload.email,
+                name: payload.name,
+                google: true,
+              }),
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || !data.user) {
+              setLoginError("Google authentication failed");
+              return;
+            }
+
+            setUser(data.user); 
+            onSuccess(data.user.name || "User");
+          } catch (err) {
+            console.error("Google auth error:", err);
+            setLoginError("Google sign-in failed");
+          }
+        },
+      });
+
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: googleBtnRef.current.offsetWidth,
+        text: isSignUp ? "signup_with" : "signin_with",
+      });
+    };
+
+    document.head.appendChild(script);
+  }, [setUser, onSuccess, isSignUp]);
+
+  /* ===================== COOLDOWN ===================== */
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => c - 1), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
+  /* ===================== AUTH SUBMIT ===================== */
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,61 +140,32 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setIsLoading(true);
 
     try {
-        if (isSignUp) {
-            // --- SIGN UP FLOW ---
-            const { data, error } = await supabase.auth.signUp({
-                email: form.email,
-                password: form.password,
-                options: {
-                    data: {
-                        full_name: form.name,
-                        avatar_url: "", // Initialize empty
-                    },
-                },
-            });
+      const endpoint = isSignUp
+        ? "/api/auth/register"
+        : "/api/auth/login";
 
-            if (error) throw error;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          name: isSignUp ? form.name : undefined,
+          google: false,
+        }),
+      });
 
-            if (data.user) {
-                // Check if user already exists but isn't confirmed
-                if (data.user.identities?.length === 0) {
-                     setLoginError("Account already exists. Please log in.");
-                } else {
-                     // Successfully signed up - Update Context
-                     setUser({ 
-                         id: data.user.id, 
-                         email: data.user.email!, 
-                         name: form.name,
-                         avatarUrl: "" 
-                     });
-                     onSuccess(form.name);
-                }
-            }
-        } else {
-            // --- SIGN IN FLOW ---
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: form.email,
-                password: form.password,
-            });
+      const data = await res.json();
 
-            if (error) throw error;
+      if (!res.ok || !data.user) {
+        setLoginError(data.error || "Authentication failed");
+        return;
+      }
 
-            if (data.user) {
-                // Safely extract metadata with fallbacks
-                const metaName = data.user.user_metadata?.full_name || "User";
-                const metaAvatar = data.user.user_metadata?.avatar_url || "";
-
-                setUser({ 
-                    id: data.user.id, 
-                    email: data.user.email!, 
-                    name: metaName,
-                    avatarUrl: metaAvatar
-                });
-                onSuccess(metaName);
-            }
-        }
-    } catch (err: any) {
-      setLoginError(err.message || "Authentication failed");
+      setUser(data.user);
+      onSuccess(data.user.name || "User");
+    } catch {
+      setLoginError("Unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -164,6 +177,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     e.preventDefault();
     if (cooldown > 0) return;
 
+    // Basic client-side validation
     if (!form.email || !form.email.includes("@")) {
       setLoginError("Please enter a valid email address");
       return;
@@ -173,29 +187,25 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     setLoginError("");
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(form.email, {
-          redirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+      const res = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email.trim() }), // Ensure trimmed email
       });
 
-      if (error) throw error;
+      // Even if the user doesn't exist, security best practice is to say "Sent"
+      // But if your API returns 400 for errors, we handle it:
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setLoginError(data.error || "Failed to send reset email");
+        return;
+      }
 
       setResetSent(true);
       setCooldown(30);
-      
-      // Countdown timer for retry
-      const interval = setInterval(() => {
-        setCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setLoginError(err.message || "Failed to send reset email");
+      setLoginError("Server connection error");
     } finally {
       setIsLoading(false);
     }
@@ -206,9 +216,10 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative overflow-hidden bg-slate-50">
       
-      {/* Background Blobs */}
+      {/* Premium Ambient Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-100/60 blur-[100px] z-0 pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-100/50 blur-[100px] z-0 pointer-events-none"></div>
+
 
       {/* Glassmorphism Card */}
       <motion.div 
@@ -234,9 +245,10 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </p>
         </div>
 
-        {/* Tab Switcher */}
+        {/* Premium Tab Switcher */}
         {!forgotMode && (
           <div className="bg-slate-100/70 p-1.5 rounded-2xl flex items-center mb-8 relative border border-slate-200/50">
+            {/* Sliding Background Animation */}
             <motion.div
               className="absolute top-1.5 bottom-1.5 bg-white shadow-[0_2px_10px_rgba(0,0,0,0.05)] rounded-xl border border-white/50"
               initial={false}
@@ -268,11 +280,11 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           </div>
         )}
 
-        {/* Form */}
+        {/* Animated Form Container */}
         <form onSubmit={forgotMode ? handleReset : handleAuthSubmit} className="space-y-5">
           <AnimatePresence mode="wait">
             
-            {/* NAME INPUT (Sign Up Only) */}
+            {/* NAME INPUT */}
             {isSignUp && !forgotMode && (
               <motion.div
                 key="name-field"
@@ -324,7 +336,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
               </motion.div>
             )}
 
-            {/* CONFIRM PASSWORD (Sign Up Only) */}
+            {/* CONFIRM PASSWORD */}
             {isSignUp && !forgotMode && (
               <motion.div
                 key="confirm-field"
@@ -400,7 +412,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
           >
             {isLoading ? (
                 <motion.div initial={{opacity: 0}} animate={{opacity:1}} className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Processing...
+                    <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing...
                 </motion.div>
             ) : forgotMode ? (
                 "Send Reset Link"
@@ -439,17 +451,13 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
         )}
 
         {/* Google */}
-        {!forgotMode && (
-            <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={isLoading}
-                className="w-full h-12 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 rounded-xl flex items-center justify-center gap-3 font-semibold transition-all shadow-sm hover:shadow-md active:scale-[0.98]"
-            >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                <span>Continue with Google</span>
-            </button>
-        )}
+        <div 
+            ref={googleBtnRef} 
+            className={cn(
+                "flex justify-center min-h-[50px] transition-all", 
+                forgotMode ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto"
+            )} 
+        />
         
       </motion.div>
     </div>
