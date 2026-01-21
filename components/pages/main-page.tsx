@@ -9,7 +9,7 @@ import {
   Sparkles, BookOpen, Target, Info, 
   ArrowUpRight, LayoutGrid, Activity, Command,
   Wind, Zap, Heart, Trash2, CheckCircle, 
-  ArrowRight, Lightbulb, Flame, Sun, Leaf, XCircle, Search, ExternalLink, Phone, Home
+  ArrowRight, Lightbulb, Flame, Sun, Leaf, XCircle, Home
 } from "lucide-react"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from "recharts"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -48,9 +48,9 @@ const EMOTION_RESPONSES = {
 
 interface MainPageProps { userName?: string; userId?: string; }
 
-export function MainPage({ userName, userId }: MainPageProps) {
-  // 1. USE CONTEXT DIRECTLY (Ignore props for data fetching)
-  const { entries, addEntry, deleteEntry, isLoading: isJournalLoading } = useJournal(); 
+export function MainPage({ userName, userId: propUserId }: MainPageProps) {
+  // 1. USE CONTEXT (Get userId from Context to pass to API)
+  const { entries, addEntry, deleteEntry, isLoading: isJournalLoading, userId } = useJournal(); 
   
   const [input, setInput] = useState("")
   const [response, setResponse] = useState<string | null>(null)
@@ -155,15 +155,21 @@ export function MainPage({ userName, userId }: MainPageProps) {
 
   const handleAnalyze = async () => {
     if (!input.trim()) return;
+    
+    if (!userId) {
+        alert("Please log in to save your analysis.");
+        return;
+    }
+
     setIsAnalyzing(true);
     setEmotionData({ loading: true }); 
 
     try {
-      // 1. Call API
+      // 1. Call API (PASS USER ID explicitly as API requires it)
       const res = await fetch("/api/emotion/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }), // Removed explicit userId, API should handle session or just analyze
+        body: JSON.stringify({ text: input, userId }), // <--- FIX: Added userId back
       });
 
       const contentType = res.headers.get("content-type");
@@ -176,14 +182,15 @@ export function MainPage({ userName, userId }: MainPageProps) {
 
       // 2. Add to Context (and DB via Context)
       if (data.newEntry) {
-          // We pass 'false' to saveToDb only if the API ALREADY saved it.
-          // Assuming API creates entry -> We update local state
+          // If API saves to DB, we pass 'false'. If API returns entry data but DOESN'T save, pass 'true'.
+          // Assuming the error 'User ID mandatory for saving' implies API saves it.
+          // So we update LOCAL state optimistically/via returned data.
           await addEntry({
             text: data.newEntry.input_text || input,
             emotion: data.newEntry.detected_emotion ? data.newEntry.detected_emotion.charAt(0).toUpperCase() + data.newEntry.detected_emotion.slice(1) : "Calm",
             intensity: data.newEntry.emotion_score || 5,
             source: 'dashboard' 
-          }, false); // Set to true if API does NOT save to DB
+          }, false); 
       }
       
       const mappedEmotion = data.emotion === 'stressed' ? 'anxious' : data.emotion;
