@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, KeyboardEvent, useMemo } from "react"
-import { Button } from "@/components/ui/button" // Assuming these stay in ui/ per shadcn standard
+import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { useJournal } from "@/components/pages/journal-context"
@@ -47,14 +47,20 @@ const EMOTION_RESPONSES = {
   angry: { emotion: "Angry", color: "text-rose-600", border: "border-rose-600/20", bg: "bg-rose-600/10", icon: "😠", fill: "#e11d48" } 
 }
 
-export function MainPage() {
-  const { entries, addEntry, deleteEntry, isLoading: isJournalLoading } = useJournal(); 
+interface MainPageProps { userName: string; userId: string; }
+
+export function MainPage({ userName, userId }: MainPageProps) {
+  // FIXED: Removed setUserIdManual (it does not exist in context)
+  const { entries, addEntry, deleteEntry } = useJournal(); 
   const { user } = useUser();
   
+  // FIXED: Removed the useEffect that called setUserIdManual(userId)
+  // The context handles user ID automatically via useUser()
+
   const [input, setInput] = useState("")
   const [response, setResponse] = useState<string | null>(null)
   const [emotionData, setEmotionData] = useState<any>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [quoteIndex, setQuoteIndex] = useState(0);
@@ -71,10 +77,15 @@ export function MainPage() {
     return () => clearTimeout(timer)
   }, [countdown])
 
-  const handleDeleteEntry = (id: string | number) => deleteEntry(id as string);
+  // FIXED: Added .toString() to fix type error (string | number -> string)
+  const handleDeleteEntry = (id: string | number) => deleteEntry(id.toString());
 
-  const dashboardEntries = useMemo(() => entries.filter(e => e.source === 'dashboard'), [entries]);
+  // --- FILTER: DASHBOARD ONLY ---
+  const dashboardEntries = useMemo(() => {
+      return entries.filter(e => e.source === 'dashboard');
+  }, [entries]);
 
+  // --- STATS ---
   const peakEmotion = useMemo(() => {
     if (dashboardEntries.length === 0) return "positive"; 
     const counts: Record<string, number> = {};
@@ -134,6 +145,7 @@ export function MainPage() {
     });
   }, [dashboardEntries]);
 
+  // --- RADAR CHART DATA ---
   const dynamicFrequencyData = useMemo(() => {
     return Object.keys(EMOTION_RESPONSES).map(key => ({
       name: key.charAt(0).toUpperCase() + key.slice(1),
@@ -145,16 +157,24 @@ export function MainPage() {
   const handleManualReset = () => { setInput(""); setResponse(null); setEmotionData(null); setCountdown(null); }
 
   const handleAnalyze = async () => {
-    if (!input.trim() || !user?.id) return;
-    setIsAnalyzing(true);
+    if (!input.trim()) return;
+    setIsLoading(true);
     setEmotionData({ loading: true }); 
 
     try {
+      // NOTE: Using user.id directly here as passed from Auth Context
+      const currentUserId = user?.id || userId; 
+      
       const res = await fetch("/api/emotion/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, userId: user.id }), // FIXED: Pass real userId
+        body: JSON.stringify({ text: input, userId: currentUserId }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+         throw new Error(`Server Error: ${res.status}`);
+      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -181,11 +201,14 @@ export function MainPage() {
         setResponse(data.guidance);
         setCountdown(30);
       }
+
     } catch (error: any) { 
-      console.error(error); 
+      console.error("Analysis Error:", error); 
       setEmotionData(null); 
       alert(`Error: ${error.message}`);
-    } finally { setIsAnalyzing(false); }
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAnalyze(); }}
@@ -193,11 +216,10 @@ export function MainPage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden text-slate-900 dark:text-slate-100 font-sans selection:bg-indigo-500/30">
-      {/* Background Blobs */}
       <div className="fixed inset-0 z-0 bg-[#f8faff] dark:bg-[#050505]">
-          <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-violet-400/30 dark:bg-violet-600/20 blur-[120px] animate-blob"/>
-          <div className="absolute bottom-[10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-cyan-400/30 dark:bg-cyan-600/20 blur-[120px] animate-blob animation-delay-2000"/>
-          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.05] dark:opacity-[0.02]" />
+         <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-violet-400/30 dark:bg-violet-600/20 blur-[120px] animate-blob"/>
+         <div className="absolute bottom-[10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-cyan-400/30 dark:bg-cyan-600/20 blur-[120px] animate-blob animation-delay-2000"/>
+         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.05] dark:opacity-[0.02]" />
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto p-4 md:p-8">
@@ -213,9 +235,10 @@ export function MainPage() {
                     </div>
                 </div>
             </div>
+            
             <div className="hidden md:flex items-center gap-3 px-5 py-2.5 bg-white/40 dark:bg-black/40 backdrop-blur-xl rounded-full border border-white/20 dark:border-white/10 ring-1 ring-black/5 shadow-sm">
-                <div className={`w-2 h-2 rounded-full ${isJournalLoading ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]`}/>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wide">{isJournalLoading ? "SYNCING..." : "LIVE SESSION"}</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"/>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 tracking-wide">LIVE SESSION</span>
             </div>
         </div>
 
@@ -229,12 +252,12 @@ export function MainPage() {
                             <span className="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[10px] font-bold text-indigo-600 dark:text-indigo-300 tracking-wider border border-indigo-100 dark:border-indigo-800">AI ANALYSIS v2.0</span>
                         </div>
                         <div className="relative group">
-                            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="What's on your mind? (Press Enter)" className="min-h-[220px] bg-white/50 dark:bg-black/20 border-0 rounded-3xl p-6 text-xl leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-400/70 shadow-inner" disabled={isAnalyzing || countdown !== null} />
+                            <Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="What's on your mind? (Press Enter)" className="min-h-[220px] bg-white/50 dark:bg-black/20 border-0 rounded-3xl p-6 text-xl leading-relaxed resize-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-400/70 shadow-inner" disabled={isLoading || countdown !== null} />
                             <div className="absolute bottom-5 right-6 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-60"><Command size={10} /> Private & Secure</div>
                         </div>
                         <div className="mt-6 flex justify-end">
                             <Button onClick={countdown !== null ? handleManualReset : handleAnalyze} className={`h-14 px-10 rounded-2xl font-bold text-md transition-all shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-95 ${countdown !== null ? 'bg-slate-100 text-slate-500 dark:bg-slate-800' : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-indigo-500/30'}`} disabled={(!input.trim() && countdown === null)}>
-                                {isAnalyzing ? <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Analyzing...</span> : countdown !== null ? `Cooldown: ${countdown}s` : <span className="flex items-center gap-2">Analyze Pattern <ArrowRight size={18}/></span>}
+                                {isLoading ? <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/> Analyzing...</span> : countdown !== null ? `Cooldown: ${countdown}s` : <span className="flex items-center gap-2">Analyze Pattern <ArrowRight size={18}/></span>}
                             </Button>
                         </div>
                     </div>
@@ -245,11 +268,12 @@ export function MainPage() {
                     <motion.div initial={{ opacity: 0, y: -20, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, y: -20, height: 0 }} className="overflow-hidden">
                         <div className={`p-1 rounded-[2.5rem] bg-gradient-to-r ${getGradientColor()}/50 to-transparent p-[2px]`}>
                             <div className={`rounded-[2.5rem] bg-white dark:bg-[#0c0c0e] overflow-hidden relative shadow-2xl`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent dark:from-white/5 pointer-events-none" />
                                 <div className="p-8 flex flex-col md:flex-row gap-8 items-center relative z-10">
                                     {emotionData.loading ? (<div className="w-full flex flex-col items-center animate-pulse py-8"><div className="h-4 w-32 bg-slate-200 rounded mb-4"/><div className="h-20 w-full bg-slate-100 rounded-xl"/></div>) : (
                                         <>
                                             <div className="shrink-0 flex flex-col items-center text-center">
-                                                <div className="text-7xl filter drop-shadow-xl">{emotionData.data.icon}</div>
+                                                <div className="text-7xl animate-bounce-slow filter drop-shadow-xl">{emotionData.data.icon}</div>
                                                 <div className={`mt-4 px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest border ${emotionData.data.color} ${emotionData.data.border} bg-white dark:bg-black`}>{emotionData.data.emotion}</div>
                                             </div>
                                             <div className="flex-1 border-l border-slate-100 dark:border-white/10 pl-0 md:pl-8">
@@ -281,37 +305,114 @@ export function MainPage() {
             </div>
 
             <div className="lg:col-span-4 flex flex-col gap-6">
-                <motion.div onClick={() => setActiveModal("streak")} className="cursor-pointer group">
-                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-orange-50/80 to-white/50 dark:from-orange-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-orange-100/50 dark:border-orange-500/10 shadow-lg relative overflow-hidden transition-all">
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setActiveModal("streak")} className="cursor-pointer group">
+                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-orange-50/80 to-white/50 dark:from-orange-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-orange-100/50 dark:border-orange-500/10 shadow-lg shadow-orange-500/5 relative overflow-hidden transition-all hover:shadow-orange-500/20">
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-start">
-                            <div><div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2"><Target size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Streak</span></div>
-                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{currentStreak}</div><div className="text-xs font-bold text-slate-400 mt-1">days consistent</div></div>
+                            <div><div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2"><Target size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Streak</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{currentStreak}</div><div className="text-xs font-bold text-slate-400 mt-1">days consistent</div></div>
                             <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500 text-orange-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
                 </motion.div>
-                <motion.div onClick={() => setActiveModal("mood")} className="cursor-pointer group">
-                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-emerald-50/80 to-white/50 dark:from-emerald-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-emerald-100/50 dark:border-emerald-500/10 shadow-lg relative overflow-hidden transition-all">
+
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setActiveModal("mood")} className="cursor-pointer group">
+                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-emerald-50/80 to-white/50 dark:from-emerald-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-emerald-100/50 dark:border-emerald-500/10 shadow-lg shadow-emerald-500/5 relative overflow-hidden transition-all hover:shadow-emerald-500/20">
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-start">
-                            <div><div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-2"><Activity size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Wellness</span></div>
-                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{moodScore}</div><div className="text-xs font-bold text-slate-400 mt-1">stability index / 10</div></div>
+                            <div><div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-2"><Activity size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Wellness</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{moodScore}</div><div className="text-xs font-bold text-slate-400 mt-1">stability index / 10</div></div>
                             <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500 text-emerald-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
                 </motion.div>
-                <motion.div onClick={() => setActiveModal("entries")} className="cursor-pointer group">
-                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-blue-50/80 to-white/50 dark:from-blue-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-blue-100/50 dark:border-blue-500/10 shadow-lg relative overflow-hidden transition-all">
+
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setActiveModal("entries")} className="cursor-pointer group">
+                    <div className="p-6 rounded-[2.5rem] bg-gradient-to-br from-blue-50/80 to-white/50 dark:from-blue-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-blue-100/50 dark:border-blue-500/10 shadow-lg shadow-blue-500/5 relative overflow-hidden transition-all hover:shadow-blue-500/20">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-50" />
                         <div className="relative z-10 flex justify-between items-center">
-                            <div><div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2"><BookOpen size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Logs</span></div>
-                            <div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{dashboardEntries.length}</div><div className="text-xs font-bold text-slate-400 mt-1">total entries</div></div>
+                            <div><div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2"><BookOpen size={16} /><span className="text-[10px] font-black uppercase tracking-widest">Logs</span></div><div className="text-5xl font-black text-slate-800 dark:text-white tracking-tighter">{dashboardEntries.length}</div><div className="text-xs font-bold text-slate-400 mt-1">total entries</div></div>
                             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500 text-blue-500 group-hover:text-white transition-all duration-300 group-hover:rotate-45"><ArrowUpRight size={18} /></div>
                         </div>
                     </div>
                 </motion.div>
             </div>
         </div>
+
+        <div className="mt-8 p-8 rounded-[2.5rem] bg-gradient-to-br from-purple-50/80 to-white/50 dark:from-purple-950/30 dark:to-slate-900/50 backdrop-blur-xl border border-purple-100/50 dark:border-purple-500/10 shadow-lg shadow-purple-500/5 relative overflow-hidden transition-all">
+             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-indigo-500/10 opacity-30" />
+             <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm"><Lightbulb size={28} className="text-amber-500"/></div>
+                <div className="flex-1 text-center md:text-left h-[60px] flex flex-col justify-center">
+                    <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Daily Neural Alignment</div>
+                    <AnimatePresence mode="wait"><motion.p key={quoteIndex} initial={{ opacity: 0, filter: "blur(5px)", y: 10 }} animate={{ opacity: 1, filter: "blur(0px)", y: 0 }} exit={{ opacity: 0, filter: "blur(5px)", y: -10 }} transition={{ duration: 0.8, ease: "easeOut" }} className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 italic">"{PSYCH_QUOTES[quoteIndex]}"</motion.p></AnimatePresence>
+                </div>
+             </div>
+        </div>
       </div>
-      {/* Dialog components and styles removed for brevity but must be kept in the final file */}
+
+      <Dialog open={!!activeModal && !!TOOL_DETAILS[activeModal]} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-[#0A0A0A] border-0 shadow-2xl p-0 rounded-[2.5rem]">
+            {activeModal && TOOL_DETAILS[activeModal] && (
+                <div className="flex flex-col h-full">
+                    <div className={`p-10 text-center relative overflow-hidden`}><div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent" /><div className="relative z-10"><div className="w-24 h-24 mx-auto bg-white/50 dark:bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center mb-6 shadow-lg">{TOOL_DETAILS[activeModal].icon}</div><DialogTitle className="text-2xl font-black mb-2 tracking-tight">{TOOL_DETAILS[activeModal].title}</DialogTitle></div></div>
+                    <div className="p-8 bg-slate-50 dark:bg-[#0c0c0e]">
+                        <div className="space-y-4">{TOOL_DETAILS[activeModal].steps.map((step: string, i: number) => (<motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} key={i} className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm"><div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold shadow-inner text-slate-500">{i+1}</div><span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{step}</span></motion.div>))}</div>
+                        <Button onClick={() => setActiveModal(null)} className="mt-8 w-full py-7 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-lg hover:scale-[1.02] shadow-xl">Complete Session</Button>
+                    </div>
+                </div>
+            )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={activeModal === "streak"} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-[#0A0A0A] border-0 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+          <DialogTitle className="sr-only">Streak</DialogTitle>
+          <div className="p-10 flex flex-col items-center text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-orange-500/10 to-transparent pointer-events-none" />
+            <div className="relative z-10 w-full">
+                <div className="text-8xl font-black text-slate-900 dark:text-white mb-2 tracking-tighter">{currentStreak}</div><div className="text-sm font-bold text-orange-500 uppercase tracking-widest mb-10">Current Streak</div>
+                <div className="flex justify-between w-full mb-8 px-2 gap-2">{streakHistory.map((dot, idx) => (<div key={idx} className="flex flex-col items-center gap-3"><div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-500 ${dot.active ? "bg-orange-500 text-white shadow-lg shadow-orange-500/40 scale-110" : dot.isMissed ? "bg-rose-100 text-rose-500 dark:bg-rose-900/30" : "bg-slate-200 text-slate-400 dark:bg-slate-800"}`}>{dot.active ? <CheckCircle size={18} /> : dot.isMissed ? <XCircle size={18} /> : ""}</div><span className={`text-[10px] font-bold uppercase ${dot.active ? "text-orange-500" : "text-slate-400"}`}>{dot.day}</span></div>))}</div>
+                <Button onClick={() => setActiveModal(null)} className="w-full py-6 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold hover:scale-[1.02]">Awesome</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={activeModal === "mood"} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="sm:max-w-lg bg-white dark:bg-[#0A0A0A] border-0 shadow-2xl rounded-[2.5rem] p-8">
+            <div className="text-center mb-6"><DialogTitle className="text-2xl font-black tracking-tight flex items-center justify-center gap-2"><Activity className="text-emerald-500" /> Emotional Balance</DialogTitle><p className="text-slate-500 text-sm mt-2">Distribution of your recent emotional states.</p></div>
+            <div className="h-[300px] w-full relative">{dashboardEntries.length > 0 ? (<ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="70%" data={dynamicFrequencyData}><PolarGrid stroke="#e2e8f0" strokeOpacity={0.5} /><PolarAngleAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} /><Radar name="Count" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.2} /></RadarChart></ResponsiveContainer>) : <div className="h-full flex items-center justify-center text-slate-400 font-bold uppercase text-xs tracking-widest">No Data Available</div>}</div>
+            <Button onClick={() => setActiveModal(null)} className="mt-6 w-full py-6 rounded-2xl bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white font-bold hover:bg-slate-200">Close</Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={activeModal === "entries"} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 border-0 bg-[#F8FAFC] dark:bg-[#09090b] shadow-2xl rounded-[2rem] overflow-hidden outline-none">
+          <div className="p-8 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-zinc-800 z-10 shrink-0">
+            <div className="flex justify-between items-center"><div><DialogTitle className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-3"><BookOpen className="text-indigo-500" size={24} /> Memory Archive</DialogTitle><p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">Timeline of your emotional journey</p></div><div className="px-4 py-2 bg-slate-100 dark:bg-zinc-800 rounded-full text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-700">{dashboardEntries.length} Entries</div></div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-1">
+            {dashboardEntries.length > 0 ? (dashboardEntries.map((item, idx) => {
+                const emoKey = (item.emotion || "calm").toLowerCase();
+                const theme = (EMOTION_RESPONSES as any)[emoKey] || (EMOTION_RESPONSES as any)["calm"];
+                return (
+                  <div key={item.id || idx} className="group relative flex gap-6 pb-8 last:pb-0">
+                    {idx !== dashboardEntries.length - 1 && <div className="absolute left-[27px] top-14 bottom-0 w-[2px] bg-slate-200 dark:bg-zinc-800 group-hover:bg-indigo-500/20 transition-colors duration-300" />}
+                    <div className={`shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-sm border border-white/50 dark:border-white/5 z-10 transition-transform duration-300 group-hover:scale-110 ${theme.bg} ${theme.text}`}>{theme.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="p-5 rounded-[1.5rem] bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-indigo-500/20 group/card relative">
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteEntry(item.id); }} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full transition-all opacity-0 group-hover/card:opacity-100"><Trash2 size={14} /></button>
+                        <div className="flex justify-between items-start mb-3 pr-8"><div className="flex items-center gap-2"><span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${theme.bg} ${theme.color} ${theme.border}`}>{item.emotion}</span><span className="text-xs font-bold text-slate-400">{new Date(item.date).toLocaleDateString([], { hour: '2-digit', minute: '2-digit' })}</span></div></div>
+                        <p className="text-slate-700 dark:text-slate-300 text-sm font-medium leading-relaxed">"{item.text}"</p>
+                        <div className="mt-3 pt-3 border-t border-slate-50 dark:border-zinc-800/50 flex items-center gap-2 text-[10px] font-bold text-slate-400/60 uppercase tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-zinc-700" />{new Date(item.date).toDateString()} • Wellness Score: {item.intensity}/10</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })) : (<div className="h-full flex flex-col items-center justify-center text-center opacity-50 p-10 mt-10"><div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6 animate-pulse"><BookOpen size={32} className="text-slate-400" /></div><h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">Your journal is empty</h3><p className="text-sm text-slate-500 max-w-xs mx-auto mt-2">Start by analyzing your feelings. Your emotional history will appear here automatically.</p></div>)}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <style>{`@keyframes blob { 0%, 100% { transform: translate(0px, 0px) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% { transform: translate(0px, 0px) scale(1); } } .animate-blob { animation: blob 10s infinite; } .animation-delay-2000 { animation-delay: 2s; } .animation-delay-4000 { animation-delay: 4s; } ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 10px; } ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }`}</style>
     </div>
   )
 }

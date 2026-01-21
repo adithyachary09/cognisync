@@ -94,6 +94,7 @@ export function ChatbotPage() {
         try {
             const draftMessages = JSON.parse(draft);
             if (draftMessages.length > 0) {
+                // Auto-save the interrupted session to history
                 const newSession = {
                     id: Date.now().toString(),
                     title: draftMessages[0].content.substring(0, 30) + "...",
@@ -101,13 +102,14 @@ export function ChatbotPage() {
                     messages: draftMessages
                 };
                 currentHistory = [newSession, ...currentHistory];
-                localStorage.removeItem("cognisync_current_draft"); 
-                showNotification({ type: "info", message: "Previous session saved to History." });
+                localStorage.removeItem("cognisync_current_draft"); // Clear draft
+                showNotification({ type: "info", message: "Previous session auto-saved to History." });
             }
         } catch (e) { console.error(e); }
     }
 
     setSavedSessions(currentHistory);
+    // Note: We DO NOT setMessages(draft) here, effectively clearing the screen on refresh.
   }, []);
 
   // --- PERSISTENCE ---
@@ -169,20 +171,13 @@ export function ChatbotPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: content,
-          // Convert internal messages to Gemini format
-          history: currentMessages.map(m => ({ 
-              role: m.role === 'user' ? 'user' : 'model', 
-              parts: [{ text: m.content }] 
-          })),
+          history: currentMessages.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] })),
           tone: aiTone,
           instructions: customInstructions
         })
       });
 
       const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error || "Failed to fetch");
-
       const aiMsg: Message = { 
           id: (Date.now() + 1).toString(), 
           role: "assistant", 
@@ -190,13 +185,10 @@ export function ChatbotPage() {
           timestamp: new Date().toISOString() 
       };
       setMessages([...currentMessages, aiMsg]);
-      
-      if (data.isFallback) showNotification({ type: "info", message: "High traffic. Retrying..." });
+      if (data.isFallback) showNotification({ type: "info", message: "Traffic is high. Retrying..." });
 
     } catch (error) {
-       console.error(error);
-       showNotification({ type: "error", message: "AI Connection failed. Please check your network." });
-       // Optional: Remove the user message if it failed? Or keep it for retry.
+       showNotification({ type: "error", message: "Network error. Please retry." });
     } finally {
       setIsTyping(false);
     }
@@ -218,20 +210,11 @@ export function ChatbotPage() {
 
   const toggleListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return showNotification({ type: "error", message: "Voice input not supported in this browser." });
-    
+    if (!SpeechRecognition) return showNotification({ type: "error", message: "Not supported" });
     const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    
     recognition.onstart = () => setIsListening(true);
     recognition.onend = () => setIsListening(false);
-    recognition.onresult = (e: any) => {
-        const transcript = e.results[0][0].transcript;
-        setInputValue(prev => (prev + " " + transcript).trim());
-    };
-    recognition.onerror = () => setIsListening(false);
-    
+    recognition.onresult = (e: any) => setInputValue(prev => prev + " " + e.results[0][0].transcript);
     recognition.start();
   };
 
@@ -292,9 +275,10 @@ export function ChatbotPage() {
         
         {/* RIGHT SIDE ACTIONS */}
         <div className="flex items-center gap-1.5">
+          {/* New Chat Button (Moved to Right) */}
           <IconButton icon={SquarePen} onClick={handleNewChat} label="New Chat" />
 
-          {/* History Sheet */}
+          {/* History Sheet with Dynamic BG */}
           <Sheet>
             <SheetTrigger asChild>
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2.5 rounded-xl text-slate-500 hover:bg-black/5 dark:hover:bg-white/5">
@@ -302,6 +286,7 @@ export function ChatbotPage() {
                 </motion.button>
             </SheetTrigger>
             <SheetContent side="left" className={`border-r-white/10 overflow-hidden ${isDark ? "bg-slate-950 text-white" : "bg-slate-50"}`}>
+              {/* Dynamic Background for History */}
               <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
                   <div className={`absolute top-0 left-0 w-full h-full bg-gradient-to-b ${theme.gradient} opacity-20`}></div>
                   <motion.div animate={{ rotate: 360 }} transition={{ duration: 30, repeat: Infinity, ease: "linear" }} className="absolute -top-20 -right-20 w-64 h-64 bg-primary/30 rounded-full blur-3xl"></motion.div>
@@ -336,7 +321,7 @@ export function ChatbotPage() {
             </SheetContent>
           </Sheet>
 
-          {/* Settings Dropdown */}
+          {/* Settings Dropdown with Auto-Close */}
           <DropdownMenu open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
             <DropdownMenuTrigger asChild>
                 <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2.5 rounded-xl text-slate-500 hover:bg-black/5 dark:hover:bg-white/5"><Settings2 size={20} /></motion.button>
@@ -437,8 +422,9 @@ export function ChatbotPage() {
                 ) : <Brain size={16} className={theme.text} />}
               </div>
               
-              <div className={`max-w-[92%] sm:max-w-[85%] p-4 sm:p-5 rounded-2xl shadow-sm ${msg.role === "user" ? `bg-gradient-to-br ${theme.gradient} text-white` : isDark ? "bg-[#18181b] border border-white/5" : "bg-white border border-slate-100"}`}>
-                <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed break-words">
+             <div className={`max-w-[92%] sm:max-w-[85%] p-4 sm:p-5 rounded-2xl shadow-sm ${msg.role === "user" ? `bg-gradient-to-br ${theme.gradient} text-white` : isDark ? "bg-[#18181b] border border-white/5" : "bg-white border border-slate-100"}`}>
+
+                <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
                     </ReactMarkdown>
@@ -473,8 +459,8 @@ export function ChatbotPage() {
             onChange={(e) => setInputValue(e.target.value)} 
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()} 
             placeholder="Type your message..." 
-            className="border-none focus-visible:ring-0 bg-transparent text-sm sm:text-md placeholder:text-muted-foreground/50 h-11 sm:h-12"
- 
+           className="border-none focus-visible:ring-0 bg-transparent text-sm sm:text-md placeholder:text-muted-foreground/50 h-11 sm:h-12"
+  
           />
           
           <motion.button 

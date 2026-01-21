@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useJournal } from "@/components/pages/journal-context";
-import { useUser } from "@/lib/user-context"; // Ensure we get the User ID from here
 import { 
   BarChart3, Calendar, TrendingUp, Trophy, Zap, Brain, Coffee, 
   ArrowUpRight, Activity, Smile, Frown, Flame, CloudRain, Sun, Info, X, 
@@ -120,6 +119,24 @@ const WELLNESS_BANDS = [
   { min: 0, max: 2.9, label: "Overwhelmed", overview: "You may feel stuck, hopeless, easily exhausted.", why: "Brain is guarding energy; survival mode triggered.", plan: ["Sleep priority tonight (non-negotiable)", "Tiny win: 2-minute achievable task", "Talk to someone supportive or professional if persistent"], color: "text-rose-500", bg: "from-rose-500/20 to-red-500/20", border: "border-rose-500/30" }
 ];
 
+const SLEEP_FACTS = [
+  { title: "REM Processing", text: "REM sleep processes emotional memory. Lack of it increases reactivity by 60%." },
+  { title: "Circadian Rhythm", text: "Regular sleep onset anchors your mood stability for the following day." },
+  { title: "Temperature", text: "A cooler room (65°F/18°C) significantly aids deep sleep onset and recovery." },
+  { title: "Blue Light", text: "Screens before bed suppress melatonin, delaying emotional recovery during sleep." },
+  { title: "Sleep Debt", text: "Chronic debt mimics anxiety symptoms. One extra hour tonight helps reset." },
+  { title: "Adenosine", text: "Sleep pressure builds all day. Napping too late steals your night's deep sleep." }
+];
+
+const SOCIAL_FACTS = [
+  { title: "Social buffering", text: "Positive social interactions lower cortisol response to stress by up to 50%." },
+  { title: "Micro-Connections", text: "Even brief exchanges with strangers can boost dopamine and belonging." },
+  { title: "Active Listening", text: "Listening to understand rather than respond deepens bonds and empathy." },
+  { title: "Oxytocin Release", text: "Physical presence or shared laughter releases oxytocin, the bonding hormone." },
+  { title: "Co-Regulation", text: "Your nervous system syncs with calm people. Choose your company wisely." },
+  { title: "Shared Purpose", text: "Working on a shared goal creates stronger bonds than just hanging out." }
+];
+
 const slideVariants: Variants = {
   enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -139,14 +156,13 @@ const pulseGlow: Variants = {
 
 export function InsightsPage() {
   const { entries } = useJournal(); 
-  const { user } = useUser();
   const [assessments, setAssessments] = useState<any[]>([]);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("day");
   const [direction, setDirection] = useState(0);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(null);
   const [insightIndex, setInsightIndex] = useState(0);
 
-  // Initialize Supabase Client
+  // Initialize Supabase for fetching
   const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -159,27 +175,24 @@ export function InsightsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // --- FETCH ASSESSMENTS (SAFE HYDRATION) ---
+  // --- NEW: FETCH ASSESSMENTS (ONLINE + OFFLINE) ---
   useEffect(() => {
     const fetchAssessments = async () => {
         try {
-            // 1. Get Offline Data (Safe Check)
-            const localData = typeof window !== 'undefined' 
-                ? JSON.parse(localStorage.getItem('offline_assessments') || '[]') 
-                : [];
+            // 1. Get Offline Data
+            const localData = JSON.parse(localStorage.getItem('offline_assessments') || '[]');
 
             // 2. Get Online Data (if logged in)
             let remoteData: any[] = [];
-            if (user?.id) {
-                const { data } = await supabase
-                    .from('assessments')
-                    .select('*')
-                    .eq('user_id', user.id) // Strict RLS
-                    .order('created_at', { ascending: true });
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                const { data } = await supabase.from('assessments').select('*').order('created_at', { ascending: true });
                 if (data) remoteData = data;
             }
 
-            // 3. Merge
+            // 3. Merge and Set
+            // Note: In a real app we would deduplicate IDs, but for visualization we merge to show "All History"
             const combined = [...remoteData, ...localData];
             setAssessments(combined);
         } catch (e) {
@@ -187,7 +200,7 @@ export function InsightsPage() {
         }
     };
     fetchAssessments();
-  }, [user, supabase]);
+  }, [supabase]);
 
   const handlePeriodChange = (newPeriod: TimePeriod) => {
     const oldIndex = PERIODS.indexOf(timePeriod);
@@ -222,13 +235,19 @@ export function InsightsPage() {
     const totalInt = filteredEntries.reduce((sum, e) => sum + e.intensity, 0);
     const journalAvg = total > 0 ? parseFloat((totalInt / total).toFixed(1)) : 0;
 
+    // --- NEW: INTEGRATE ASSESSMENT SCORES ---
+    // If assessments exist, they should heavily influence the "Wellness Baseline"
+    // Assessment scores are 0-100. We normalize to 0-10.
     let finalWellnessScore = journalAvg;
     
     if (assessments.length > 0) {
-        const recentAssessments = assessments.slice(-5);
+        // Calculate average assessment score (all time or filtered by period? Let's use all recent for stability)
+        const recentAssessments = assessments.slice(-5); // Take last 5
         const assessmentAvg100 = recentAssessments.reduce((acc, curr) => acc + (curr.score || 0), 0) / recentAssessments.length;
-        const assessmentAvg10 = parseFloat((assessmentAvg100 / 10).toFixed(1)); 
+        const assessmentAvg10 = parseFloat((assessmentAvg100 / 10).toFixed(1)); // Normalize to 10
         
+        // Weighted Average: 70% Assessment (Clinical), 30% Journal (Daily) if both exist
+        // Or just use Assessment if Journal is empty
         if (total > 0) {
              finalWellnessScore = parseFloat(((assessmentAvg10 * 0.7) + (journalAvg * 0.3)).toFixed(1));
         } else {
@@ -251,7 +270,7 @@ export function InsightsPage() {
     });
 
     return { 
-        totalEntries: total + assessments.length, 
+        totalEntries: total + assessments.length, // Count both
         averageMood: finalWellnessScore, 
         dominantEmotion: sorted[0] || "Neutral",
         secondaryEmotion: sorted[1] || "None",
@@ -268,14 +287,19 @@ export function InsightsPage() {
     })).filter(item => item.value > 0 || defaults.slice(0,5).includes(item.name));
   }, [stats]);
 
+  // --- UPDATED: MOOD PROGRESSION (INCLUDES ASSESSMENTS) ---
   const moodProgression = useMemo(() => {
+    // If we have assessments, plot them as the primary "Clinical" view 
     if (assessments.length > 0) {
+        // Map assessments to chart format
+        // Assessments score 0-100 -> convert to 0-10
         return assessments.slice(-10).map((a, i) => ({
-            label: a.testName ? a.testName.split(' ')[0] : `Test ${i+1}`,
+            label: a.testName ? a.testName.split(' ')[0] : `Test ${i+1}`, // Shorten name
             score: parseFloat((a.score / 10).toFixed(1))
         }));
     }
 
+    // Fallback to Journal Entries if no assessments
     const now = new Date();
     if (timePeriod === 'day') {
         if (filteredEntries.length === 0) return [{ label: "Now", score: 0 }];
@@ -284,6 +308,8 @@ export function InsightsPage() {
             .map((e, i) => ({ label: `Log ${i+1}`, score: e.intensity }));
     } 
     
+    // ... (Keep existing Day/Week/Year logic for Journal Aggregation if needed) ...
+    // For simplicity and stability in this update, we will return the standard week view if no assessments
     const days = [];
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -386,6 +412,7 @@ export function InsightsPage() {
     const sec = stats.secondaryEmotion;
     const insights = [];
 
+    // --- NEW: LATEST CLINICAL INSIGHT ---
     if (assessments.length > 0) {
         const lastTest = assessments[assessments.length - 1];
         insights.push({ 
@@ -437,7 +464,7 @@ export function InsightsPage() {
          />
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 dark:opacity-20 mix-blend-soft-light"></div>
       </div>
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
+<div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
       
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
           <div className="flex items-center gap-3 mb-2">

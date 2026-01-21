@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useJournal, Entry } from "@/components/pages/journal-context";
-import { useUser } from "@/lib/user-context"; // <--- Added Auth Check
 import { Search, Calendar, Plus, Edit2, Mic, Check, Loader2, Filter, X, Trash2, MicOff, Save, BookOpen, Sparkles, Sun, Droplets, Flame, CloudRain, ChevronDown, Zap, Frown } from 'lucide-react';
 
 const analyzeEmotion = (text: string) => {
@@ -29,7 +28,6 @@ const analyzeEmotion = (text: string) => {
 
 export function JournalPage() {
   const { entries, addEntry, deleteEntry } = useJournal();
-  const { user } = useUser(); // <--- Auth Context
   
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,13 +87,6 @@ export function JournalPage() {
 
   const handleSave = async () => {
     if (!inputText.trim()) return;
-    
-    // Auth Check
-    if (!user) {
-        alert("Please sign in to save journal entries.");
-        return;
-    }
-
     setIsSaving(true);
     const { emotion, intensity } = analyzeEmotion(inputText);
     
@@ -117,32 +108,22 @@ export function JournalPage() {
     }
   };
 
+  // FIXED: Added .toString() to fix type error
   const handleDelete = async (id: string | number) => { 
       if (window.confirm("Delete this memory?")) await deleteEntry(id.toString());
   };
 
   const handleUpdate = async () => {
     if (!editingEntry || !editingEntry.text.trim()) return;
-    
-    // SAFE UPDATE: Add new one first, then delete old one
-    try {
-        const { emotion, intensity } = analyzeEmotion(editingEntry.text);
-        
-        await addEntry({
-            text: editingEntry.text,
-            emotion,
-            intensity,
-            source: 'journal'
-        }, true);
-        
-        // Only delete if add was successful (to prevent data loss)
-        await deleteEntry(editingEntry.id);
-        
-        setEditingEntry(null); 
-    } catch (err) {
-        console.error("Update failed", err);
-        alert("Failed to update entry. Please try again.");
-    }
+    await deleteEntry(editingEntry.id);
+    const { emotion, intensity } = analyzeEmotion(editingEntry.text);
+    await addEntry({
+        text: editingEntry.text,
+        emotion,
+        intensity,
+        source: 'journal'
+    }, true);
+    setEditingEntry(null); 
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSave(); } };
@@ -150,7 +131,7 @@ export function JournalPage() {
   // --- FILTER: JOURNAL ONLY ---
   const filteredEntries = useMemo(() => {
     return entries.filter(entry => {
-      // 1. ISOLATION: Only show 'journal' entries (Strict Filter)
+      // 1. ISOLATION: Only show 'journal' entries
       if (entry.source !== 'journal') return false;
 
       const matchesSearch = entry.text.toLowerCase().includes(searchQuery.toLowerCase());

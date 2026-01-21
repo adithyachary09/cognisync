@@ -14,7 +14,6 @@ import {
   FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer
 } from "lucide-react"
 import { useJournal } from "@/components/pages/journal-context"
-import { useUser } from "@/lib/user-context" // <--- Added for consistency
 import { createBrowserClient } from '@supabase/ssr'
 
 // --- CONFIG ---
@@ -55,7 +54,6 @@ const getWellnessStatus = (score: number) => {
 
 export function ReportPage() {
   const { entries } = useJournal()
-  const { user } = useUser() // <--- Use centralized user state
   const [assessments, setAssessments] = useState<Assessment[]>([])
   const [activeTab, setActiveTab] = useState("today")
   const [historyPeriod, setHistoryPeriod] = useState<7 | 30 | 90>(30)
@@ -70,29 +68,13 @@ export function ReportPage() {
 
   useEffect(() => {
     const fetchAssessments = async () => {
-        // 1. Get Offline Data (Safe check for window)
-        const localDataRaw = typeof window !== 'undefined' 
-            ? JSON.parse(localStorage.getItem('offline_assessments') || '[]') 
-            : [];
-
+        const localDataRaw = JSON.parse(localStorage.getItem('offline_assessments') || '[]')
         let remoteData: any[] = []
-        
-        // 2. Get Online Data (Strictly if user is logged in)
-        if (user?.id) {
-            try {
-                const { data } = await supabase
-                    .from('assessments')
-                    .select('*')
-                    .eq('user_id', user.id) // <--- Strict Security
-                    .order('created_at', { ascending: true })
-                
-                if (data) remoteData = data
-            } catch (err) {
-                console.error("Report fetch error:", err)
-            }
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+            const { data } = await supabase.from('assessments').select('*').order('created_at', { ascending: true })
+            if (data) remoteData = data
         }
-
-        // 3. Merge & Map
         const combined = [...remoteData, ...localDataRaw].map((item: any, index) => ({
             id: item.id || `local-${index}`,
             test_name: item.test_name || item.testName || "Unknown Test",
@@ -100,11 +82,10 @@ export function ReportPage() {
             category: item.category || "General",
             created_at: item.created_at || item.date || new Date().toISOString()
         }))
-        
         setAssessments(combined)
     }
     fetchAssessments()
-  }, [supabase, user])
+  }, [supabase])
 
   // --- CORE DATA PROCESSING ---
   const getFilteredData = (mode: 'today' | 'history', days: number) => {
@@ -130,19 +111,23 @@ export function ReportPage() {
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     // 2. Generate Padded Chart Data (For Graphs)
+    // This creates an array of exactly 'days' length to force the X-Axis to scale correctly
     const generatePaddedData = (sourceData: any[], dateKey: string, valueKey: string) => {
         const paddedData = [];
+        // Iterate backwards from Today to Start Date
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(new Date().getDate() - i);
             d.setHours(0,0,0,0);
             
+            // Find data for this specific day
             const dayMatches = sourceData.filter(item => {
                 const itemDate = new Date(item[dateKey]);
                 itemDate.setHours(0,0,0,0);
                 return itemDate.getTime() === d.getTime();
             });
 
+            // If multiple entries exist for one day, average them to avoid duplicate ticks
             let val = null;
             if (dayMatches.length > 0) {
                 const sum = dayMatches.reduce((acc, curr) => acc + (curr[valueKey] || 0), 0);
@@ -150,9 +135,9 @@ export function ReportPage() {
             }
 
             paddedData.push({
-                displayDate: d.toISOString(),
+                displayDate: d.toISOString(), // ISO for sorting/components
                 label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                value: val
+                value: val // Can be null (gap) or number
             });
         }
         return paddedData;
@@ -184,6 +169,7 @@ export function ReportPage() {
         name, value, fill: EMOTION_COLORS[name] || "#94a3b8"
     }))
 
+    // 7-day trend for PDF (uses the padded logic but specifically for 7 days)
     const pdfTrendData = generatePaddedData(filteredEntries, 'date', 'intensity').slice(-7);
 
     const recommendations = []
@@ -198,7 +184,7 @@ export function ReportPage() {
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
         filteredEntries, filteredAssessments,
-        chartDataMood, chartDataAssess,
+        chartDataMood, chartDataAssess, // EXPORTED FOR GRAPHS
         pdfTrendData,
         journalAvg: parseFloat(journalAvg.toFixed(1)),
         testAvg10: parseFloat(testAvg10.toFixed(1)),
@@ -335,6 +321,8 @@ export function ReportPage() {
                         </div>
                     </div>
 
+                    
+
                     <div className="mb-10">
                       <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4 uppercase tracking-wider text-slate-700">Detailed Activity Log</h3>
                       <table className="w-full text-sm text-left">
@@ -409,7 +397,7 @@ export function ReportPage() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                  <FileText className="text-slate-800 dark:text-white h-8 w-8" />
+                 <FileText className="text-slate-800 dark:text-white h-8 w-8" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">Progress Records</h1>
             </div>
