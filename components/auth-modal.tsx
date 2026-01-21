@@ -62,7 +62,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
-  /* ===================== GOOGLE AUTH ===================== */
+  /* ===================== GOOGLE AUTH (THE FIX) ===================== */
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -118,7 +118,7 @@ export function AuthModal({ onSuccess }: AuthModalProps) {
                 if (data.user.identities?.length === 0) {
                      setLoginError("Account already exists. Please log in.");
                 } else {
-                     // Successfully signed up
+                     // Successfully signed up - Update Context
                      setUser({ 
                          id: data.user.id, 
                          email: data.user.email!, 
