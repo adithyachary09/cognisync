@@ -30,10 +30,20 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const USER_STORAGE_KEY = "cognisync:user-session";
+
 /* ===================== PROVIDER ===================== */
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<User | null>(null);
+  // 1. INSTANT LOAD: Initialize from LocalStorage to prevent avatar flicker
+  const [user, setUserState] = useState<User | null>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem(USER_STORAGE_KEY);
+      return cached ? JSON.parse(cached) : null;
+    }
+    return null;
+  });
+  
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper to map Supabase user to our App's User interface
@@ -46,73 +56,75 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
   };
 
+  // Internal setter that syncs with LocalStorage
+  const handleUserUpdate = (u: User | null) => {
+    setUserState(u);
+    if (u) {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
+    } else {
+      localStorage.removeItem(USER_STORAGE_KEY);
+    }
+  };
+
   useEffect(() => {
-    // 1. Check active session on mount
+    let mounted = true;
+
+    // 2. CHECK SESSION: Verify with Supabase silently
     const checkSession = async () => {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          setUserState(mapSupabaseUser(session.user));
-        } else {
-          setUserState(null);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          if (session?.user) {
+            // Confirm the cached user is correct/up-to-date
+            handleUserUpdate(mapSupabaseUser(session.user));
+          } else {
+            // Only clear if session is definitely invalid (and not just loading)
+            // But if we have no session from supabase, we must trust that.
+            // However, to prevent flashing on refresh, we only nullify if we are sure.
+             const { data: { user } } = await supabase.auth.getUser();
+             if (!user) handleUserUpdate(null);
+          }
         }
       } catch (error) {
-        console.error("Error checking session:", error);
+        console.error("Session check error:", error);
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
     checkSession();
 
-    // 2. Listen for Auth Changes (OAuth redirects, Magic Links, Sign outs)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // 3. LISTEN: Handle Login/Logout events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUserState(mapSupabaseUser(session.user));
-        // Notify other components (like theme) that auth changed
-        window.dispatchEvent(new Event("cognisync-auth-change"));
-      } else {
-        setUserState(null);
-        window.dispatchEvent(new Event("cognisync-auth-change"));
+        handleUserUpdate(mapSupabaseUser(session.user));
+      } else if (_event === 'SIGNED_OUT') {
+        handleUserUpdate(null);
+        window.location.href = '/'; // Hard reload to clear sensitive data
       }
       setIsLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  // Manual SetUser (mostly for updates, though Supabase handles auth state)
-  const setUser = (u: User | null) => {
-    setUserState(u);
-  };
-
-  // Logout function
   const logout = async () => {
     await supabase.auth.signOut();
-    setUserState(null);
-    window.dispatchEvent(new Event("cognisync-auth-change"));
+    handleUserUpdate(null);
   };
 
   return (
-    <UserContext.Provider value={{ user, isLoading, setUser, logout }}>
+    <UserContext.Provider value={{ user, isLoading, setUser: handleUserUpdate, logout }}>
       {children}
     </UserContext.Provider>
   );
 }
 
-/* ===================== HOOK ===================== */
-
 export const useUser = () => {
   const ctx = useContext(UserContext);
-  if (!ctx) {
-    throw new Error("useUser must be used within UserProvider");
-  }
+  if (!ctx) throw new Error("useUser must be used within UserProvider");
   return ctx;
 };
