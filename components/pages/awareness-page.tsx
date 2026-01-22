@@ -211,11 +211,11 @@ export function AwarenessPage() {
 
   // --- ICONS: STRICT FACES ONLY ---
   const emotions = [
-    { val: 1, icon: CloudRain, label: "Overwhelmed", color: "text-rose-500", bg: "bg-rose-50", hover: "group-hover:bg-rose-500 group-hover:text-white group-hover:shadow-rose-500/30" },
-    { val: 2, icon: Frown, label: "Anxious", color: "text-orange-500", bg: "bg-orange-50", hover: "group-hover:bg-orange-500 group-hover:text-white group-hover:shadow-orange-500/30" },
-    { val: 3, icon: Meh, label: "Neutral", color: "text-slate-500", bg: "bg-slate-50", hover: "group-hover:bg-slate-500 group-hover:text-white group-hover:shadow-slate-500/30" },
-    { val: 4, icon: Smile, label: "Calm", color: "text-sky-500", bg: "bg-sky-50", hover: "group-hover:bg-sky-500 group-hover:text-white group-hover:shadow-sky-500/30" },
-    { val: 5, icon: Laugh, label: "Happy", color: "text-emerald-500", bg: "bg-emerald-50", hover: "group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/30" }
+    { val: 1, icon: CloudRain, label: "Overwhelmed", color: "text-rose-500", bg: "bg-rose-500/10", hover: "group-hover:bg-rose-500 group-hover:text-white" },
+    { val: 2, icon: Frown, label: "Anxious", color: "text-orange-500", bg: "bg-orange-500/10", hover: "group-hover:bg-orange-500 group-hover:text-white" },
+    { val: 3, icon: Meh, label: "Neutral", color: "text-slate-500", bg: "bg-slate-500/10", hover: "group-hover:bg-slate-500 group-hover:text-white" },
+    { val: 4, icon: Smile, label: "Calm", color: "text-sky-500", bg: "bg-sky-500/10", hover: "group-hover:bg-sky-500 group-hover:text-white" },
+    { val: 5, icon: Laugh, label: "Happy", color: "text-emerald-500", bg: "bg-emerald-500/10", hover: "group-hover:bg-emerald-500 group-hover:text-white" }
   ];
 
   /* =========================================================================
@@ -224,22 +224,22 @@ export function AwarenessPage() {
   return (
     <div className="min-h-screen relative font-sans text-foreground transition-colors duration-700 overflow-x-hidden">
       
-      {/* BACKGROUND: Uses Theme Variables */}
+      {/* 1. DYNAMIC BACKGROUND: Uses Theme Variables (Blobs + Noise) */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
-         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/10 to-transparent"></div>
+         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
          <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
       
-      {/* 1. SOS BANNER - FIXED & ADJUSTED */}
-      <div className="w-full bg-rose-600 text-white px-4 py-4 text-sm font-medium shadow-md relative z-10">
+      {/* 2. SOS BANNER - FIXED (Rose color stays for safety visibility) */}
+      <div className="w-full bg-rose-600 text-white px-4 py-3 text-sm font-medium shadow-md relative z-10 sticky top-0 backdrop-blur-md bg-rose-600/90 supports-[backdrop-filter]:bg-rose-600/90">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
            <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
-                <AlertCircle size={20} className="shrink-0" />
+                <AlertCircle size={20} className="shrink-0 animate-pulse" />
                 <span>In crisis? Press the SOS button or call your local helpline immediately.</span>
             </div>
-            <Button variant="secondary" size="sm" className="bg-white text-rose-600 hover:bg-rose-50 border-none font-bold w-full md:w-auto" onClick={() => setShowSOSModal(true)}>
+            <Button variant="secondary" size="sm" className="bg-white text-rose-600 hover:bg-rose-50 border-none font-bold w-full md:w-auto shadow-sm hover:shadow-md transition-all" onClick={() => setShowSOSModal(true)}>
                 SOS HELP
             </Button>
         </div>
@@ -258,9 +258,9 @@ export function AwarenessPage() {
             </div>
             <div className="space-y-3 mb-6">
               {SOS_RESOURCES.map((res, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-rose-200 hover:bg-rose-50 transition-colors">
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-rose-200 hover:bg-rose-50/50 transition-colors">
                   <div><h3 className="font-bold text-foreground">{res.name}</h3><p className="text-xs text-muted-foreground">{res.desc}</p></div>
-                  <a href={`tel:${res.number}`} className="flex items-center gap-2 text-rose-600 font-bold bg-white px-3 py-1.5 rounded border border-rose-100 shadow-sm hover:shadow-md"><Phone size={14} /> {res.number}</a>
+                  <a href={`tel:${res.number}`} className="flex items-center gap-2 text-rose-600 font-bold bg-card px-3 py-1.5 rounded border border-rose-100 shadow-sm hover:shadow-md"><Phone size={14} /> {res.number}</a>
                 </div>
               ))}
             </div>
@@ -280,14 +280,14 @@ export function AwarenessPage() {
       {/* ACTIVE EXERCISE MODAL */}
       <AnimatePresence>
       {activeExercise && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
           <div className="w-full max-w-2xl text-center text-white space-y-6 px-2 sm:px-0">
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight">
 {activeExercise.title}</h2>
             <p className="text-xl text-white/80 max-w-lg mx-auto">{activeExercise.desc}</p>
             <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-white/20 border-t-primary animate-spin-slow mx-auto flex items-center justify-center bg-white/5"><span className="text-2xl font-mono">Active</span></div>
             <div className="flex justify-center gap-4">
-               <Button size="lg" variant="secondary" className="min-w-[150px]" onClick={() => setActiveExercise(null)}>Stop</Button>
+               <Button size="lg" variant="secondary" className="min-w-[150px] bg-white/10 hover:bg-white/20 border-0" onClick={() => setActiveExercise(null)}>Stop</Button>
                <Button size="lg" className="min-w-[150px] bg-primary text-primary-foreground hover:bg-primary/90" onClick={finishExerciseSession}>Complete Session</Button>
             </div>
             <p className="text-sm text-white/60">Focus on your breathing. Take your time.</p>
@@ -301,23 +301,23 @@ export function AwarenessPage() {
         {/* HEADER */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-card rounded-xl shadow-sm border border-border">
+            <div className="p-3 bg-card/60 backdrop-blur-md rounded-xl shadow-sm border border-border">
                 <Activity className="text-primary h-8 w-8" />
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
               Regulation
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system and expand emotional intelligence.</p>
+          <p className="text-lg text-muted-foreground max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system.</p>
         </div>
 
-        {/* 2. MOOD CHECK-IN */}
+        {/* 3. MOOD CHECK-IN (GLASS CARD) */}
         {!isCheckInHidden && (
-        <Card className="p-8 md:p-10 border-border shadow-xl bg-card/70 backdrop-blur-xl relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
+        <Card className="p-8 md:p-10 border-border/50 shadow-xl bg-card/40 backdrop-blur-2xl relative overflow-hidden transition-all duration-500 hover:shadow-primary/5 hover:border-primary/20">
           <AnimatePresence mode="wait">
           {!isCheckInComplete ? (
             <motion.div key="check-in" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex flex-col items-center gap-10">
-              <div className="flex items-center justify-between w-full border-b border-border pb-4">
+              <div className="flex items-center justify-between w-full border-b border-border/50 pb-4">
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Daily Check-in</span>
                 <span className="text-xs font-bold text-muted-foreground">{new Date().toLocaleDateString()}</span>
               </div>
@@ -336,7 +336,7 @@ export function AwarenessPage() {
                     onClick={() => handleMoodSelect(item.val)} 
                     className="group flex flex-col items-center gap-4"
                   >
-                    <div className={`p-4 sm:p-6 md:p-7 rounded-2xl ${item.bg} ${item.color} shadow-sm border border-transparent transition-all duration-300 ${item.hover} hover:shadow-xl`}>
+                    <div className={`p-4 sm:p-6 md:p-7 rounded-2xl ${item.bg} ${item.color} shadow-sm border border-transparent transition-all duration-300 ${item.hover} hover:shadow-xl hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-${item.color.split('-')[1]}-400`}>
                             <item.icon size={28} className="sm:hidden" strokeWidth={1.5} />
                             <item.icon size={40} className="hidden sm:block" strokeWidth={1.5} />
                           </div>
@@ -349,8 +349,8 @@ export function AwarenessPage() {
           ) : (
             <motion.div key="complete" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center justify-center py-6 gap-6">
               <div className="relative">
-                <div className="absolute inset-0 bg-green-100 dark:bg-green-900/40 rounded-full animate-ping opacity-75 duration-1000"></div>
-                <div className="relative bg-green-100 text-green-600 dark:bg-green-900/60 dark:text-green-400 p-5 rounded-full"><Check size={36} strokeWidth={3} /></div>
+                <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping opacity-75 duration-1000"></div>
+                <div className="relative bg-primary/10 text-primary p-5 rounded-full border border-primary/20"><Check size={36} strokeWidth={3} /></div>
               </div>
               <div className="text-center space-y-2">
                   <h3 className="text-3xl font-bold text-foreground">Check-in Complete</h3>
@@ -358,7 +358,7 @@ export function AwarenessPage() {
               </div>
               
               <div className="w-full max-w-md mt-6">
-                <input type="text" value={journalNote} onChange={(e) => setJournalNote(e.target.value)} placeholder="Optional: Add a quick note about why..." className="w-full text-center text-sm bg-muted/50 border border-border rounded-xl py-3 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                <input type="text" value={journalNote} onChange={(e) => setJournalNote(e.target.value)} placeholder="Optional: Add a quick note about why..." className="w-full text-center text-sm bg-background/50 border border-border rounded-xl py-3 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all backdrop-blur-sm" />
               </div>
             </motion.div>
           )}
@@ -366,26 +366,29 @@ export function AwarenessPage() {
         </Card>
         )}
 
-        {/* 3. DAILY PRACTICE */}
+        {/* 4. DAILY PRACTICE (Animated Cards) */}
         <section className="space-y-8">
           <div className="flex items-center justify-between px-1 border-l-4 border-primary pl-4">
               <h2 className="text-2xl font-bold text-foreground flex items-center gap-3"><Play className="text-primary h-6 w-6 fill-primary/20" /> Your Daily Practice</h2>
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground bg-muted px-3 py-1 rounded-full">Resets in 24h</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-3 py-1 rounded-full border border-border">Resets in 24h</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {dailyExercises.map((ex, i) => (
               <motion.div key={ex.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
-                <Card className={`group relative overflow-hidden p-8 border transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 bg-gradient-to-br ${ex.color} ${ex.border} h-full`}>
-                  <div className="absolute top-6 right-6 p-2 bg-white/50 dark:bg-black/20 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform">
-                      {completedExercises.includes(ex.id) ? <Check size={18} className="text-green-600" /> : <ex.icon size={20} className="text-slate-700 dark:text-slate-200" />}
+                <Card className={`group relative overflow-hidden p-8 border border-border/60 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-xl h-full hover:border-primary/30`}>
+                  {/* Subtle Gradient Overlay on Hover */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  
+                  <div className="absolute top-6 right-6 p-2 bg-background/50 rounded-xl backdrop-blur-sm group-hover:scale-110 transition-transform border border-border/50">
+                      {completedExercises.includes(ex.id) ? <Check size={18} className="text-primary" /> : <ex.icon size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />}
                   </div>
-                  <div className="h-full flex flex-col justify-between">
+                  <div className="h-full flex flex-col justify-between relative z-10">
                     <div className="mb-6">
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-3 block opacity-70">{ex.type} • {ex.duration}</span>
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 leading-tight">{ex.title}</h3>
-                        <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed font-medium">{ex.desc}</p>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 block opacity-70">{ex.type} • {ex.duration}</span>
+                        <h3 className="text-2xl font-bold text-foreground mb-3 leading-tight">{ex.title}</h3>
+                        <p className="text-muted-foreground text-sm leading-relaxed font-medium">{ex.desc}</p>
                     </div>
-                    <Button className={`w-full font-bold shadow-lg transition-all transform active:scale-95 ${completedExercises.includes(ex.id) ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-white text-slate-900 hover:bg-slate-100'}`} onClick={() => startExerciseSession(ex)}>
+                    <Button className={`w-full font-bold shadow-lg transition-all transform active:scale-95 ${completedExercises.includes(ex.id) ? 'bg-primary/20 text-primary border border-primary/50 hover:bg-primary/30' : 'bg-foreground text-background hover:bg-foreground/90'}`} onClick={() => startExerciseSession(ex)}>
                         {completedExercises.includes(ex.id) ? "Complete Again" : "Start Session"}
                     </Button>
                   </div>
@@ -394,7 +397,7 @@ export function AwarenessPage() {
             ))}
           </div>
           <div className="text-center pt-2">
-              <button onClick={() => setShowAllExercises(!showAllExercises)} className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-full hover:bg-muted">
+              <button onClick={() => setShowAllExercises(!showAllExercises)} className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-full hover:bg-muted/50 border border-transparent hover:border-border">
                   {showAllExercises ? "Hide Library" : "Browse Full Library"} <ChevronRight size={14} className={`transition-transform ${showAllExercises ? 'rotate-90' : ''}`}/>
               </button>
           </div>
@@ -402,8 +405,8 @@ export function AwarenessPage() {
           {showAllExercises && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
                   {ALL_EXERCISES.map(ex => (
-                      <div key={ex.id} className="p-5 rounded-xl border border-border bg-card hover:border-primary/50 cursor-pointer transition-all hover:shadow-md" onClick={() => startExerciseSession(ex)}>
-                          <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-sm text-foreground">{ex.title}</h4><ex.icon size={14} className="text-muted-foreground"/></div>
+                      <div key={ex.id} className="p-5 rounded-xl border border-border bg-card/60 hover:bg-card hover:border-primary/50 cursor-pointer transition-all hover:shadow-lg backdrop-blur-sm group" onClick={() => startExerciseSession(ex)}>
+                          <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">{ex.title}</h4><ex.icon size={14} className="text-muted-foreground group-hover:text-primary"/></div>
                           <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{ex.duration}</span>
                       </div>
                   ))}
@@ -412,7 +415,7 @@ export function AwarenessPage() {
           </AnimatePresence>
         </section>
 
-        {/* 4. SCIENCE OF YOU */}
+        {/* 5. SCIENCE OF YOU (Flip Cards with Theme Colors) */}
         <section className="space-y-8">
            <div className="flex items-center gap-3 px-1 border-l-4 border-primary pl-4">
                <h2 className="text-2xl font-bold text-foreground">The Science of You</h2>
@@ -422,16 +425,16 @@ export function AwarenessPage() {
               <motion.div key={card.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} className="h-56 sm:h-64 perspective-1000 group cursor-pointer"
                onClick={() => toggleFlip(card.id)}>
                 <div className={`relative w-full h-full transition-all duration-700 transform-style-3d ${flippedCards.includes(card.id) ? 'rotate-y-180' : ''}`}>
-                  {/* FRONT */}
-                  <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-card border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all rounded-3xl">
+                  {/* FRONT: Glass Card */}
+                  <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-card/80 backdrop-blur-xl border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all rounded-3xl">
                     <div className="mb-5 p-4 bg-primary/10 rounded-2xl text-primary shadow-inner"><card.icon size={32} /></div>
                     <h3 className="text-lg font-bold text-foreground">{card.front}</h3>
                     <p className="text-[10px] text-primary/80 mt-6 uppercase tracking-widest font-bold flex items-center gap-1 bg-primary/5 px-3 py-1 rounded-full">Tap to Learn <ChevronRight size={10} /></p>
                   </Card>
-                  {/* BACK */}
-                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-6 flex flex-col justify-center bg-primary text-primary-foreground border-none shadow-xl rounded-3xl">
+                  {/* BACK: Solid Theme Color Gradient */}
+                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-6 flex flex-col justify-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none shadow-xl rounded-3xl">
                     <div className="flex items-center gap-2 mb-4 text-primary-foreground/80 text-xs font-bold uppercase tracking-wider"><BrainCircuit size={14} /> Neuroscience</div>
-                    <p className="text-sm leading-relaxed font-medium opacity-90">{card.back}</p>
+                    <p className="text-sm leading-relaxed font-medium opacity-95">{card.back}</p>
                   </Card>
                 </div>
               </motion.div>
@@ -439,28 +442,28 @@ export function AwarenessPage() {
           </div>
         </section>
 
-        {/* 5. RESOURCES (DYNAMIC) */}
+        {/* 6. RESOURCES (Conditional & Animated) */}
         <div className="min-h-[200px]">
             <AnimatePresence mode="wait">
             {!isCheckInComplete ? (
                 <motion.div key="medical-note" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <Card className="p-8 bg-amber-50/50 border border-amber-100 shadow-sm rounded-3xl flex items-center gap-4">
-                        <div className="p-3 bg-amber-100 rounded-full text-amber-600 shrink-0"><Info size={24}/></div>
-                        <p className="text-xs md:text-sm text-amber-800 font-medium leading-relaxed">
+                    <Card className="p-8 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 shadow-sm rounded-3xl flex items-center gap-4 backdrop-blur-md">
+                        <div className="p-3 bg-amber-100 text-amber-700 rounded-full shrink-0"><Info size={24}/></div>
+                        <p className="text-xs md:text-sm text-amber-800 dark:text-amber-200 font-medium leading-relaxed">
                             <strong>Note:</strong> Personalized reading recommendations and psychological techniques will appear here after you complete your daily mood check-in above.
                         </p>
                     </Card>
                 </motion.div>
             ) : (
                 <motion.div key="recs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                    <Card className="p-8 bg-card border-border shadow-xl rounded-[2.5rem] overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-accent to-primary"></div>
+                    <Card className="p-8 bg-card/60 border-border shadow-xl rounded-[2.5rem] overflow-hidden relative backdrop-blur-2xl">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                             <div>
                                 <h4 className="font-bold text-xl text-foreground mb-6 flex items-center gap-3"><BookOpen size={24} className="text-primary"/> Recommended Reading</h4>
                                 <ul className="space-y-4">
                                     {currentRecs?.books.map((book, i) => (
-                                    <li key={i} className="flex flex-col p-5 bg-muted/30 rounded-2xl border border-border hover:border-primary/30 transition-all hover:shadow-md cursor-pointer group">
+                                    <li key={i} className="flex flex-col p-5 bg-background/40 rounded-2xl border border-border/50 hover:border-primary/30 transition-all hover:shadow-md cursor-pointer group backdrop-blur-sm">
                                         <div className="flex justify-between items-start mb-1">
                                             <span className="font-bold text-foreground text-base group-hover:text-primary transition-colors">{book.title}</span>
                                         </div>
@@ -476,7 +479,7 @@ export function AwarenessPage() {
                                     <h5 className="font-black text-2xl text-foreground mb-2">{currentRecs?.technique.name}</h5>
                                     <p className="text-base text-muted-foreground leading-relaxed">{currentRecs?.technique.desc}</p>
                                 </div>
-                                <div className="mt-8 p-5 bg-muted/50 text-muted-foreground text-xs rounded-2xl leading-relaxed flex gap-3">
+                                <div className="mt-8 p-5 bg-muted/30 text-muted-foreground text-xs rounded-2xl leading-relaxed flex gap-3 border border-border/50">
                                     <Info size={16} className="shrink-0 mt-0.5"/>
                                     <p>CogniSync provides educational tools. It is not a replacement for professional psychiatric treatment. If you are experiencing severe symptoms, please contact a licensed professional immediately.</p>
                                 </div>
