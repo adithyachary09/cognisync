@@ -9,11 +9,10 @@ import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts"
 import { 
   ChevronRight, Award, Sparkles, ClipboardCheck, Search, 
   Brain, Heart, Activity, Zap, Clock, 
-  ArrowRight, Wind, MessageSquare, AlertCircle, 
+  ArrowRight, Wind, MessageSquare, PenTool, AlertCircle, 
   CheckCircle2, History, X, Layout, ChevronUp, ChevronDown,
   CloudRain, Moon, BatteryWarning, Eye, RefreshCw, Shield, 
-  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff, Lightbulb, Stethoscope,
-  PenTool
+  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff, Lightbulb, Stethoscope, PlayCircle, RotateCcw
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
@@ -114,7 +113,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ))
 
-  // --- TIMER LOGIC ---
+  // --- TIMER LOGIC (High Visibility) ---
   useEffect(() => {
       if (!timeLeft || timeLeft <= 0 || !selectedTest || showPreTestModal || quizState.completed) return;
       const timer = setInterval(() => {
@@ -142,40 +141,58 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       setHistoryData(localHistory.reverse()); 
   }, [quizState.completed]); 
 
+  // --- NAVIGATION HANDLER ---
+  const handleNavigate = (path: string) => {
+      if (onNavigate) onNavigate(path);
+      else router.push(`/${path}`);
+  }
+
   // --- ACTIONS ---
   const handleTestClick = (testId: string) => {
       setSelectedTest(testId);
       setShowPreTestModal(true);
   }
 
+  // Starts the quiz from the Pre-Test Modal
   const handleStartTest = () => {
     setShowPreTestModal(false);
+    // If we came from history, we can close the history modal now that quiz is starting
+    if (selectedHistoryItem) setSelectedHistoryItem(null); 
+    
     const test = MEDICAL_15.find(t => t.id === selectedTest);
     setTimeLeft(test ? test.durationSeconds : 300);
     setIsTimedOut(false);
     setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 })
   }
 
+  // Resets everything to Library view
   const handleRestart = () => {
       setSelectedTest(null);
       setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
       setShowPreTestModal(false);
       setIsTimedOut(false);
       setTimeLeft(null);
+      setSelectedHistoryItem(null);
   }
 
-  const handleRetakeSame = () => {
-      if(selectedTest) {
-          setIsTimedOut(false);
-          setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
-          const test = MEDICAL_15.find(t => t.id === selectedTest);
-          setTimeLeft(test ? test.durationSeconds : 300);
+  // Called when Retaking from History Item
+  const handleRetakeFromHistory = () => {
+      if (selectedHistoryItem) {
+          const testID = selectedHistoryItem.testId;
+          // Don't close history item yet, wait for Pre-Test confirmation
+          setSelectedTest(testID);
+          setShowPreTestModal(true);
       }
   }
 
+  // Handles "Cancel" in Pre-Test Modal
   const handleClosePreTest = () => {
       setShowPreTestModal(false);
-      setSelectedTest(null);
+      // If we were retaking from history, go back to history report. 
+      // If we came from library, selectedHistoryItem is null, so we just close.
+      if (!selectedHistoryItem) {
+          setSelectedTest(null);
+      }
   }
 
   const saveResult = async (finalScore: number) => {
@@ -242,7 +259,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                 <h2 className="text-3xl font-black text-white mb-2">Session Expired</h2>
                 <p className="text-muted-foreground mb-8">For clinical accuracy, this test must be completed within the time limit.</p>
                 <div className="flex flex-col gap-3">
-                    <Button onClick={handleRetakeSame} className="h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-lg">Retake Assessment</Button>
+                    <Button onClick={() => { setIsTimedOut(false); handleStartTest(); }} className="h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-lg">Retake Assessment</Button>
                     <Button onClick={handleRestart} variant="ghost" className="h-12 rounded-xl text-muted-foreground hover:text-white">Cancel</Button>
                 </div>
             </div>
@@ -260,14 +277,18 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                         <h2 className="text-xs font-black text-primary uppercase tracking-[0.2em] mb-2">{activeTest?.category} EVALUATION</h2>
                         <div className="flex items-center gap-4">
                             <span className="text-6xl font-black text-foreground">{quizState.currentQuestion + 1}<span className="text-2xl text-muted-foreground/50">/ 5</span></span>
+                            {/* HIGH VISIBILITY TIMER */}
                             {timeLeft !== null && (
-                                <div className={`px-4 py-1 rounded-full border text-sm font-mono font-bold ${timeLeft < 30 ? 'border-rose-500 text-rose-500 bg-rose-500/10 animate-pulse' : 'border-primary/30 text-primary bg-primary/5'}`}>
+                                <div className={`px-5 py-2 rounded-xl border-2 font-mono font-black text-xl shadow-lg transition-all ${timeLeft < 30 ? 'bg-red-600 text-white border-red-500 animate-pulse' : 'bg-white text-black border-slate-200'}`}>
                                     {formatTime(timeLeft)}
                                 </div>
                             )}
                         </div>
                     </div>
-                    <Button onClick={handleRestart} variant="ghost" className="hover:bg-destructive/10 hover:text-destructive rounded-full"><X/></Button>
+                    {/* ENHANCED EXIT BUTTON */}
+                    <Button onClick={handleRestart} className="bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-full px-6 font-bold border border-rose-500/20 transition-all">
+                        <X className="mr-2" size={18}/> Quit Session
+                    </Button>
                 </div>
                 
                 <div className="h-1 bg-muted rounded-full overflow-hidden mb-12">
@@ -291,16 +312,19 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       )
   }
 
-  // --- VIEW 3: RESULTS DASHBOARD (FIXED) ---
+  // --- VIEW 3: RESULTS DASHBOARD ---
   if (selectedTest && quizState.completed && activeTest) {
       const max = 25;
       const severity = getSeverity(quizState.score, max);
       const percentage = Math.round((quizState.score / max) * 100);
       
-      const scoreData = [
-        { category: "Score", value: percentage, fill: "url(#scoreGradient)" },
-        { category: "Remaining", value: 100 - percentage, fill: "transparent" },
-      ]
+      const actions = [
+          { title: "Reflect in Journal", route: "journal", icon: PenTool, desc: "Document your feelings now." },
+          { title: "Talk to AI Assistant", route: "chatbot", icon: MessageSquare, desc: "Process this result with AI." },
+          { title: "Regulation Exercise", route: "regulation", icon: Wind, desc: "Balance your nervous system." },
+          { title: "View Dashboard", route: "dashboard", icon: Layout, desc: "Check your overall stats." }
+      ];
+      const suggestedAction = percentage < 50 ? actions[2] : (percentage > 80 ? actions[3] : actions[0]);
 
       return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-h-screen p-4 md:p-10">
@@ -310,15 +334,8 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <div className="relative z-10 text-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold mb-8"><CheckCircle2 size={16}/> Assessment Complete</div>
                         
-                        {/* CLICKABLE SCORE */}
-                        <motion.div 
-                            whileHover={{ scale: 1.05 }} 
-                            onClick={() => setShowScoreInfo(true)} 
-                            className="cursor-pointer inline-block p-6 rounded-[2.5rem] bg-background/50 border border-primary/10 hover:border-primary/30 transition-all hover:shadow-2xl hover:shadow-primary/10"
-                        >
-                            <h1 className="text-6xl md:text-8xl font-black text-foreground mb-2 flex items-center justify-center gap-4">
-                                {percentage}% <HelpCircle className="text-muted-foreground/30 w-8 h-8 animate-bounce"/>
-                            </h1>
+                        <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowScoreInfo(true)} className="cursor-pointer inline-block p-6 rounded-[2.5rem] bg-background/50 border border-primary/10 hover:border-primary/30 transition-all hover:shadow-2xl hover:shadow-primary/10">
+                            <h1 className="text-6xl md:text-8xl font-black text-foreground mb-2 flex items-center justify-center gap-4">{percentage}% <HelpCircle className="text-muted-foreground/30 w-8 h-8 animate-bounce"/></h1>
                             <p className="text-muted-foreground text-lg uppercase tracking-widest font-bold">Wellness Score (Tap to Explain)</p>
                         </motion.div>
                         
@@ -332,33 +349,38 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             </p>
                         </div>
 
-                        {/* STATIC RECOMMENDATIONS (UN-CLICKABLE) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                            <Card className="p-6 text-left bg-gradient-to-br from-primary/10 to-transparent border-primary/20 cursor-default">
-                                <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Focus</div>
-                                <h3 className="text-xl font-bold text-foreground mb-2">Immediate Regulation</h3>
-                                <p className="text-sm text-muted-foreground">Your score indicates high arousal. We suggest focusing on calming the nervous system through box breathing or grounding techniques.</p>
+                        {/* AI ANALYSIS & COPING STRATEGIES */}
+                        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                             <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
+                                <h4 className="font-bold text-indigo-500 mb-2 flex items-center gap-2"><Lightbulb size={16}/> Coping Strategy 1</h4>
+                                <p className="text-sm text-muted-foreground">Focus on "Grounding". Name 5 things you see, 4 you feel, 3 you hear. This interrupts the anxiety loop.</p>
+                             </div>
+                             <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+                                <h4 className="font-bold text-emerald-500 mb-2 flex items-center gap-2"><Shield size={16}/> Coping Strategy 2</h4>
+                                <p className="text-sm text-muted-foreground">Establish a "Worry Window". Set aside 10 mins at 5 PM to process stress, rather than carrying it all day.</p>
+                             </div>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-6 justify-center">
+                            <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 cursor-default">
+                                <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2">{suggestedAction.icon && <suggestedAction.icon size={14}/>} Recommended Action</div>
+                                <h3 className="text-xl font-bold text-foreground mb-1">{suggestedAction.title}</h3>
+                                <p className="text-sm text-muted-foreground">{suggestedAction.desc}</p>
                             </Card>
                             
-                            <Card className="p-6 text-left bg-card border-border/50 cursor-default">
-                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Lightbulb size={14}/> Clinical Insight</div>
-                                <h3 className="text-xl font-bold text-foreground mb-2">Long-term Strategy</h3>
-                                <p className="text-sm text-muted-foreground">Consistent sleep patterns and journaling triggers can significantly reduce symptoms over a 2-week period.</p>
+                            <Card className="p-6 text-left flex-1 bg-card hover:bg-muted/50 transition-all cursor-pointer border-border/50 group" onClick={handleRestart}>
+                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Layout size={14}/> Assessment Library</div>
+                                <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">Return to Library</h3>
+                                <p className="text-sm text-muted-foreground">Select a different assessment.</p>
                             </Card>
                         </div>
 
-                        {/* ONLY WORKING BUTTON */}
-                        <Button onClick={handleRestart} size="lg" className="px-10 py-6 rounded-full text-lg font-bold bg-primary text-primary-foreground shadow-xl hover:scale-105 transition-all">
-                            Return to Assessment Library
-                        </Button>
-
-                        {/* MEDICAL DISCLAIMER */}
                         <div className="mt-12 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex items-start gap-4 text-left max-w-3xl mx-auto animate-pulse">
                             <AlertCircle className="text-rose-500 shrink-0 mt-1" size={20} />
                             <div>
                                 <h4 className="text-sm font-bold text-rose-500 uppercase tracking-wider mb-1">Medical Disclaimer</h4>
                                 <p className="text-xs text-muted-foreground leading-relaxed">
-                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the SOS Features in the Regulation tab immediately for professional support.
+                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the <span className="font-bold cursor-pointer hover:underline" onClick={() => handleNavigate('regulation')}>SOS Features</span> in the Regulation tab immediately.
                                 </p>
                             </div>
                         </div>
@@ -373,7 +395,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                         <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-card w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative border border-border">
                             <button onClick={() => setShowScoreInfo(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"><X/></button>
                             <h3 className="text-xl font-bold text-foreground mb-4">Understanding Your Score</h3>
-                            <p className="text-sm text-muted-foreground mb-6">Scores are normalized to a 0-100% scale based on the total possible points of the assessment.</p>
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20"><div className="w-3 h-3 bg-emerald-500 rounded-full"/><span className="text-sm font-bold text-emerald-600">76-100% : Optimal Functioning</span></div>
                                 <div className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20"><div className="w-3 h-3 bg-yellow-500 rounded-full"/><span className="text-sm font-bold text-yellow-600">51-75% : Mild Symptoms</span></div>
@@ -427,7 +448,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             {["Clinical", "Cognitive", "Growth"].map((cat) => {
                                 const catTests = filteredLibrary.filter(t => t.category === cat);
                                 if (catTests.length === 0) return null;
-                                // Correct logic: Show all if "showAllTests" is true, otherwise show 3.
                                 const displayedTests = showAllTests ? catTests : catTests.slice(0, 3);
                                 
                                 return (
@@ -445,13 +465,11 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                                     </div>
                                                     <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{test.name}</h3>
                                                     <p className="text-sm text-muted-foreground mb-6 line-clamp-2 flex-1">{test.description}</p>
-                                                    
                                                     <div className="flex flex-wrap gap-2 mb-6">
                                                         {test.focusTags.slice(0, 2).map(tag => (
                                                             <span key={tag} className="px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-bold border border-primary/10">{tag}</span>
                                                         ))}
                                                     </div>
-
                                                     <div className="flex items-center justify-between pt-4 border-t border-border/30 text-xs font-bold text-muted-foreground">
                                                         <span className="flex items-center gap-1"><Clock size={12}/> {test.time}</span>
                                                         <span className="flex items-center gap-1 group-hover:text-primary transition-colors">Start <ChevronRight size={12}/></span>
@@ -532,21 +550,15 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary animate-pulse border border-primary/20"><activeTest.icon size={40} /></div>
                             <h2 className="text-3xl font-black text-foreground mb-2">{activeTest.name}</h2>
                             <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-8">{activeTest.clinicalFocus}</p>
-                            
                             <div className="bg-muted/30 rounded-3xl p-6 mb-8 text-left space-y-4 border border-border/50">
                                 <div className="flex items-start gap-3">
-                                    <div className="mt-1 p-1 bg-blue-500/10 rounded-md text-blue-500"><PenTool size={14} /></div>
-                                    <div><span className="text-sm font-bold text-foreground block">Purpose</span><p className="text-xs text-muted-foreground">Measures {activeTest.category.toLowerCase()} markers.</p></div>
-                                </div>
-                                <div className="flex items-start gap-3">
                                     <div className="mt-1 p-1 bg-orange-500/10 rounded-md text-orange-500"><Clock size={14} /></div>
-                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Timed Session: {activeTest.time} ({activeTest.durationSeconds}s).</p></div>
+                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Approx {activeTest.time}. Answer based on the last 2 weeks.</p></div>
                                 </div>
                             </div>
-
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleClosePreTest} className="flex-1 h-12 rounded-xl font-bold border-border/50">Cancel</Button>
-                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin</Button>
+                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin Assessment</Button>
                             </div>
                         </div>
                     </motion.div>
@@ -554,23 +566,32 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
             )}
         </AnimatePresence>
 
-        {/* HISTORICAL REPORT MODAL */}
+        {/* HISTORICAL REPORT MODAL (ENHANCED OP BOX) */}
         <AnimatePresence>
-            {selectedHistoryItem && (
+            {selectedHistoryItem && !showPreTestModal && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
-                        <div className="p-8 text-center">
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Historical Report</div>
-                            <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
-                            <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString()}</p>
-                            
-                            <div className="text-6xl font-black text-primary mb-2">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100) || 0}%</div>
-                            <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border mb-8 ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
-                                {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
-                            </div>
+                    <motion.div 
+                        initial={{ scale: 0.9, rotateX: 10 }} 
+                        animate={{ scale: 1, rotateX: 0 }} 
+                        exit={{ scale: 0.9, rotateX: 10 }} 
+                        className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative perspective-1000"
+                    >
+                        <div className="p-8 text-center relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"/>
+                            <div className="relative z-10">
+                                <div className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center justify-center gap-2"><History size={14}/> Historical Report</div>
+                                <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
+                                <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                                
+                                <motion.div whileHover={{ scale: 1.1 }} className="text-7xl font-black text-foreground mb-4 drop-shadow-lg">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100) || 0}%</motion.div>
+                                <div className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-10 shadow-sm ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
+                                    {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
+                                </div>
 
-                            <div className="flex gap-3">
-                                <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Close</Button>
+                                <div className="flex flex-col gap-3">
+                                    <Button onClick={handleRetakeFromHistory} className="w-full h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"><RotateCcw size={18}/> Retake Assessment</Button>
+                                    <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="w-full h-12 rounded-xl font-bold border-border/50 hover:bg-muted">Close Report</Button>
+                                </div>
                             </div>
                         </div>
                     </motion.div>
