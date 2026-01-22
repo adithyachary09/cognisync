@@ -6,12 +6,14 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
-import { BarChart, Bar, ResponsiveContainer, Cell, Tooltip, XAxis, YAxis, LineChart, Line } from "recharts"
+import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts"
 import { 
   ChevronRight, Award, Sparkles, ClipboardCheck, Search, 
   Brain, Heart, Activity, Zap, Users, Smile, Clock, 
   ArrowRight, Wind, MessageSquare, PenTool, AlertCircle, 
-  CheckCircle2, History, X, BarChart3, Layout, Filter, BookOpen
+  CheckCircle2, History, X, BookOpen, Moon, Shield, 
+  Fingerprint, RefreshCw, Eye, BatteryWarning, CloudRain,
+  Calendar, Filter, ChevronUp, ChevronDown
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
@@ -30,7 +32,8 @@ interface Test {
   time: string
   difficulty: "Easy" | "Medium" | "Hard"
   category: "Clinical" | "Cognitive" | "Growth"
-  nextSteps: { high: string; low: string } // ID of the next test to recommend
+  icon: any
+  nextSteps: { high: string; low: string }
 }
 
 const MEDICAL_12: Test[] = [
@@ -39,13 +42,14 @@ const MEDICAL_12: Test[] = [
     id: "phq9",
     name: "Depression Screening",
     acronym: "PHQ-9",
-    description: "Standard clinical tool to monitor severity of depressive symptoms.",
+    description: "Standard clinical tool to monitor severity of depressive symptoms and mood patterns.",
     clinicalFocus: "Mood Pathology",
     focusTags: ["Mood", "Energy", "Anhedonia"],
     questions: 9,
     time: "3 min",
     difficulty: "Medium",
     category: "Clinical",
+    icon: CloudRain,
     nextSteps: { high: "gad7", low: "rosenberg" }
   },
   {
@@ -59,6 +63,7 @@ const MEDICAL_12: Test[] = [
     time: "3 min",
     difficulty: "Medium",
     category: "Clinical",
+    icon: Wind,
     nextSteps: { high: "pss", low: "brs" }
   },
   {
@@ -72,19 +77,21 @@ const MEDICAL_12: Test[] = [
     time: "5 min",
     difficulty: "Easy",
     category: "Clinical",
+    icon: Zap,
     nextSteps: { high: "mbi", low: "maas" }
   },
   {
     id: "isi",
     name: "Insomnia Severity Index",
     acronym: "ISI",
-    description: "Assess the nature, severity, and impact of insomnia.",
+    description: "Assess the nature, severity, and impact of insomnia on daily functioning.",
     clinicalFocus: "Sleep Hygiene",
     focusTags: ["Sleep Quality", "Fatigue", "Impact"],
     questions: 7,
     time: "3 min",
     difficulty: "Easy",
     category: "Clinical",
+    icon: Moon,
     nextSteps: { high: "gad7", low: "pss" }
   },
 
@@ -93,13 +100,14 @@ const MEDICAL_12: Test[] = [
     id: "asrs",
     name: "ADHD Screener",
     acronym: "ASRS-v1.1",
-    description: "World Health Organization screening tool for adult ADHD.",
+    description: "World Health Organization screening tool for adult ADHD symptoms.",
     clinicalFocus: "Executive Function",
     focusTags: ["Focus", "Impulsivity", "Attention"],
     questions: 6,
     time: "4 min",
     difficulty: "Hard",
     category: "Cognitive",
+    icon: Brain,
     nextSteps: { high: "mbi", low: "eqi" }
   },
   {
@@ -113,6 +121,7 @@ const MEDICAL_12: Test[] = [
     time: "8 min",
     difficulty: "Medium",
     category: "Cognitive",
+    icon: BatteryWarning,
     nextSteps: { high: "pss", low: "big5" }
   },
   {
@@ -126,6 +135,7 @@ const MEDICAL_12: Test[] = [
     time: "6 min",
     difficulty: "Easy",
     category: "Cognitive",
+    icon: Eye,
     nextSteps: { high: "eqi", low: "pss" }
   },
   {
@@ -139,6 +149,7 @@ const MEDICAL_12: Test[] = [
     time: "9 min",
     difficulty: "Hard",
     category: "Cognitive",
+    icon: RefreshCw,
     nextSteps: { high: "gad7", low: "maas" }
   },
 
@@ -154,6 +165,7 @@ const MEDICAL_12: Test[] = [
     time: "10 min",
     difficulty: "Medium",
     category: "Growth",
+    icon: Heart,
     nextSteps: { high: "sias", low: "maas" }
   },
   {
@@ -167,6 +179,7 @@ const MEDICAL_12: Test[] = [
     time: "4 min",
     difficulty: "Easy",
     category: "Growth",
+    icon: Award,
     nextSteps: { high: "brs", low: "phq9" }
   },
   {
@@ -180,6 +193,7 @@ const MEDICAL_12: Test[] = [
     time: "3 min",
     difficulty: "Medium",
     category: "Growth",
+    icon: Shield,
     nextSteps: { high: "big5", low: "pss" }
   },
   {
@@ -193,6 +207,7 @@ const MEDICAL_12: Test[] = [
     time: "10 min",
     difficulty: "Easy",
     category: "Growth",
+    icon: Fingerprint,
     nextSteps: { high: "eqi", low: "rosenberg" }
   }
 ];
@@ -223,13 +238,40 @@ const getSeverity = (score: number, max: number) => {
     return { label: "Minimal / Optimal", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
 }
 
+const getRecommendations = (percentage: number) => {
+  if (percentage >= 80) return ["Maintain your current positive routines.", "Consider mentoring others.", "Challenge yourself with advanced practices."];
+  if (percentage >= 60) return ["Practice daily mindfulness.", "Use 'Box Breathing' when stressed.", "Journal about triggers."];
+  return ["Prioritize sleep and basic self-care.", "Use the '5-4-3-2-1 Grounding' tool.", "Consider speaking with a professional."];
+}
+
+const getActionableRoute = (score: number) => {
+  if (score < 60) {
+    return {
+      title: "Immediate Regulation",
+      desc: "Your arousal levels are high. Let's down-regulate your nervous system.",
+      button: "Start Breathing Exercise",
+      route: "regulation", 
+      icon: <Wind size={20} className="text-blue-500" />
+    }
+  }
+  return {
+    title: "Reflect & Document",
+    desc: "Documenting your state of mind now is crucial for tracking progress.",
+    button: "Log in Journal",
+    route: "journal", 
+    icon: <PenTool size={20} className="text-orange-500" />
+  }
+}
+
 /* =========================================================================
    COMPONENT: TESTS PAGE
    ========================================================================= */
 export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [activeTab, setActiveTab] = useState<"library" | "history">("library")
+  const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all")
   const [showAllTests, setShowAllTests] = useState(false)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
   const [showPreTestModal, setShowPreTestModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [historyData, setHistoryData] = useState<any[]>([])
@@ -247,13 +289,25 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   useEffect(() => {
       // Load history from local storage as fallback/demo
       const localHistory = JSON.parse(localStorage.getItem('offline_assessments') || '[]');
-      setHistoryData(localHistory.reverse()); // Newest first
-  }, [quizState.completed]); // Reload when a test is finished
+      setHistoryData(localHistory.reverse()); 
+  }, [quizState.completed]); 
 
   // --- ACTIONS ---
   const handleTestClick = (testId: string) => {
       setSelectedTest(testId);
       setShowPreTestModal(true);
+  }
+
+  const handleHistoryClick = (item: any) => {
+      setSelectedHistoryItem(item);
+  }
+
+  const handleRetakeFromHistory = () => {
+      if (selectedHistoryItem) {
+          setSelectedTest(selectedHistoryItem.testId);
+          setSelectedHistoryItem(null);
+          setShowPreTestModal(true);
+      }
   }
 
   const handleStartTest = () => {
@@ -301,12 +355,21 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       const newAnswers = [...quizState.answers, val];
       const newScore = quizState.score + val;
       
-      if (quizState.currentQuestion < 4) { // Using 5 generic questions for demo
+      if (quizState.currentQuestion < 4) { 
           setQuizState({ ...quizState, currentQuestion: quizState.currentQuestion + 1, answers: newAnswers, score: newScore });
       } else {
           setQuizState({ ...quizState, completed: true, answers: newAnswers, score: newScore });
           saveResult(newScore);
       }
+  }
+
+  const handleActionClick = (routeKey: string) => {
+     if (onNavigate) {
+         onNavigate(routeKey)
+     } else {
+         const paths: any = { regulation: '/regulation', chatbot: '/chat', journal: '/journal', dashboard: '/' }
+         router.push(paths[routeKey] || '/')
+     }
   }
 
   const activeTest = MEDICAL_12.find(t => t.id === selectedTest);
@@ -316,6 +379,19 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       const filtered = MEDICAL_12.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
       return showAllTests ? filtered : filtered.slice(0, 6);
   }, [searchTerm, showAllTests]);
+
+  const filteredHistory = useMemo(() => {
+      if (historyFilter === 'all') return historyData;
+      const now = new Date();
+      const oneDay = 24 * 60 * 60 * 1000;
+      return historyData.filter(item => {
+          const itemDate = new Date(item.date);
+          const diff = now.getTime() - itemDate.getTime();
+          if (historyFilter === 'today') return diff < oneDay;
+          if (historyFilter === 'week') return diff < oneDay * 7;
+          return true;
+      })
+  }, [historyData, historyFilter]);
 
   // --- VIEW 1: QUIZ FOCUS MODE ---
   if (selectedTest && !showPreTestModal && !quizState.completed) {
@@ -354,15 +430,22 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       )
   }
 
-  // --- VIEW 2: RESULTS DASHBOARD ---
+  // --- VIEW 2: RESULTS DASHBOARD (DYNAMIC GLASS) ---
   if (selectedTest && quizState.completed && activeTest) {
       const max = 25;
       const severity = getSeverity(quizState.score, max);
       const percentage = Math.round((quizState.score / max) * 100);
-      
-      // Smart Chaining Recommendation
+      const recommendations = getRecommendations(percentage);
+      const suggestedAction = getActionableRoute(percentage);
+
+      // Smart Recommendation Logic: Limit to 1 next step or Dashboard
       const nextTestId = percentage > 50 ? activeTest.nextSteps.high : activeTest.nextSteps.low;
       const nextTest = MEDICAL_12.find(t => t.id === nextTestId);
+
+      const scoreData = [
+        { category: "Score", value: percentage, fill: "url(#scoreGradient)" },
+        { category: "Remaining", value: 100 - percentage, fill: "transparent" },
+      ]
 
       return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-h-screen p-4 md:p-10">
@@ -371,6 +454,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
                     <div className="relative z-10 text-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold mb-8"><CheckCircle2 size={16}/> Assessment Complete</div>
+                        
                         <h1 className="text-5xl md:text-7xl font-black text-foreground mb-2">{percentage}%</h1>
                         <p className="text-muted-foreground text-lg uppercase tracking-widest font-bold mb-10">Wellness Score</p>
                         
@@ -380,22 +464,30 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${severity.bg} ${severity.color} border ${severity.border}`}>{severity.label}</span>
                             </div>
                             <p className="text-lg font-medium text-foreground leading-relaxed">
-                                Based on your responses to the <span className="text-primary">{activeTest.name}</span>, your results suggest a <span className="text-foreground font-bold underline decoration-primary/50 underline-offset-4">{severity.label}</span> level of symptoms. This score serves as a baseline for tracking your progress.
+                                Based on your responses to the <span className="text-primary font-bold">{activeTest.name}</span>, your results suggest a <span className="text-foreground font-bold underline decoration-primary/50 underline-offset-4">{severity.label}</span> level of symptoms.
                             </p>
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 justify-center">
-                            {nextTest && (
+                            {/* RECOMMENDATION: Either Next Test OR Action (Journal/Dashboard) */}
+                            {nextTest ? (
                                 <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => { setQuizState({ ...quizState, completed: false, currentQuestion: 0, score: 0 }); setSelectedTest(nextTest.id); }}>
-                                    <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Next Step</div>
+                                    <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Follow-Up</div>
                                     <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{nextTest.name}</h3>
-                                    <p className="text-sm text-muted-foreground">Build on these insights.</p>
+                                    <p className="text-sm text-muted-foreground">Deepen your insight.</p>
+                                </Card>
+                            ) : (
+                                <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => handleActionClick(suggestedAction.route)}>
+                                    <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2">{suggestedAction.icon} Recommended Action</div>
+                                    <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{suggestedAction.title}</h3>
+                                    <p className="text-sm text-muted-foreground">{suggestedAction.desc}</p>
                                 </Card>
                             )}
+                            
                             <Card className="p-6 text-left flex-1 bg-card hover:bg-muted/50 transition-all cursor-pointer border-border/50" onClick={handleRestart}>
-                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Layout size={14}/> Return to Library</div>
-                                <h3 className="text-xl font-bold text-foreground mb-1">Browse Assessments</h3>
-                                <p className="text-sm text-muted-foreground">Explore other categories.</p>
+                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><CheckCircle2 size={14}/> Complete</div>
+                                <h3 className="text-xl font-bold text-foreground mb-1">Return to Dashboard</h3>
+                                <p className="text-sm text-muted-foreground">Review logs and progress.</p>
                             </Card>
                         </div>
                     </div>
@@ -408,8 +500,9 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   // --- VIEW 3: LIBRARY & HISTORY (MAIN) ---
   return (
     <div className="min-h-screen p-6 md:p-10 relative overflow-x-hidden text-foreground">
-        {/* BACKGROUND */}
+        {/* DYNAMIC BACKGROUND */}
         <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
             <div className="absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-primary/10 rounded-full mix-blend-multiply filter blur-[120px] animate-blob"></div>
         </div>
@@ -454,7 +547,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                             {catTests.map(test => (
                                                 <Card key={test.id} onClick={() => handleTestClick(test.id)} className="group p-6 bg-card/60 backdrop-blur-xl border border-border/50 hover:border-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[2rem] cursor-pointer relative overflow-hidden flex flex-col h-full">
-                                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500"><Activity size={80}/></div>
+                                                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500"><test.icon size={80}/></div>
                                                     <div className="flex justify-between items-start mb-4 relative z-10">
                                                         <span className="px-3 py-1 rounded-full bg-background/50 border border-border/50 text-[10px] font-bold text-foreground uppercase tracking-wider">{test.acronym}</span>
                                                         <div className={`w-2 h-2 rounded-full ${test.difficulty === 'Easy' ? 'bg-emerald-500' : test.difficulty === 'Medium' ? 'bg-yellow-500' : 'bg-rose-500'}`} />
@@ -462,7 +555,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                                     <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{test.name}</h3>
                                                     <p className="text-sm text-muted-foreground mb-6 line-clamp-2 flex-1">{test.description}</p>
                                                     
-                                                    {/* CLINICAL CHIPS */}
+                                                    {/* CLINICAL CHIPS (Replced dummy graph) */}
                                                     <div className="flex flex-wrap gap-2 mb-6">
                                                         {test.focusTags.map(tag => (
                                                             <span key={tag} className="px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-bold border border-primary/10">{tag}</span>
@@ -483,40 +576,52 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
                         {!showAllTests && searchTerm === "" && (
                             <div className="mt-12 text-center">
-                                <Button onClick={() => setShowAllTests(true)} variant="outline" className="px-8 py-6 rounded-full border-border/50 hover:bg-card/50 text-foreground font-bold">View Full Clinical Library</Button>
+                                <Button onClick={() => setShowAllTests(!showAllTests)} variant="outline" className="px-8 py-6 rounded-full border-border/50 hover:bg-card/50 text-foreground font-bold flex items-center gap-2 mx-auto">
+                                    {showAllTests ? "Collapse Library" : "View Full Clinical Library"} {showAllTests ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </Button>
                             </div>
                         )}
                     </motion.div>
                 ) : (
                     <motion.div key="history" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                        {historyData.length > 0 ? (
+                        <div className="flex justify-end gap-2 mb-6">
+                            {["all", "today", "week"].map((f) => (
+                                <button key={f} onClick={() => setHistoryFilter(f as any)} className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${historyFilter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>{f}</button>
+                            ))}
+                        </div>
+
+                        {filteredHistory.length > 0 ? (
                             <div className="space-y-4">
-                                {historyData.map((record, i) => {
+                                {filteredHistory.map((record, i) => {
                                     const severity = getSeverity(record.score, record.maxScore);
                                     return (
-                                        <Card key={i} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors">
+                                        <Card key={i} onClick={() => handleHistoryClick(record)} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors cursor-pointer group">
                                             <div className="flex items-center gap-6 mb-4 md:mb-0 w-full md:w-auto">
                                                 <div className="w-16 h-16 rounded-2xl bg-background/50 flex items-center justify-center font-black text-xl text-primary border border-border/50">
                                                     {Math.round((record.score / record.maxScore) * 100)}%
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-foreground text-lg">{record.testName}</h3>
-                                                    <p className="text-xs text-muted-foreground font-medium">{new Date(record.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                                    <h3 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">{record.testName}</h3>
+                                                    <div className="flex items-center gap-3 mt-1">
+                                                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1"><Calendar size={10}/> {new Date(record.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1"><Clock size={10}/> {new Date(record.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                                                 <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${severity.bg} ${severity.color} border ${severity.border}`}>{severity.label}</span>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-background"><ChevronRight className="text-muted-foreground"/></Button>
+                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-background"><ChevronRight className="text-muted-foreground group-hover:text-primary"/></Button>
                                             </div>
                                         </Card>
                                     )
                                 })}
                             </div>
                         ) : (
-                            <div className="text-center py-20 opacity-50">
-                                <History className="mx-auto h-16 w-16 mb-4 text-muted-foreground"/>
-                                <h3 className="text-xl font-bold text-foreground">No Assessment History</h3>
+                            <div className="text-center py-32 opacity-50">
+                                <History className="mx-auto h-20 w-20 mb-4 text-muted-foreground"/>
+                                <h3 className="text-2xl font-bold text-foreground">No Assessment History</h3>
                                 <p className="text-muted-foreground">Complete a test to start tracking your clinical progress.</p>
+                                <Button onClick={() => setActiveTab("library")} variant="outline" className="mt-6">Go to Library</Button>
                             </div>
                         )}
                     </motion.div>
@@ -531,7 +636,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
                         <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
                         <div className="p-8 md:p-10 text-center">
-                            <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary animate-pulse border border-primary/20"><Activity size={40} /></div>
+                            <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary animate-pulse border border-primary/20"><activeTest.icon size={40} /></div>
                             <h2 className="text-3xl font-black text-foreground mb-2">{activeTest.name}</h2>
                             <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-8">{activeTest.clinicalFocus}</p>
                             
@@ -548,7 +653,32 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={() => setShowPreTestModal(false)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Cancel</Button>
-                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin Assessment</Button>
+                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform">Begin Assessment</Button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
+        {/* HISTORICAL REPORT MODAL (READ ONLY) */}
+        <AnimatePresence>
+            {selectedHistoryItem && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
+                        <div className="p-8 text-center">
+                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Historical Report</div>
+                            <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
+                            <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                            
+                            <div className="text-6xl font-black text-primary mb-2">{Math.round((selectedHistoryItem.score / selectedHistoryItem.maxScore) * 100)}%</div>
+                            <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border mb-8 ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
+                                {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Close Report</Button>
+                                <Button onClick={handleRetakeFromHistory} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform">Retake Test</Button>
                             </div>
                         </div>
                     </motion.div>
