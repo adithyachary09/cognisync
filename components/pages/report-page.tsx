@@ -7,18 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { 
   Calendar, BookOpen, CheckCircle2, Clock, 
-  FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer, Download, Filter, TrendingUp, AlertTriangle, Info
+  FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer, TrendingUp, AlertTriangle, Info, List
 } from "lucide-react"
 import { useJournal } from "@/components/pages/journal-context"
 import { createBrowserClient } from '@supabase/ssr'
-
-// --- CONFIG ---
-const EMOTION_COLORS: Record<string, string> = {
-    Happy: "#eab308", Excited: "#22c55e", Calm: "#06b6d4",
-    Anxious: "#a855f7", Sad: "#3b82f6", Angry: "#ef4444",
-    Stressed: "#f43f5e", Lonely: "#8b5cf6", Confused: "#6366f1",
-    Neutral: "#94a3b8", Overwhelmed: "#f43f5e"
-};
 
 // --- TYPES ---
 interface Assessment {
@@ -54,7 +46,6 @@ export function ReportPage() {
   const [activeTab, setActiveTab] = useState("today")
   const [historyPeriod, setHistoryPeriod] = useState<7 | 30 | 90>(30)
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null)
-  const [expandedDrillDown, setExpandedDrillDown] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   
@@ -63,7 +54,6 @@ export function ReportPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ))
 
-  // HYDRATION FIX
   useEffect(() => {
     setIsMounted(true)
   }, [])
@@ -115,13 +105,12 @@ export function ReportPage() {
     const testCount = filteredAssessments.length
     const journalSum = filteredEntries.reduce((acc, curr) => acc + curr.intensity, 0)
     
-    // Calculate Averages
     const journalAvgRaw = journalCount > 0 ? (journalSum / journalCount) : 0
-    const journalAvg = parseFloat(journalAvgRaw.toFixed(1)) // Normalized 0-10
+    const journalAvg = parseFloat(journalAvgRaw.toFixed(1)) 
 
     const testSum = filteredAssessments.reduce((acc, curr) => acc + curr.score, 0)
     const testAvg100 = testCount > 0 ? (testSum / testCount) : 0
-    const testAvg10 = parseFloat((testAvg100 / 10).toFixed(1)) // Normalized 0-10
+    const testAvg10 = parseFloat((testAvg100 / 10).toFixed(1)) 
 
     let wellnessScore = 0
     if (journalCount > 0 && testCount > 0) wellnessScore = (journalAvg * 0.3) + (testAvg10 * 0.7)
@@ -134,8 +123,8 @@ export function ReportPage() {
         testCount,
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
-        journalAvg, // THIS LINE FIXES THE TS ERROR
-        testAvg10,  // THIS LINE FIXES THE TS ERROR
+        journalAvg, 
+        testAvg10,
         filteredEntries, 
         filteredAssessments,
         dateRange: activeTab === 'today' ? "Today" : `Last ${historyPeriod} Days`
@@ -173,15 +162,7 @@ export function ReportPage() {
     const assessmentRows = currentData.filteredAssessments.map(a => {
         const d = new Date(a.created_at);
         const status = getSeverity(a.score, 'assessment')
-        return [
-            d.toLocaleDateString(),
-            d.toLocaleTimeString(),
-            "Assessment", 
-            `"${a.test_name}"`, 
-            `${a.score}%`, 
-            a.category, 
-            status.label
-        ]
+        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Assessment", a.test_name, `${a.score}%`, a.category, status.label]
     })
 
     const journalMetaData = ["", "JOURNAL LOGS"]
@@ -189,14 +170,7 @@ export function ReportPage() {
     const journalRows = currentData.filteredEntries.map(e => {
         const d = new Date(e.date);
         const safeText = e.text ? e.text.replace(/"/g, '""') : ""
-        return [
-            d.toLocaleDateString(),
-            d.toLocaleTimeString(),
-            "Journal", 
-            e.emotion, 
-            `${e.intensity}/10`, 
-            `"${safeText}"`
-        ]
+        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, `"${safeText}"`]
     })
 
     const footer = ["", "DISCLAIMER: This report is generated automatically by CogniSync. It summarizes self-reported data and is not a clinical diagnosis."]
@@ -220,7 +194,6 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
-  // Prevent Hydration Mismatch
   if (!isMounted) return null;
 
   return (
@@ -240,17 +213,17 @@ export function ReportPage() {
             body { -webkit-print-color-adjust: exact; background-color: white !important; font-family: sans-serif; } 
             .print-hidden { display: none !important; } 
             .page-break { page-break-before: always; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
             th { background-color: #f1f5f9; color: #475569; font-weight: 800; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
             td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
             tr:nth-child(even) { background-color: #f8fafc; }
             .header-box { border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
-            .stat-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
-            .footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+            .stat-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center; }
+            .footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+            .badge-print { padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid; }
           `}</style>
           
           <div className="p-8 max-w-4xl mx-auto">
-              {/* Header */}
               <div className="header-box flex justify-between items-end">
                   <div>
                       <h1 className="text-4xl font-black text-slate-900 tracking-tight">CogniSync</h1>
@@ -263,72 +236,72 @@ export function ReportPage() {
                   </div>
               </div>
 
-              {/* Vitals Summary */}
               <div className="grid grid-cols-4 gap-4 mb-8">
                   <div className="stat-box">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Wellness Score</p>
-                      <p className="text-3xl font-black text-blue-600">{currentData.avgMood}/10</p>
+                      <p className="text-2xl font-black text-blue-600">{currentData.avgMood}/10</p>
                   </div>
                   <div className="stat-box">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Clinical Avg</p>
-                      <p className="text-3xl font-black text-purple-600">{currentData.avgTestScore}%</p>
+                      <p className="text-2xl font-black text-purple-600">{currentData.avgTestScore}%</p>
                   </div>
                   <div className="stat-box">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Logs</p>
-                      <p className="text-3xl font-black text-slate-700">{currentData.totalEntries}</p>
+                      <p className="text-2xl font-black text-slate-700">{currentData.totalEntries}</p>
                   </div>
                   <div className="stat-box bg-slate-50">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Status</p>
-                      <p className="text-xl font-black text-emerald-600">{wellnessStatus.label}</p>
+                      <p className="text-lg font-black text-emerald-600">{wellnessStatus.label}</p>
                   </div>
               </div>
 
-              {/* Section 1: Assessments */}
               <div className="mb-8">
-                  <h2 className="text-lg font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <Stethoscope size={20}/> Clinical Assessments
+                  <h2 className="text-md font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2 border-b pb-2">
+                      Clinical Assessments
                   </h2>
-                  <table>
-                      <thead><tr><th>Date</th><th>Test Name</th><th>Category</th><th>Score</th><th>Interpretation</th></tr></thead>
-                      <tbody>
-                          {currentData.filteredAssessments.length > 0 ? currentData.filteredAssessments.map((a, i) => {
-                              const status = getSeverity(a.score, 'assessment');
-                              return (
+                  {currentData.filteredAssessments.length > 0 ? (
+                      <table>
+                          <thead><tr><th>Date</th><th>Test Name</th><th>Category</th><th>Score</th><th>Status</th></tr></thead>
+                          <tbody>
+                              {currentData.filteredAssessments.map((a, i) => {
+                                  const status = getSeverity(a.score, 'assessment');
+                                  return (
+                                      <tr key={i}>
+                                          <td>{new Date(a.created_at).toLocaleDateString()}</td>
+                                          <td className="font-bold">{a.test_name}</td>
+                                          <td>{a.category}</td>
+                                          <td className="font-mono font-bold">{a.score}%</td>
+                                          <td><span className="badge-print" style={{ color: status.color.split(' ')[0].replace('text-', ''), borderColor: 'currentColor' }}>{status.label}</span></td>
+                                      </tr>
+                                  )
+                              })}
+                          </tbody>
+                      </table>
+                  ) : <p className="text-sm italic text-slate-500">No assessments found.</p>}
+              </div>
+
+              <div className="mb-8">
+                  <h2 className="text-md font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2 border-b pb-2">
+                      Journal Entries
+                  </h2>
+                  {currentData.filteredEntries.length > 0 ? (
+                      <table>
+                          <thead><tr><th>Date</th><th>Time</th><th>Emotion</th><th>Intensity</th><th>Notes</th></tr></thead>
+                          <tbody>
+                              {currentData.filteredEntries.map((e, i) => (
                                   <tr key={i}>
-                                      <td>{new Date(a.created_at).toLocaleDateString()}</td>
-                                      <td className="font-bold">{a.test_name}</td>
-                                      <td>{a.category}</td>
-                                      <td className="font-mono font-bold">{a.score}%</td>
-                                      <td><span className="font-bold text-xs uppercase">{status.label}</span></td>
+                                      <td>{new Date(e.date).toLocaleDateString()}</td>
+                                      <td>{new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                      <td className="font-bold">{e.emotion}</td>
+                                      <td>{e.intensity}/10</td>
+                                      <td className="italic text-slate-600">{e.text ? (e.text.length > 60 ? e.text.substring(0,60)+"..." : e.text) : "-"}</td>
                                   </tr>
-                              )
-                          }) : <tr><td colSpan={5} className="text-center italic text-slate-500 py-4">No assessments found in this period.</td></tr>}
-                      </tbody>
-                  </table>
+                              ))}
+                          </tbody>
+                      </table>
+                  ) : <p className="text-sm italic text-slate-500">No journal entries found.</p>}
               </div>
 
-              {/* Section 2: Journal Logs */}
-              <div className="mb-8">
-                  <h2 className="text-lg font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <FileText size={20}/> Journal & Emotion Logs
-                  </h2>
-                  <table>
-                      <thead><tr><th>Date</th><th>Time</th><th>Emotion</th><th>Intensity</th><th>Notes</th></tr></thead>
-                      <tbody>
-                          {currentData.filteredEntries.length > 0 ? currentData.filteredEntries.map((e, i) => (
-                              <tr key={i}>
-                                  <td>{new Date(e.date).toLocaleDateString()}</td>
-                                  <td>{new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
-                                  <td className="font-bold">{e.emotion}</td>
-                                  <td>{e.intensity}/10</td>
-                                  <td className="italic text-slate-600">{e.text ? (e.text.length > 60 ? e.text.substring(0,60)+"..." : e.text) : "-"}</td>
-                              </tr>
-                          )) : <tr><td colSpan={5} className="text-center italic text-slate-500 py-4">No journal entries found in this period.</td></tr>}
-                      </tbody>
-                  </table>
-              </div>
-
-              {/* Footer */}
               <div className="footer">
                   <p>CONFIDENTIAL REPORT GENERATED BY COGNISYNC AI</p>
                   <p className="mt-1">DISCLAIMER: This report summarizes self-reported data and is not a clinical diagnosis. Consult a professional for medical advice.</p>
@@ -353,25 +326,34 @@ export function ReportPage() {
              <Button onClick={handlePrintPDF} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 border border-blue-500 transition-all">
                 <Printer className="mr-2" size={18}/> {isExporting ? "Generating..." : "PDF Report"}
              </Button>
-             
              <Button onClick={handleExportCSV} className="bg-card hover:bg-muted font-bold border border-border text-foreground shadow-sm transition-all">
                 <FileSpreadsheet className="mr-2 text-emerald-600" size={18}/> Export CSV
              </Button>
           </div>
         </div>
 
-        {/* TABS */}
+        {/* ENHANCED TABS (Dark Mode Fixed) */}
         <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex p-1 bg-muted/50 rounded-full border border-border/50 backdrop-blur-md">
-                <button onClick={() => setActiveTab('today')} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'today' ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}>Today's Log</button>
-                <button onClick={() => setActiveTab('history')} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'history' ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}>History Archive</button>
+            <div className="flex p-1 bg-muted/30 rounded-full border border-border/50 backdrop-blur-md">
+                <button 
+                    onClick={() => setActiveTab('today')} 
+                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'today' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                    Today's Log
+                </button>
+                <button 
+                    onClick={() => setActiveTab('history')} 
+                    className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'history' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                    History Archive
+                </button>
             </div>
 
             {activeTab === 'history' && (
                 <div className="flex gap-2">
                     {[7, 30, 90].map((d) => (
                         // @ts-ignore
-                        <button key={d} onClick={() => setHistoryPeriod(d)} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${historyPeriod === d ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
+                        <button key={d} onClick={() => setHistoryPeriod(d)} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${historyPeriod === d ? "bg-card text-foreground border-primary shadow-sm" : "bg-transparent border-transparent text-muted-foreground hover:bg-muted/50"}`}>
                             Last {d} Days
                         </button>
                     ))}
@@ -379,101 +361,94 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* SUMMARY CARDS (DARK MODE FIXED) */}
+        {/* SUMMARY CARDS (High Contrast for Dark Mode) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <MetricCard 
                 title="Total Data Points" 
                 value={currentData.totalEntries} 
                 icon={<BookOpen size={24} className="text-blue-500"/>} 
-                color="bg-blue-50/20 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800" 
-                onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
+                className="border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900"
+                onClick={() => setSelectedMetric("entries")}
             />
             <MetricCard 
                 title="Wellness Score" 
                 value={`${currentData.avgMood}/10`} 
                 icon={<Activity size={24} className="text-emerald-500"/>} 
-                color="bg-emerald-50/20 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800" 
+                className="border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-900"
                 onClick={() => setSelectedMetric("mood")}
             />
             <MetricCard 
                 title="Tests Taken" 
                 value={currentData.testCount} 
                 icon={<CheckCircle2 size={24} className="text-purple-500"/>} 
-                color="bg-purple-50/20 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800" 
-                onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown('tests'); }}
+                className="border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900"
+                onClick={() => setSelectedMetric("tests")}
             />
             <MetricCard 
                 title="Avg Clinical Score" 
                 value={`${currentData.avgTestScore}%`} 
                 icon={<Brain size={24} className="text-orange-500"/>} 
-                color="bg-orange-50/20 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800" 
+                className="border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-900"
                 onClick={() => setSelectedMetric("score")}
             />
         </div>
 
-        {/* DETAILED ACTIVITY LOG (SCROLLABLE BOX) */}
+        {/* ACTIVITY LOG (Timeline Style) */}
         <Card className="overflow-hidden bg-card/60 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl h-[600px] flex flex-col">
             <div className="p-6 border-b border-border/50 bg-muted/20 shrink-0 flex justify-between items-center">
-                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><BookOpen size={20} className="text-primary"/> Activity Log - {currentData.dateRange}</h3>
+                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><List size={20} className="text-primary"/> Activity Log - {currentData.dateRange}</h3>
                 <Badge variant="outline" className="font-mono">{currentData.filteredEntries.length + currentData.filteredAssessments.length} Items</Badge>
             </div>
             
-            <div className="overflow-y-auto flex-1 p-0">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-bold uppercase text-xs tracking-wider sticky top-0 z-10 backdrop-blur-md">
-                        <tr>
-                            <th className="p-4 bg-card/90">Time/Date</th>
-                            <th className="p-4 bg-card/90">Type</th>
-                            <th className="p-4 bg-card/90">Name</th>
-                            <th className="p-4 bg-card/90">Score</th>
-                            <th className="p-4 bg-card/90">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                        {currentData.filteredAssessments.length === 0 && currentData.filteredEntries.length === 0 && (
-                            <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No records found for this period.</td></tr>
-                        )}
-                        
-                        {/* Assessments */}
-                        {currentData.filteredAssessments.map((a, i) => {
-                            const status = getSeverity(a.score, 'assessment');
-                            return (
-                                <tr key={`a-${i}`} className="hover:bg-muted/30 transition-colors">
-                                    <td className="p-4 text-muted-foreground font-mono">{new Date(a.created_at).toLocaleDateString()} <span className="opacity-50">|</span> {new Date(a.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
-                                    <td className="p-4"><span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold text-xs"><Stethoscope size={12}/> Assessment</span></td>
-                                    <td className="p-4 font-bold text-foreground">{a.test_name}</td>
-                                    <td className="p-4 font-mono font-bold">{a.score}%</td>
-                                    <td className="p-4"><span className={`px-2 py-1 rounded-md text-xs font-bold ${status.color} border border-transparent`}>{status.label}</span></td>
-                                </tr>
-                            )
-                        })}
-                        
-                        {/* Journal Entries */}
-                        {currentData.filteredEntries.map((e, i) => {
-                            const status = getSeverity(e.intensity, 'journal');
-                            return (
-                                <tr key={`e-${i}`} className="hover:bg-muted/30 transition-colors">
-                                    <td className="p-4 text-muted-foreground font-mono">{new Date(e.date).toLocaleDateString()} <span className="opacity-50">|</span> {new Date(e.date).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
-                                    <td className="p-4"><span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs"><FileText size={12}/> Journal</span></td>
-                                    <td className="p-4 font-medium text-foreground">{e.emotion}</td>
-                                    <td className="p-4 font-mono font-bold">{e.intensity}/10</td>
-                                    <td className="p-4"><span className={`px-2 py-1 rounded-md text-xs font-bold ${status.color} border border-transparent`}>{status.label}</span></td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+                {currentData.filteredAssessments.length === 0 && currentData.filteredEntries.length === 0 && (
+                    <div className="text-center py-20 text-muted-foreground">No records found for this period.</div>
+                )}
+                
+                {/* Combined Timeline Logic */}
+                {[...currentData.filteredAssessments.map(a => ({...a, type: 'assessment'})), ...currentData.filteredEntries.map(e => ({...e, type: 'journal'}))]
+                    .sort((a:any, b:any) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())
+                    .map((item: any, i) => {
+                        const isAssessment = item.type === 'assessment';
+                        const date = new Date(isAssessment ? item.created_at : item.date);
+                        const status = isAssessment ? getSeverity(item.score, 'assessment') : getSeverity(item.intensity, 'journal');
+                        return (
+                            <div key={i} className="flex gap-4 group">
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-3 h-3 rounded-full mt-2 ${isAssessment ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
+                                    <div className="w-0.5 flex-1 bg-border group-last:bg-transparent my-1"></div>
+                                </div>
+                                <div className="flex-1 pb-6">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-xs font-bold text-muted-foreground mb-1">{date.toLocaleDateString()} • {date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                                            <h4 className="text-base font-bold text-foreground flex items-center gap-2">
+                                                {isAssessment ? <Stethoscope size={16} className="text-purple-500"/> : <FileText size={16} className="text-blue-500"/>}
+                                                {isAssessment ? item.test_name : item.emotion}
+                                            </h4>
+                                            {!isAssessment && item.text && <p className="text-sm text-muted-foreground mt-1 line-clamp-2 italic">"{item.text}"</p>}
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${status.color} border border-transparent`}>{status.label}</span>
+                                            <p className="text-sm font-mono font-bold mt-1 text-foreground">{isAssessment ? `${item.score}%` : `${item.intensity}/10`}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })
+                }
             </div>
         </Card>
 
-        {/* METRIC DRILL DOWN MODAL (ENHANCED) */}
+        {/* METRIC DRILL DOWN MODAL (Enhanced Dark Mode) */}
         <AnimatePresence>
             {selectedMetric && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-card w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-border max-h-[85vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-2xl font-bold text-foreground capitalize">
-                                {selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Analysis" : selectedMetric === 'score' ? "Clinical Score Analysis" : "Metric Details"}
+                                {selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Analysis" : selectedMetric === 'score' ? "Clinical Score Analysis" : "Assessment History"}
                             </h3>
                             <button onClick={() => setSelectedMetric(null)}><X className="text-muted-foreground hover:text-foreground"/></button>
                         </div>
@@ -482,80 +457,80 @@ export function ReportPage() {
                             {/* Score Analysis Drill Down */}
                             {selectedMetric === 'score' && (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-orange-50/50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800 text-center">
+                                    <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20 text-center">
                                         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">Average Score</p>
                                         <p className="text-5xl font-black text-foreground mt-2">{currentData.avgTestScore}%</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                                        <div className="p-3 bg-muted/50 rounded-xl border border-border text-center">
                                             <p className="text-xs text-muted-foreground uppercase font-bold">Highest</p>
                                             <p className="text-xl font-bold text-emerald-500">
                                                 {currentData.filteredAssessments.length > 0 ? Math.max(...currentData.filteredAssessments.map(a => a.score)) : 0}%
                                             </p>
                                         </div>
-                                        <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                                        <div className="p-3 bg-muted/50 rounded-xl border border-border text-center">
                                             <p className="text-xs text-muted-foreground uppercase font-bold">Lowest</p>
                                             <p className="text-xl font-bold text-rose-500">
                                                 {currentData.filteredAssessments.length > 0 ? Math.min(...currentData.filteredAssessments.map(a => a.score)) : 0}%
                                             </p>
                                         </div>
                                     </div>
-                                    <p className="text-sm text-muted-foreground text-center italic">Calculated from {currentData.testCount} clinical assessments in the selected period.</p>
                                 </div>
                             )}
 
-                            {/* Data Points Drill Down */}
+                            {/* Total Data Points Drill Down */}
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-3">
-                                    <div className="bg-muted/30 rounded-xl overflow-hidden border border-border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
-                                        <div className="flex justify-between p-4 items-center hover:bg-muted/50 transition-colors">
-                                            <span className="font-semibold flex items-center gap-2 text-foreground"><BookOpen size={16}/> Journal Entries</span>
-                                            <div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
-                                        </div>
-                                        {expandedDrillDown === 'journal' && (
-                                            <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredEntries.map((e, i) => (
-                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                        <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
-                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
+                                    <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2">All Activity ({currentData.totalEntries})</h4>
+                                    <div className="h-[300px] overflow-y-auto pr-2 space-y-2">
+                                        {[...currentData.filteredAssessments.map(a => ({...a, type: 'assessment'})), ...currentData.filteredEntries.map(e => ({...e, type: 'journal'}))]
+                                            .sort((a:any, b:any) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())
+                                            .map((item: any, i) => (
+                                            <div key={i} className="flex justify-between items-center p-3 border border-border/50 rounded-lg bg-muted/10 hover:bg-muted/20 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    {item.type === 'assessment' ? <Stethoscope size={16} className="text-purple-500"/> : <FileText size={16} className="text-blue-500"/>}
+                                                    <div>
+                                                        <p className="text-sm font-bold text-foreground">{item.type === 'assessment' ? item.test_name : item.emotion}</p>
+                                                        <p className="text-xs text-muted-foreground">{new Date(item.type === 'assessment' ? item.created_at : item.date).toLocaleDateString()}</p>
                                                     </div>
-                                                ))}
-                                                {currentData.filteredEntries.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No entries in this period.</p>}
+                                                </div>
+                                                <Badge variant="outline">{item.type === 'assessment' ? `${item.score}%` : `${item.intensity}/10`}</Badge>
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
-                                    
-                                    <div className="bg-muted/30 rounded-xl overflow-hidden border border-border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
-                                        <div className="flex justify-between p-4 items-center hover:bg-muted/50 transition-colors">
-                                            <span className="font-semibold flex items-center gap-2 text-foreground"><CheckCircle2 size={16}/> Clinical Tests</span>
-                                            <div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
-                                        </div>
-                                        {expandedDrillDown === 'tests' && (
-                                            <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredAssessments.map((a, i) => (
-                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                        <span>{a.test_name}</span>
-                                                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
+                                </div>
+                            )}
+
+                             {/* Tests Taken Only (Pure List) */}
+                             {selectedMetric === 'tests' && (
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2">Clinical Tests ({currentData.testCount})</h4>
+                                    {currentData.filteredAssessments.length > 0 ? (
+                                        <div className="h-[300px] overflow-y-auto pr-2 space-y-2">
+                                            {currentData.filteredAssessments.map((a, i) => (
+                                                <div key={i} className="flex justify-between items-center p-3 border border-border/50 rounded-lg bg-muted/10 hover:bg-muted/20 transition-colors">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-foreground">{a.test_name}</p>
+                                                        <p className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</p>
                                                     </div>
-                                                ))}
-                                                {currentData.filteredAssessments.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No assessments in this period.</p>}
-                                            </div>
-                                        )}
-                                    </div>
+                                                    <Badge className={getSeverity(a.score, 'assessment').color.split(' ')[0] === 'text-rose-700' ? "bg-rose-100 text-rose-700" : "bg-muted text-foreground"}>{a.score}%</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : <div className="text-center py-10 text-muted-foreground">No assessments taken in this period.</div>}
                                 </div>
                             )}
 
                             {/* Wellness Score Drill Down */}
                             {selectedMetric === 'mood' && (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800 text-center">
-                                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">Wellness Score</p>
-                                        <p className="text-5xl font-black text-foreground mt-2">{currentData.avgMood}<span className="text-2xl text-muted-foreground">/10</span></p>
+                                    <div className="p-6 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-center">
+                                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Wellness Score</p>
+                                        <p className="text-6xl font-black text-foreground mt-2">{currentData.avgMood}<span className="text-2xl text-muted-foreground">/10</span></p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground">This score is a weighted average of your subjective journal entries (30%) and objective clinical assessments (70%).</p>
-                                    <div className="p-4 bg-muted/50 rounded-lg font-mono text-sm space-y-2 text-foreground border border-border">
-                                        <p>({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p>
-                                        <p className="text-xl font-bold text-emerald-500">= {currentData.avgMood}/10</p>
+                                    <div className="p-4 bg-muted/30 rounded-lg font-mono text-sm space-y-2 text-foreground border border-border">
+                                        <p className="text-xs text-muted-foreground mb-2">Formula:</p>
+                                        <p>(Journal: <span className="text-blue-500">{currentData.journalAvg}</span> × 0.3) + (Tests: <span className="text-purple-500">{currentData.testAvg10}</span> × 0.7)</p>
                                     </div>
                                 </div>
                             )}
@@ -571,15 +546,15 @@ export function ReportPage() {
   )
 }
 
-function MetricCard({ title, value, icon, color, onClick }: any) {
+function MetricCard({ title, value, icon, className, onClick }: any) {
     return (
-        <motion.div whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }} onClick={onClick} className={`p-4 sm:p-6 rounded-2xl border cursor-pointer bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl transition-all ${color}`}>
+        <motion.div whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }} onClick={onClick} className={`p-6 rounded-2xl border cursor-pointer backdrop-blur-xl transition-all shadow-sm ${className}`}>
             <div className="flex justify-between items-start mb-4">
                 <div>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{title}</p>
                     <h3 className="text-3xl font-black text-foreground">{value}</h3>
                 </div>
-                <div className="p-2 bg-background/50 rounded-full shadow-sm">{icon}</div>
+                <div className="p-2 bg-muted/20 rounded-full shadow-sm">{icon}</div>
             </div>
             <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground/60">Tap for details <ChevronRight size={12}/></div>
         </motion.div>
