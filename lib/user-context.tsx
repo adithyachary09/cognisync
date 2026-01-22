@@ -17,7 +17,7 @@ export interface UserContextType {
   isLoading: boolean;
   setUser: (user: User | null) => void;
   logout: () => Promise<void>;
-  refreshProfile: () => Promise<void>; // Added helper to force-refresh data
+  refreshProfile: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -35,34 +35,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  // Helper: Merges Auth Data with Database Data (The Avatar Fix)
+  // Helper: Merges Auth Data with Database AND Local Storage
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
     // Start with basic info from Auth
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
       name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
-      avatarUrl: sbUser.user_metadata?.avatar_url || "",
+      avatarUrl: "", // Default empty
     };
 
+    // A. FETCH NAME FROM DATABASE (Since 'name' column exists)
     try {
-      // FETCH: Get the "real" avatar/name from the 'users' table
       const { data, error } = await supabase
         .from('users')
-        .select('name, avatar_url, full_name') // Try standard columns
+        .select('name')
         .eq('id', sbUser.id)
         .single();
 
-      if (data && !error) {
-        // OVERWRITE: If DB has data, it takes priority over Auth
-        finalUser = {
-          ...finalUser,
-          name: data.name || data.full_name || finalUser.name,
-          avatarUrl: data.avatar_url || finalUser.avatarUrl, // <--- This loads your avatar
-        };
+      if (data && !error && data.name) {
+        finalUser.name = data.name;
       }
     } catch (err) {
-      console.error("Background profile fetch failed:", err);
+      console.error("Background name fetch failed:", err);
+    }
+
+    // B. FETCH AVATAR FROM LOCAL STORAGE (Matching Settings Page logic)
+    if (typeof window !== 'undefined') {
+        const localAvatar = localStorage.getItem(`cognisync:avatar:${sbUser.id}`);
+        if (localAvatar) {
+            finalUser.avatarUrl = localAvatar;
+        }
     }
 
     return finalUser;
@@ -74,7 +77,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     else localStorage.removeItem(USER_STORAGE_KEY);
   };
 
-  // Exposed function to re-fetch data (useful after updating settings)
+  // Exposed function to re-fetch data
   const refreshProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
@@ -86,13 +89,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
     
-    // Check initial session
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
           if (session?.user) {
-            // Wait for the DB fetch to complete before updating state
+            // Wait for the Profile fetch to complete
             const fullUser = await fetchFullProfile(session.user);
             handleUserUpdate(fullUser);
           } else if (!user) {
@@ -108,10 +110,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     checkSession();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-         // Also fetch fresh data on login/auth change
          const fullUser = await fetchFullProfile(session.user);
          handleUserUpdate(fullUser);
       } else if (event === 'SIGNED_OUT') {
@@ -121,8 +121,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    return () => { mounted = false; subscription.unsubscribe(); };
-  }, []);
+    // Listen for Settings changes to update Avatar instantly
+    const handleStorageChange = () => {
+        if (user) refreshProfile();
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => { 
+        mounted = false; 
+        subscription.unsubscribe();
+        window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logout = async () => {
     await supabase.auth.signOut();
