@@ -24,13 +24,13 @@ interface Assessment {
 // --- HELPERS ---
 const getSeverity = (score: number, type: 'journal' | 'assessment') => {
     if (type === 'assessment') {
-        if (score >= 80) return { label: "High", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800" }
-        if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-800" }
-        return { label: "Concern", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-800" }
+        if (score >= 75) return { label: "High", color: "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-800" }
+        if (score >= 40) return { label: "Moderate", color: "text-yellow-600 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-400 dark:border-yellow-800" }
+        return { label: "Concern", color: "text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-900/50 dark:text-rose-400 dark:border-rose-800" }
     } else {
-        if (score >= 7) return { label: "Positive", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800" }
-        if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-800" }
-        return { label: "Negative", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-800" }
+        if (score >= 7) return { label: "Positive", color: "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-800" }
+        if (score >= 4) return { label: "Neutral", color: "text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:border-blue-800" }
+        return { label: "Negative", color: "text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-900/50 dark:text-rose-400 dark:border-rose-800" }
     }
 }
 
@@ -206,62 +206,64 @@ export function ReportPage() {
          <div className="absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-primary/10 rounded-full mix-blend-multiply filter blur-[120px] animate-blob"></div>
       </div>
 
-      {/* --- HIDDEN PRINT TEMPLATE (MEDICAL GRADE) --- */}
-      <div className="hidden print:block absolute top-0 left-0 w-full h-full bg-white z-[9999] text-slate-900 overflow-visible">
+      {/* --- PROFESSIONAL MEDICAL REPORT (PRINT ONLY) --- */}
+      <div className="hidden print:block absolute top-0 left-0 w-full min-h-screen bg-white z-[9999] text-slate-900">
           <style type="text/css" media="print">{`
-            @page { size: A4; margin: 10mm; } 
-            body { -webkit-print-color-adjust: exact; background-color: white !important; font-family: sans-serif; } 
+            @page { size: A4; margin: 15mm; } 
+            body { -webkit-print-color-adjust: exact; background-color: white !important; font-family: 'Inter', sans-serif; color: #0f172a; } 
             .print-hidden { display: none !important; } 
             .page-break { page-break-before: always; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; }
-            th { background-color: #f1f5f9; color: #475569; font-weight: 800; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
-            td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+            th { background-color: #f1f5f9; color: #334155; font-weight: 700; text-transform: uppercase; padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 10px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: top; }
             tr:nth-child(even) { background-color: #f8fafc; }
-            .header-box { border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
-            .stat-box { border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center; }
+            .header-box { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .stat-card { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; background: #fff; }
+            .badge-print { padding: 2px 8px; border-radius: 99px; font-weight: 600; font-size: 10px; border: 1px solid; display: inline-block; }
             .footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-            .badge-print { padding: 2px 6px; border-radius: 4px; font-weight: bold; border: 1px solid; }
           `}</style>
           
-          <div className="p-8 max-w-4xl mx-auto">
-              <div className="header-box flex justify-between items-end">
+          <div className="p-8 max-w-[210mm] mx-auto">
+              <div className="header-box">
                   <div>
-                      <h1 className="text-4xl font-black text-slate-900 tracking-tight">CogniSync</h1>
-                      <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Clinical Progress Report</p>
+                      <h1 className="text-3xl font-black text-slate-900 tracking-tight">CogniSync Medical Report</h1>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Clinical Progress & Wellness Logs</p>
                   </div>
                   <div className="text-right">
-                      <p className="font-bold text-lg text-slate-800">Date: {new Date().toLocaleDateString()}</p>
-                      <p className="text-xs text-slate-500">Ref: {`USR-${Math.floor(Math.random() * 10000)}`}</p>
+                      <p className="font-bold text-md text-slate-800">Generated: {new Date().toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">Patient Ref: {`USR-${Math.floor(Math.random() * 10000)}`}</p>
                       <p className="text-xs text-slate-500 font-medium">Period: {currentData.dateRange}</p>
                   </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-4 mb-8">
-                  <div className="stat-box">
+              {/* Vitals Summary Grid */}
+              <div className="grid grid-cols-4 gap-4 mb-10">
+                  <div className="stat-card">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Wellness Score</p>
-                      <p className="text-2xl font-black text-blue-600">{currentData.avgMood}/10</p>
+                      <p className="text-3xl font-black text-blue-600">{currentData.avgMood}/10</p>
                   </div>
-                  <div className="stat-box">
+                  <div className="stat-card">
                       <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Clinical Avg</p>
-                      <p className="text-2xl font-black text-purple-600">{currentData.avgTestScore}%</p>
+                      <p className="text-3xl font-black text-purple-600">{currentData.avgTestScore}%</p>
                   </div>
-                  <div className="stat-box">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Logs</p>
-                      <p className="text-2xl font-black text-slate-700">{currentData.totalEntries}</p>
+                  <div className="stat-card">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Data Points</p>
+                      <p className="text-3xl font-black text-slate-700">{currentData.totalEntries}</p>
                   </div>
-                  <div className="stat-box bg-slate-50">
-                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Status</p>
+                  <div className="stat-card bg-slate-50">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Current Status</p>
                       <p className="text-lg font-black text-emerald-600">{wellnessStatus.label}</p>
                   </div>
               </div>
 
-              <div className="mb-8">
-                  <h2 className="text-md font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2 border-b pb-2">
-                      Clinical Assessments
+              {/* Section 1: Assessments */}
+              <div className="mb-10">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 border-b pb-2 flex items-center gap-2">
+                      <Stethoscope size={16}/> Clinical Evidence
                   </h2>
                   {currentData.filteredAssessments.length > 0 ? (
                       <table>
-                          <thead><tr><th>Date</th><th>Test Name</th><th>Category</th><th>Score</th><th>Status</th></tr></thead>
+                          <thead><tr><th>Date</th><th>Test Name</th><th>Category</th><th>Score</th><th>Clinical Impression</th></tr></thead>
                           <tbody>
                               {currentData.filteredAssessments.map((a, i) => {
                                   const status = getSeverity(a.score, 'assessment');
@@ -271,40 +273,43 @@ export function ReportPage() {
                                           <td className="font-bold">{a.test_name}</td>
                                           <td>{a.category}</td>
                                           <td className="font-mono font-bold">{a.score}%</td>
-                                          <td><span className="badge-print" style={{ color: status.color.split(' ')[0].replace('text-', ''), borderColor: 'currentColor' }}>{status.label}</span></td>
+                                          <td><span className="badge-print" style={{ color: status.color.split(' ')[0].replace('text-', ''), borderColor: 'currentColor', backgroundColor: '#fff' }}>{status.label}</span></td>
                                       </tr>
                                   )
                               })}
                           </tbody>
                       </table>
-                  ) : <p className="text-sm italic text-slate-500">No assessments found.</p>}
+                  ) : <p className="text-xs italic text-slate-500 border p-4 text-center rounded">No assessments recorded in this period.</p>}
               </div>
 
-              <div className="mb-8">
-                  <h2 className="text-md font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2 border-b pb-2">
-                      Journal Entries
+              {/* Section 2: Journal Logs */}
+              <div className="mb-10">
+                  <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 border-b pb-2 flex items-center gap-2">
+                      <FileText size={16}/> Subjective Reports (Journal)
                   </h2>
                   {currentData.filteredEntries.length > 0 ? (
                       <table>
-                          <thead><tr><th>Date</th><th>Time</th><th>Emotion</th><th>Intensity</th><th>Notes</th></tr></thead>
+                          <thead><tr><th>Date / Time</th><th>Emotion</th><th>Intensity</th><th>Patient Notes</th></tr></thead>
                           <tbody>
                               {currentData.filteredEntries.map((e, i) => (
                                   <tr key={i}>
-                                      <td>{new Date(e.date).toLocaleDateString()}</td>
-                                      <td>{new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                      <td>
+                                          <div className="font-bold">{new Date(e.date).toLocaleDateString()}</div>
+                                          <div className="text-[10px] text-slate-500">{new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                                      </td>
                                       <td className="font-bold">{e.emotion}</td>
                                       <td>{e.intensity}/10</td>
-                                      <td className="italic text-slate-600">{e.text ? (e.text.length > 60 ? e.text.substring(0,60)+"..." : e.text) : "-"}</td>
+                                      <td className="italic text-slate-600">{e.text ? `"${e.text}"` : "-"}</td>
                                   </tr>
                               ))}
                           </tbody>
                       </table>
-                  ) : <p className="text-sm italic text-slate-500">No journal entries found.</p>}
+                  ) : <p className="text-xs italic text-slate-500 border p-4 text-center rounded">No journal entries recorded in this period.</p>}
               </div>
 
               <div className="footer">
-                  <p>CONFIDENTIAL REPORT GENERATED BY COGNISYNC AI</p>
-                  <p className="mt-1">DISCLAIMER: This report summarizes self-reported data and is not a clinical diagnosis. Consult a professional for medical advice.</p>
+                  <p><strong>CONFIDENTIAL MEDICAL RECORD</strong> • Generated by CogniSync AI</p>
+                  <p className="mt-1 opacity-70">DISCLAIMER: This report aggregates self-reported data and screening results. It does not constitute a formal medical diagnosis. Please consult a licensed professional for interpretation.</p>
               </div>
           </div>
       </div>
@@ -326,15 +331,16 @@ export function ReportPage() {
              <Button onClick={handlePrintPDF} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 border border-blue-500 transition-all">
                 <Printer className="mr-2" size={18}/> {isExporting ? "Generating..." : "PDF Report"}
              </Button>
+             
              <Button onClick={handleExportCSV} className="bg-card hover:bg-muted font-bold border border-border text-foreground shadow-sm transition-all">
                 <FileSpreadsheet className="mr-2 text-emerald-600" size={18}/> Export CSV
              </Button>
           </div>
         </div>
 
-        {/* ENHANCED TABS (Dark Mode Fixed) */}
+        {/* ENHANCED TABS */}
         <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex p-1 bg-muted/30 rounded-full border border-border/50 backdrop-blur-md">
+            <div className="flex p-1 bg-muted/20 rounded-full border border-border/50 backdrop-blur-md">
                 <button 
                     onClick={() => setActiveTab('today')} 
                     className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'today' ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}
@@ -353,7 +359,7 @@ export function ReportPage() {
                 <div className="flex gap-2">
                     {[7, 30, 90].map((d) => (
                         // @ts-ignore
-                        <button key={d} onClick={() => setHistoryPeriod(d)} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${historyPeriod === d ? "bg-card text-foreground border-primary shadow-sm" : "bg-transparent border-transparent text-muted-foreground hover:bg-muted/50"}`}>
+                        <button key={d} onClick={() => setHistoryPeriod(d)} className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${historyPeriod === d ? "bg-foreground text-background border-foreground" : "bg-transparent border-transparent text-muted-foreground hover:bg-muted/50"}`}>
                             Last {d} Days
                         </button>
                     ))}
@@ -361,83 +367,93 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* SUMMARY CARDS (High Contrast for Dark Mode) */}
+        {/* METRIC CARDS (High Contrast for Dark Mode) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <MetricCard 
                 title="Total Data Points" 
                 value={currentData.totalEntries} 
                 icon={<BookOpen size={24} className="text-blue-500"/>} 
-                className="border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900"
-                onClick={() => setSelectedMetric("entries")}
+                className="border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-950" 
+                onClick={() => { setSelectedMetric("entries"); }}
             />
             <MetricCard 
                 title="Wellness Score" 
                 value={`${currentData.avgMood}/10`} 
                 icon={<Activity size={24} className="text-emerald-500"/>} 
-                className="border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-900"
+                className="border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-950" 
                 onClick={() => setSelectedMetric("mood")}
             />
             <MetricCard 
                 title="Tests Taken" 
                 value={currentData.testCount} 
                 icon={<CheckCircle2 size={24} className="text-purple-500"/>} 
-                className="border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900"
-                onClick={() => setSelectedMetric("tests")}
+                className="border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-950" 
+                onClick={() => { setSelectedMetric("tests"); }}
             />
             <MetricCard 
                 title="Avg Clinical Score" 
                 value={`${currentData.avgTestScore}%`} 
                 icon={<Brain size={24} className="text-orange-500"/>} 
-                className="border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-900"
+                className="border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-950" 
                 onClick={() => setSelectedMetric("score")}
             />
         </div>
 
         {/* ACTIVITY LOG (Timeline Style) */}
-        <Card className="overflow-hidden bg-card/60 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl h-[600px] flex flex-col">
+        <Card className="overflow-hidden bg-card/40 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl h-[600px] flex flex-col">
             <div className="p-6 border-b border-border/50 bg-muted/20 shrink-0 flex justify-between items-center">
                 <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><List size={20} className="text-primary"/> Activity Log - {currentData.dateRange}</h3>
                 <Badge variant="outline" className="font-mono">{currentData.filteredEntries.length + currentData.filteredAssessments.length} Items</Badge>
             </div>
             
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
-                {currentData.filteredAssessments.length === 0 && currentData.filteredEntries.length === 0 && (
-                    <div className="text-center py-20 text-muted-foreground">No records found for this period.</div>
-                )}
-                
-                {/* Combined Timeline Logic */}
-                {[...currentData.filteredAssessments.map(a => ({...a, type: 'assessment'})), ...currentData.filteredEntries.map(e => ({...e, type: 'journal'}))]
-                    .sort((a:any, b:any) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())
-                    .map((item: any, i) => {
-                        const isAssessment = item.type === 'assessment';
-                        const date = new Date(isAssessment ? item.created_at : item.date);
-                        const status = isAssessment ? getSeverity(item.score, 'assessment') : getSeverity(item.intensity, 'journal');
-                        return (
-                            <div key={i} className="flex gap-4 group">
-                                <div className="flex flex-col items-center">
-                                    <div className={`w-3 h-3 rounded-full mt-2 ${isAssessment ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
-                                    <div className="w-0.5 flex-1 bg-border group-last:bg-transparent my-1"></div>
-                                </div>
-                                <div className="flex-1 pb-6">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="text-xs font-bold text-muted-foreground mb-1">{date.toLocaleDateString()} • {date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
-                                            <h4 className="text-base font-bold text-foreground flex items-center gap-2">
-                                                {isAssessment ? <Stethoscope size={16} className="text-purple-500"/> : <FileText size={16} className="text-blue-500"/>}
-                                                {isAssessment ? item.test_name : item.emotion}
-                                            </h4>
-                                            {!isAssessment && item.text && <p className="text-sm text-muted-foreground mt-1 line-clamp-2 italic">"{item.text}"</p>}
-                                        </div>
-                                        <div className="text-right">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${status.color} border border-transparent`}>{status.label}</span>
-                                            <p className="text-sm font-mono font-bold mt-1 text-foreground">{isAssessment ? `${item.score}%` : `${item.intensity}/10`}</p>
+                {(currentData.filteredAssessments.length === 0 && currentData.filteredEntries.length === 0) ? (
+                    <div className="text-center py-20 text-muted-foreground flex flex-col items-center">
+                        <Clock size={40} className="mb-4 opacity-20"/>
+                        <p>No records found for this period.</p>
+                    </div>
+                ) : (
+                    /* Unified Timeline Logic */
+                    [...currentData.filteredAssessments.map(a => ({...a, type: 'assessment'})), ...currentData.filteredEntries.map(e => ({...e, type: 'journal'}))]
+                        .sort((a:any, b:any) => new Date(b.date || b.created_at).getTime() - new Date(a.date || a.created_at).getTime())
+                        .map((item: any, i) => {
+                            const isAssessment = item.type === 'assessment';
+                            const date = new Date(isAssessment ? item.created_at : item.date);
+                            const status = isAssessment ? getSeverity(item.score, 'assessment') : getSeverity(item.intensity, 'journal');
+                            return (
+                                <div key={i} className="flex gap-4 group">
+                                    <div className="flex flex-col items-center">
+                                        <div className={`w-3 h-3 rounded-full mt-2 ${isAssessment ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
+                                        <div className="w-0.5 flex-1 bg-border group-last:bg-transparent my-1"></div>
+                                    </div>
+                                    <div className="flex-1 pb-4">
+                                        <div className="p-4 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all shadow-sm">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div>
+                                                    <p className="text-xs font-bold text-muted-foreground mb-1 flex items-center gap-2">
+                                                        {date.toLocaleDateString()} <span className="opacity-30">|</span> {date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                    </p>
+                                                    <h4 className="text-base font-bold text-foreground flex items-center gap-2">
+                                                        {isAssessment ? <Stethoscope size={16} className="text-purple-500"/> : <FileText size={16} className="text-blue-500"/>}
+                                                        {isAssessment ? item.test_name : item.emotion}
+                                                    </h4>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${status.color} border border-transparent`}>{status.label}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <p className="text-sm text-muted-foreground line-clamp-2 italic pr-4">
+                                                    {!isAssessment && item.text ? `"${item.text}"` : isAssessment ? item.category : "No details recorded."}
+                                                </p>
+                                                <p className="text-lg font-mono font-black text-foreground">{isAssessment ? `${item.score}%` : `${item.intensity}/10`}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        )
-                    })
-                }
+                            )
+                        })
+                )}
             </div>
         </Card>
 
@@ -478,7 +494,7 @@ export function ReportPage() {
                                 </div>
                             )}
 
-                            {/* Total Data Points Drill Down */}
+                            {/* Total Data Points Drill Down (Unified List) */}
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-3">
                                     <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2">All Activity ({currentData.totalEntries})</h4>
