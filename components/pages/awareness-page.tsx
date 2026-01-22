@@ -16,7 +16,9 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
-// --- 1. DATA: Verified Helplines ---
+/* =========================================================================
+   1. DATA: VERIFIED HELPLINES (PRESERVED)
+   ========================================================================= */
 const SOS_RESOURCES = [
   { name: "Tele MANAS", number: "14416", desc: "24/7 Govt Mental Health" },
   { name: "Vandrevala Fdn", number: "+91 9999 666 555", desc: "Crisis Intervention" },
@@ -26,7 +28,9 @@ const SOS_RESOURCES = [
 
 const CITY_SEARCHES = ["Hyderabad", "Bangalore", "Mumbai", "Delhi", "Chennai", "Kolkata"]
 
-// --- 2. DATA: Reading & Techniques ---
+/* =========================================================================
+   2. DATA: READING & TECHNIQUES (PRESERVED)
+   ========================================================================= */
 const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: string, desc: string}[], technique: {name: string, desc: string} }> = {
   1: { // Overwhelmed
     books: [
@@ -65,7 +69,9 @@ const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: s
   }
 }
 
-// --- 3. DATA: ALL 12 EXERCISES RESTORED ---
+/* =========================================================================
+   3. DATA: ALL 12 EXERCISES (PRESERVED)
+   ========================================================================= */
 const ALL_EXERCISES = [
   { id: "grounding", title: "5-4-3-2-1 Grounding", desc: "Engage 5 senses to stop spiraling.", duration: "5 min", type: "SOS", color: "from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950", border: "border-emerald-200 dark:border-emerald-800", icon: Leaf },
   { id: "breathing", title: "Box Breathing", desc: "Inhale 4s, hold 4s, exhale 4s, hold 4s.", duration: "3 min", type: "Somatic", color: "from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950", border: "border-blue-200 dark:border-blue-800", icon: Wind },
@@ -110,7 +116,7 @@ function getDailySelection<T>(items: T[], count: number, salt: string): T[] {
   return shuffled.slice(0, count)
 }
 
-// Helper to check same day status (for localStorage)
+// Helper to check same day status
 const getTodayKey = (key: string) => {
     return `${key}_${new Date().toISOString().split('T')[0]}`;
 };
@@ -120,10 +126,10 @@ export function AwarenessPage() {
   const [dailyExercises, setDailyExercises] = useState<typeof ALL_EXERCISES>([])
   const [dailyScience, setDailyScience] = useState<typeof SCIENCE_CARDS>([])
   
-  // Persisted States (Local Storage + Date Key)
+  // Persisted States
   const [completedExercises, setCompletedExercises] = useState<string[]>([])
   const [isCheckInComplete, setIsCheckInComplete] = useState(false)
-  const [isCheckInHidden, setIsCheckInHidden] = useState(false) // New state to hide card completely
+  const [isCheckInHidden, setIsCheckInHidden] = useState(false)
   
   const [flippedCards, setFlippedCards] = useState<string[]>([])
   const [mood, setMood] = useState<number | null>(null)
@@ -132,12 +138,11 @@ export function AwarenessPage() {
   const [activeExercise, setActiveExercise] = useState<typeof ALL_EXERCISES[0] | null>(null)
   const [showSOSModal, setShowSOSModal] = useState(false)
   
-  // 1. Initial Load & Hydration (Reset Logic)
+  // 1. Initial Load & Hydration
   useEffect(() => {
     setDailyExercises(getDailySelection(ALL_EXERCISES, 3, "exercises"))
     setDailyScience(getDailySelection(SCIENCE_CARDS, 4, "science"))
 
-    // Check localStorage for today's status
     const today = new Date().toISOString().split('T')[0];
     const savedCheckIn = localStorage.getItem(`checkin_${today}`);
     const savedHidden = localStorage.getItem(`hidden_${today}`);
@@ -156,7 +161,7 @@ export function AwarenessPage() {
     }
   }, [])
 
-  // Handle Mood Selection (CONNECTS TO DB NOW)
+  // Handle Mood Selection
   const handleMoodSelect = async (val: number) => {
     setMood(val)
     const emotionMap = ["Overwhelmed", "Anxious", "Neutral", "Calm", "Happy"];
@@ -171,11 +176,10 @@ export function AwarenessPage() {
 
     setIsCheckInComplete(true);
     
-    // Save to LocalStorage for persistence today
     const today = new Date().toISOString().split('T')[0];
     localStorage.setItem(`checkin_${today}`, JSON.stringify({ mood: val, timestamp: Date.now() }));
 
-    // Auto-Disappear Timer (7 Seconds)
+    // Auto-Disappear Timer
     setTimeout(() => {
         setIsCheckInHidden(true);
         localStorage.setItem(`hidden_${today}`, 'true');
@@ -186,11 +190,9 @@ export function AwarenessPage() {
   
   const finishExerciseSession = () => {
     if (activeExercise) {
-        // Mark as completed locally and in storage
         if (!completedExercises.includes(activeExercise.id)) {
             const newCompleted = [...completedExercises, activeExercise.id];
             setCompletedExercises(newCompleted);
-            
             const today = new Date().toISOString().split('T')[0];
             localStorage.setItem(`exercises_${today}`, JSON.stringify(newCompleted));
         }
@@ -216,13 +218,23 @@ export function AwarenessPage() {
     { val: 5, icon: Laugh, label: "Happy", color: "text-emerald-500", bg: "bg-emerald-50", hover: "group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/30" }
   ];
 
+  /* =========================================================================
+     RENDER
+     ========================================================================= */
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#05050A] font-sans selection:bg-primary/20 relative pb-20">
+    <div className="min-h-screen relative font-sans text-foreground transition-colors duration-700 overflow-x-hidden">
+      
+      {/* BACKGROUND: Uses Theme Variables */}
+      <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
+         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/10 to-transparent"></div>
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
+         <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
+      </div>
       
       {/* 1. SOS BANNER - FIXED & ADJUSTED */}
       <div className="w-full bg-rose-600 text-white px-4 py-4 text-sm font-medium shadow-md relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
-            {/* Added pl-16 to dodge the sidebar icon on the left */}
            <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
                 <AlertCircle size={20} className="shrink-0" />
                 <span>In crisis? Press the SOS button or call your local helpline immediately.</span>
@@ -237,26 +249,26 @@ export function AwarenessPage() {
       <AnimatePresence>
       {showSOSModal && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <Card className="w-full max-w-lg p-6 bg-white dark:bg-slate-900 border-rose-200 shadow-2xl relative">
-            <button onClick={() => setShowSOSModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={24} /></button>
+          <Card className="w-full max-w-lg p-6 bg-card border-border shadow-2xl relative">
+            <button onClick={() => setShowSOSModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"><X size={24} /></button>
             <div className="text-center mb-6">
               <div className="inline-flex p-3 rounded-full bg-rose-100 text-rose-600 mb-3"><Phone size={32} /></div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Emergency Support</h2>
-              <p className="text-slate-500 text-sm">You are not alone. These services are free & confidential.</p>
+              <h2 className="text-2xl font-bold text-foreground">Emergency Support</h2>
+              <p className="text-muted-foreground text-sm">You are not alone. These services are free & confidential.</p>
             </div>
             <div className="space-y-3 mb-6">
               {SOS_RESOURCES.map((res, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-rose-200 hover:bg-rose-50 transition-colors">
-                  <div><h3 className="font-bold text-slate-800">{res.name}</h3><p className="text-xs text-slate-500">{res.desc}</p></div>
+                <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-rose-200 hover:bg-rose-50 transition-colors">
+                  <div><h3 className="font-bold text-foreground">{res.name}</h3><p className="text-xs text-muted-foreground">{res.desc}</p></div>
                   <a href={`tel:${res.number}`} className="flex items-center gap-2 text-rose-600 font-bold bg-white px-3 py-1.5 rounded border border-rose-100 shadow-sm hover:shadow-md"><Phone size={14} /> {res.number}</a>
                 </div>
               ))}
             </div>
-            <div className="border-t pt-4">
-               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2"><Search size={14} /> Find Professional Help Near You</h3>
+            <div className="border-t border-border pt-4">
+               <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2"><Search size={14} /> Find Professional Help Near You</h3>
                <div className="flex flex-wrap gap-2">
                  {CITY_SEARCHES.map(city => (
-                   <a key={city} href={`https://www.google.com/search?q=psychiatrist+in+${city}`} target="_blank" rel="noreferrer" className="text-xs px-3 py-1 bg-slate-100 hover:bg-primary/10 hover:text-primary rounded-full border border-slate-200 transition-colors flex items-center gap-1">{city} <ExternalLink size={10} /></a>
+                   <a key={city} href={`https://www.google.com/search?q=psychiatrist+in+${city}`} target="_blank" rel="noreferrer" className="text-xs px-3 py-1 bg-muted hover:bg-primary/10 hover:text-primary rounded-full border border-border transition-colors flex items-center gap-1">{city} <ExternalLink size={10} /></a>
                  ))}
                </div>
             </div>
@@ -268,17 +280,17 @@ export function AwarenessPage() {
       {/* ACTIVE EXERCISE MODAL */}
       <AnimatePresence>
       {activeExercise && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-md">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
           <div className="w-full max-w-2xl text-center text-white space-y-6 px-2 sm:px-0">
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-bold tracking-tight">
 {activeExercise.title}</h2>
-            <p className="text-xl text-slate-300 max-w-lg mx-auto">{activeExercise.desc}</p>
+            <p className="text-xl text-white/80 max-w-lg mx-auto">{activeExercise.desc}</p>
             <div className="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-white/20 border-t-primary animate-spin-slow mx-auto flex items-center justify-center bg-white/5"><span className="text-2xl font-mono">Active</span></div>
             <div className="flex justify-center gap-4">
                <Button size="lg" variant="secondary" className="min-w-[150px]" onClick={() => setActiveExercise(null)}>Stop</Button>
-               <Button size="lg" className="min-w-[150px] bg-primary hover:bg-primary/90" onClick={finishExerciseSession}>Complete Session</Button>
+               <Button size="lg" className="min-w-[150px] bg-primary text-primary-foreground hover:bg-primary/90" onClick={finishExerciseSession}>Complete Session</Button>
             </div>
-            <p className="text-sm text-slate-400">Focus on your breathing. Take your time.</p>
+            <p className="text-sm text-white/60">Focus on your breathing. Take your time.</p>
           </div>
         </motion.div>
       )}
@@ -286,35 +298,33 @@ export function AwarenessPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-20">
         
-        {/* NEW TITLE BLOCK: Matches Sidebar 'Activity' Icon & Standard Sizing */}
+        {/* HEADER */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                {/* Changed BrainCircuit to Activity to match Sidebar 'Regulation' icon */}
-                <Activity className="text-slate-800 dark:text-white h-8 w-8" />
+            <div className="p-3 bg-card rounded-xl shadow-sm border border-border">
+                <Activity className="text-primary h-8 w-8" />
             </div>
-            {/* Standardized Text Size: text-4xl md:text-5xl */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Regulation
-          </h1>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+              Regulation
+            </h1>
           </div>
-          <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system and expand emotional intelligence.</p>
+          <p className="text-lg text-muted-foreground max-w-2xl pl-1">Daily medical-grade tools to regulate your nervous system and expand emotional intelligence.</p>
         </div>
 
-        {/* 2. MOOD CHECK-IN (With Auto-Disappear Logic) */}
+        {/* 2. MOOD CHECK-IN */}
         {!isCheckInHidden && (
-        <Card className="p-8 md:p-10 border-slate-200 dark:border-slate-800 shadow-xl bg-white/70 dark:bg-slate-900/50 backdrop-blur-xl relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
+        <Card className="p-8 md:p-10 border-border shadow-xl bg-card/70 backdrop-blur-xl relative overflow-hidden transition-all duration-500 hover:shadow-2xl">
           <AnimatePresence mode="wait">
           {!isCheckInComplete ? (
             <motion.div key="check-in" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="flex flex-col items-center gap-10">
-              <div className="flex items-center justify-between w-full border-b border-slate-100 dark:border-slate-800 pb-4">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Daily Check-in</span>
-                <span className="text-xs font-bold text-slate-500">{new Date().toLocaleDateString()}</span>
+              <div className="flex items-center justify-between w-full border-b border-border pb-4">
+                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Daily Check-in</span>
+                <span className="text-xs font-bold text-muted-foreground">{new Date().toLocaleDateString()}</span>
               </div>
               
               <div className="text-center">
-                  <h3 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">How are you feeling right now?</h3>
-                  <p className="text-slate-500">Select the icon that best matches your current state.</p>
+                  <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-2">How are you feeling right now?</h3>
+                  <p className="text-muted-foreground">Select the icon that best matches your current state.</p>
               </div>
               
               <div className="flex flex-wrap justify-center gap-4 md:gap-8">
@@ -331,7 +341,7 @@ export function AwarenessPage() {
                             <item.icon size={40} className="hidden sm:block" strokeWidth={1.5} />
                           </div>
 
-                    <span className="text-xs font-bold uppercase tracking-wide text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">{item.label}</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
                   </motion.button>
                 ))}
               </div>
@@ -343,25 +353,24 @@ export function AwarenessPage() {
                 <div className="relative bg-green-100 text-green-600 dark:bg-green-900/60 dark:text-green-400 p-5 rounded-full"><Check size={36} strokeWidth={3} /></div>
               </div>
               <div className="text-center space-y-2">
-                  <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Check-in Complete</h3>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">This card will disappear in a few seconds...</p>
+                  <h3 className="text-3xl font-bold text-foreground">Check-in Complete</h3>
+                  <p className="text-muted-foreground font-medium">This card will disappear in a few seconds...</p>
               </div>
               
               <div className="w-full max-w-md mt-6">
-                <input type="text" value={journalNote} onChange={(e) => setJournalNote(e.target.value)} placeholder="Optional: Add a quick note about why..." className="w-full text-center text-sm bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-slate-800 rounded-xl py-3 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                <input type="text" value={journalNote} onChange={(e) => setJournalNote(e.target.value)} placeholder="Optional: Add a quick note about why..." className="w-full text-center text-sm bg-muted/50 border border-border rounded-xl py-3 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
               </div>
-              {/* Note: Undo removed to prevent disrupting the timer logic */}
             </motion.div>
           )}
           </AnimatePresence>
         </Card>
         )}
 
-        {/* 3. DAILY PRACTICE (ALL 12 ITEMS + SHOW MORE) */}
+        {/* 3. DAILY PRACTICE */}
         <section className="space-y-8">
           <div className="flex items-center justify-between px-1 border-l-4 border-primary pl-4">
-              <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-3"><Play className="text-primary h-6 w-6 fill-primary/20" /> Your Daily Practice</h2>
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">Resets in 24h</span>
+              <h2 className="text-2xl font-bold text-foreground flex items-center gap-3"><Play className="text-primary h-6 w-6 fill-primary/20" /> Your Daily Practice</h2>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground bg-muted px-3 py-1 rounded-full">Resets in 24h</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {dailyExercises.map((ex, i) => (
@@ -372,7 +381,7 @@ export function AwarenessPage() {
                   </div>
                   <div className="h-full flex flex-col justify-between">
                     <div className="mb-6">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 block opacity-70">{ex.type} • {ex.duration}</span>
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-3 block opacity-70">{ex.type} • {ex.duration}</span>
                         <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 leading-tight">{ex.title}</h3>
                         <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed font-medium">{ex.desc}</p>
                     </div>
@@ -385,7 +394,7 @@ export function AwarenessPage() {
             ))}
           </div>
           <div className="text-center pt-2">
-              <button onClick={() => setShowAllExercises(!showAllExercises)} className="text-sm font-semibold text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
+              <button onClick={() => setShowAllExercises(!showAllExercises)} className="text-sm font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto px-6 py-2 rounded-full hover:bg-muted">
                   {showAllExercises ? "Hide Library" : "Browse Full Library"} <ChevronRight size={14} className={`transition-transform ${showAllExercises ? 'rotate-90' : ''}`}/>
               </button>
           </div>
@@ -393,9 +402,9 @@ export function AwarenessPage() {
           {showAllExercises && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 overflow-hidden">
                   {ALL_EXERCISES.map(ex => (
-                      <div key={ex.id} className="p-5 rounded-xl border border-slate-200 bg-white hover:border-primary/50 cursor-pointer transition-all hover:shadow-md" onClick={() => startExerciseSession(ex)}>
-                          <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-sm text-slate-800">{ex.title}</h4><ex.icon size={14} className="text-slate-400"/></div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{ex.duration}</span>
+                      <div key={ex.id} className="p-5 rounded-xl border border-border bg-card hover:border-primary/50 cursor-pointer transition-all hover:shadow-md" onClick={() => startExerciseSession(ex)}>
+                          <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-sm text-foreground">{ex.title}</h4><ex.icon size={14} className="text-muted-foreground"/></div>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{ex.duration}</span>
                       </div>
                   ))}
               </motion.div>
@@ -403,10 +412,10 @@ export function AwarenessPage() {
           </AnimatePresence>
         </section>
 
-        {/* 4. SCIENCE */}
+        {/* 4. SCIENCE OF YOU */}
         <section className="space-y-8">
-           <div className="flex items-center gap-3 px-1 border-l-4 border-indigo-500 pl-4">
-               <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">The Science of You</h2>
+           <div className="flex items-center gap-3 px-1 border-l-4 border-primary pl-4">
+               <h2 className="text-2xl font-bold text-foreground">The Science of You</h2>
            </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {dailyScience.map((card, i) => (
@@ -414,14 +423,14 @@ export function AwarenessPage() {
                onClick={() => toggleFlip(card.id)}>
                 <div className={`relative w-full h-full transition-all duration-700 transform-style-3d ${flippedCards.includes(card.id) ? 'rotate-y-180' : ''}`}>
                   {/* FRONT */}
-                  <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-white border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all rounded-3xl">
-                    <div className="mb-5 p-4 bg-indigo-50 rounded-2xl text-indigo-600 shadow-inner"><card.icon size={32} /></div>
-                    <h3 className="text-lg font-bold text-slate-800">{card.front}</h3>
-                    <p className="text-[10px] text-indigo-400 mt-6 uppercase tracking-widest font-bold flex items-center gap-1 bg-indigo-50 px-3 py-1 rounded-full">Tap to Learn <ChevronRight size={10} /></p>
+                  <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-card border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all rounded-3xl">
+                    <div className="mb-5 p-4 bg-primary/10 rounded-2xl text-primary shadow-inner"><card.icon size={32} /></div>
+                    <h3 className="text-lg font-bold text-foreground">{card.front}</h3>
+                    <p className="text-[10px] text-primary/80 mt-6 uppercase tracking-widest font-bold flex items-center gap-1 bg-primary/5 px-3 py-1 rounded-full">Tap to Learn <ChevronRight size={10} /></p>
                   </Card>
                   {/* BACK */}
-                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-6 flex flex-col justify-center bg-indigo-600 text-white border-none shadow-xl rounded-3xl">
-                    <div className="flex items-center gap-2 mb-4 text-indigo-200 text-xs font-bold uppercase tracking-wider"><BrainCircuit size={14} /> Neuroscience</div>
+                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-6 flex flex-col justify-center bg-primary text-primary-foreground border-none shadow-xl rounded-3xl">
+                    <div className="flex items-center gap-2 mb-4 text-primary-foreground/80 text-xs font-bold uppercase tracking-wider"><BrainCircuit size={14} /> Neuroscience</div>
                     <p className="text-sm leading-relaxed font-medium opacity-90">{card.back}</p>
                   </Card>
                 </div>
@@ -430,7 +439,7 @@ export function AwarenessPage() {
           </div>
         </section>
 
-        {/* 5. RESOURCES (DYNAMIC & CONDITIONAL) */}
+        {/* 5. RESOURCES (DYNAMIC) */}
         <div className="min-h-[200px]">
             <AnimatePresence mode="wait">
             {!isCheckInComplete ? (
@@ -444,19 +453,19 @@ export function AwarenessPage() {
                 </motion.div>
             ) : (
                 <motion.div key="recs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                    <Card className="p-8 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xl rounded-[2.5rem] overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-indigo-500 to-purple-500"></div>
+                    <Card className="p-8 bg-card border-border shadow-xl rounded-[2.5rem] overflow-hidden relative">
+                        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-accent to-primary"></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                             <div>
-                                <h4 className="font-bold text-xl text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-3"><BookOpen size={24} className="text-primary"/> Recommended Reading</h4>
+                                <h4 className="font-bold text-xl text-foreground mb-6 flex items-center gap-3"><BookOpen size={24} className="text-primary"/> Recommended Reading</h4>
                                 <ul className="space-y-4">
                                     {currentRecs?.books.map((book, i) => (
-                                    <li key={i} className="flex flex-col p-5 bg-slate-50 dark:bg-black/20 rounded-2xl border border-slate-100 hover:border-primary/30 transition-all hover:shadow-md cursor-pointer group">
+                                    <li key={i} className="flex flex-col p-5 bg-muted/30 rounded-2xl border border-border hover:border-primary/30 transition-all hover:shadow-md cursor-pointer group">
                                         <div className="flex justify-between items-start mb-1">
-                                            <span className="font-bold text-slate-800 text-base group-hover:text-primary transition-colors">{book.title}</span>
+                                            <span className="font-bold text-foreground text-base group-hover:text-primary transition-colors">{book.title}</span>
                                         </div>
-                                        <span className="text-xs font-semibold text-slate-400">by {book.author}</span>
-                                        <p className="text-xs text-slate-500 mt-2 italic border-l-2 border-slate-200 pl-3">{book.desc}</p>
+                                        <span className="text-xs font-semibold text-muted-foreground">by {book.author}</span>
+                                        <p className="text-xs text-muted-foreground/80 mt-2 italic border-l-2 border-border pl-3">{book.desc}</p>
                                     </li>
                                     ))}
                                 </ul>
@@ -464,10 +473,10 @@ export function AwarenessPage() {
                             <div className="flex flex-col justify-between">
                                 <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10">
                                     <h4 className="font-bold text-lg text-primary mb-4 flex items-center gap-2"><Zap size={20} /> Immediate Technique</h4>
-                                    <h5 className="font-black text-2xl text-slate-800 dark:text-white mb-2">{currentRecs?.technique.name}</h5>
-                                    <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed">{currentRecs?.technique.desc}</p>
+                                    <h5 className="font-black text-2xl text-foreground mb-2">{currentRecs?.technique.name}</h5>
+                                    <p className="text-base text-muted-foreground leading-relaxed">{currentRecs?.technique.desc}</p>
                                 </div>
-                                <div className="mt-8 p-5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs rounded-2xl leading-relaxed flex gap-3">
+                                <div className="mt-8 p-5 bg-muted/50 text-muted-foreground text-xs rounded-2xl leading-relaxed flex gap-3">
                                     <Info size={16} className="shrink-0 mt-0.5"/>
                                     <p>CogniSync provides educational tools. It is not a replacement for professional psychiatric treatment. If you are experiencing severe symptoms, please contact a licensed professional immediately.</p>
                                 </div>
