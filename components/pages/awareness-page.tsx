@@ -5,16 +5,19 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useJournal } from "@/components/pages/journal-context"
 import { 
-  Heart, Brain, Zap, Play, Check, AlertCircle, Info, X, Phone, Search, ExternalLink, ChevronRight, BookOpen, BrainCircuit,
+  // Base Icons
+  Heart, Brain, Zap, Play, Check, AlertCircle, Info, X, Phone, Search, ExternalLink, ChevronRight, BookOpen, BrainCircuit, Sparkles,
+  // Mood Icons (Faces)
   CloudRain, Frown, Meh, Smile, Laugh, 
+  // Exercise Icons
   Leaf, Wind, LayoutGrid, Flame, Activity, Sun, Snowflake, Tag, HelpCircle, Disc, Accessibility, Sunrise, Scale, Eye, Rocket,
-  Network, Handshake, Waves, Thermometer, Award, Scan, Tags, Expand, Bug, Footprints,
-  Sparkles
+  // Science Icons
+  Network, Handshake, Waves, Thermometer, Award, Scan, Tags, Expand, Bug, Footprints
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 /* =========================================================================
-   1. DATA: VERIFIED HELPLINES (PRESERVED)
+   1. DATA: VERIFIED HELPLINES (LOGIC PRESERVED)
    ========================================================================= */
 const SOS_RESOURCES = [
   { name: "Tele MANAS", number: "14416", desc: "24/7 Govt Mental Health" },
@@ -26,38 +29,38 @@ const SOS_RESOURCES = [
 const CITY_SEARCHES = ["Hyderabad", "Bangalore", "Mumbai", "Delhi", "Chennai", "Kolkata"]
 
 /* =========================================================================
-   2. DATA: READING & TECHNIQUES (PRESERVED)
+   2. DATA: READING & TECHNIQUES (LOGIC PRESERVED)
    ========================================================================= */
 const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: string, desc: string}[], technique: {name: string, desc: string} }> = {
-  1: { 
+  1: { // Overwhelmed
     books: [
       { title: "Burnout", author: "Emily Nagoski", desc: "The secret to unlocking the stress cycle." },
       { title: "The Body Keeps the Score", author: "Bessel van der Kolk", desc: "How trauma affects the body." }
     ],
     technique: { name: "The 90-Second Rule", desc: "Wait 90 seconds. Let the chemical surge flush out before reacting." }
   },
-  2: { 
+  2: { // Anxious
     books: [
       { title: "Dare", author: "Barry McDonagh", desc: "The new way to end anxiety and panic." },
       { title: "Unwinding Anxiety", author: "Dr. Judson Brewer", desc: "Train your brain to heal your mind." }
     ],
     technique: { name: "5-4-3-2-1 Grounding", desc: "Name 5 things you see, 4 feel, 3 hear, 2 smell, 1 taste." }
   },
-  3: { 
+  3: { // Neutral
     books: [
       { title: "Atomic Habits", author: "James Clear", desc: "Build good habits and break bad ones." },
       { title: "Essentialism", author: "Greg McKeown", desc: "The disciplined pursuit of less." }
     ],
     technique: { name: "Values Audit", desc: "List your top 3 values. Is today's plan aligned with them?" }
   },
-  4: { 
+  4: { // Calm
     books: [
       { title: "The Power of Now", author: "Eckhart Tolle", desc: "A guide to spiritual enlightenment." },
       { title: "Stillness Is the Key", author: "Ryan Holiday", desc: "Ancient strategy for modern life." }
     ],
     technique: { name: "Presence Watch", desc: "Observe an object for 2 minutes. Notice texture, light, and shadow." }
   },
-  5: { 
+  5: { // Happy
     books: [
       { title: "Flow", author: "Mihaly Csikszentmihalyi", desc: "The psychology of optimal experience." },
       { title: "Authentic Happiness", author: "Martin Seligman", desc: "Using the new Positive Psychology." }
@@ -67,7 +70,7 @@ const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: s
 }
 
 /* =========================================================================
-   3. DATA: ALL 12 EXERCISES (PRESERVED)
+   3. DATA: ALL 12 EXERCISES (LOGIC PRESERVED)
    ========================================================================= */
 const ALL_EXERCISES = [
   { id: "grounding", title: "5-4-3-2-1 Grounding", desc: "Engage 5 senses to stop spiraling.", duration: "5 min", type: "SOS", color: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/20", icon: Leaf },
@@ -98,6 +101,9 @@ const SCIENCE_CARDS = [
   { id: "s11", front: "Opposite Action", back: "If depression urges isolation, do the opposite. It rewires the response.", icon: Footprints }
 ]
 
+/* =========================================================================
+   HELPER FUNCTIONS (LOGIC PRESERVED)
+   ========================================================================= */
 function getDailySelection<T>(items: T[], count: number, salt: string): T[] {
   const dateStr = new Date().toISOString().split('T')[0]
   const seedString = dateStr + salt
@@ -113,6 +119,13 @@ function getDailySelection<T>(items: T[], count: number, salt: string): T[] {
   return shuffled.slice(0, count)
 }
 
+const getTodayKey = (key: string) => {
+    return `${key}_${new Date().toISOString().split('T')[0]}`;
+};
+
+/* =========================================================================
+   COMPONENT: AWARENESS PAGE
+   ========================================================================= */
 export function AwarenessPage() {
   const { addEntry } = useJournal();
   const [dailyExercises, setDailyExercises] = useState<typeof ALL_EXERCISES>([])
@@ -505,7 +518,7 @@ export function AwarenessPage() {
                 </motion.div>
             ) : (
                 <motion.div key="recs" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                    <Card className="p-8 bg-card/60 border-border shadow-xl rounded-[2.5rem] overflow-hidden relative backdrop-blur-2xl">
+                    <Card className="p-8 bg-card/60 border-border/60 shadow-xl rounded-[2.5rem] overflow-hidden relative backdrop-blur-2xl">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                             <div>
