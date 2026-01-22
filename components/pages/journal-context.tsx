@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from "@/lib/supabase"; 
-import { useUser } from "@/lib/user-context"; // <--- THE KEY FIX
+import { useUser } from "@/lib/user-context"; 
 
 export interface Entry {
   id: string; // Unified to string for safety
