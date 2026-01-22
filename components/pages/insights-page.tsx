@@ -8,7 +8,7 @@ import {
   ArrowUpRight, Activity, Smile, Frown, Flame, CloudRain, Sun, Info, X, 
   Bot, Sparkles, Heart, AlertCircle, ShieldCheck, PenTool, LayoutGrid, 
   CheckCircle, Target, BookOpen, Battery, Moon, Users, BedDouble,
-  ClipboardCheck
+  ClipboardCheck, PieChart
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -17,6 +17,9 @@ import {
 } from "recharts";
 import { createBrowserClient } from '@supabase/ssr';
 
+/* =========================================================================
+   TYPES & CONFIG (LOGIC PRESERVED)
+   ========================================================================= */
 type MetricType = 'dominant' | 'total' | 'average' | null;
 type TimePeriod = "day" | "week" | "month" | "year";
 
@@ -119,24 +122,6 @@ const WELLNESS_BANDS = [
   { min: 0, max: 2.9, label: "Overwhelmed", overview: "You may feel stuck, hopeless, easily exhausted.", why: "Brain is guarding energy; survival mode triggered.", plan: ["Sleep priority tonight (non-negotiable)", "Tiny win: 2-minute achievable task", "Talk to someone supportive or professional if persistent"], color: "text-rose-500", bg: "from-rose-500/20 to-red-500/20", border: "border-rose-500/30" }
 ];
 
-const SLEEP_FACTS = [
-  { title: "REM Processing", text: "REM sleep processes emotional memory. Lack of it increases reactivity by 60%." },
-  { title: "Circadian Rhythm", text: "Regular sleep onset anchors your mood stability for the following day." },
-  { title: "Temperature", text: "A cooler room (65°F/18°C) significantly aids deep sleep onset and recovery." },
-  { title: "Blue Light", text: "Screens before bed suppress melatonin, delaying emotional recovery during sleep." },
-  { title: "Sleep Debt", text: "Chronic debt mimics anxiety symptoms. One extra hour tonight helps reset." },
-  { title: "Adenosine", text: "Sleep pressure builds all day. Napping too late steals your night's deep sleep." }
-];
-
-const SOCIAL_FACTS = [
-  { title: "Social buffering", text: "Positive social interactions lower cortisol response to stress by up to 50%." },
-  { title: "Micro-Connections", text: "Even brief exchanges with strangers can boost dopamine and belonging." },
-  { title: "Active Listening", text: "Listening to understand rather than respond deepens bonds and empathy." },
-  { title: "Oxytocin Release", text: "Physical presence or shared laughter releases oxytocin, the bonding hormone." },
-  { title: "Co-Regulation", text: "Your nervous system syncs with calm people. Choose your company wisely." },
-  { title: "Shared Purpose", text: "Working on a shared goal creates stronger bonds than just hanging out." }
-];
-
 const slideVariants: Variants = {
   enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -154,28 +139,23 @@ const pulseGlow: Variants = {
   }
 };
 
+/* =========================================================================
+   COMPONENT: INSIGHTS PAGE
+   ========================================================================= */
 export function InsightsPage() {
   const { entries } = useJournal(); 
   const [assessments, setAssessments] = useState<any[]>([]);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("day");
   const [direction, setDirection] = useState(0);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>(null);
-  const [insightIndex, setInsightIndex] = useState(0);
-
+  
   // Initialize Supabase for fetching
   const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ));
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setInsightIndex(prev => (prev + 1) % 6);
-    }, 7000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // --- NEW: FETCH ASSESSMENTS (ONLINE + OFFLINE) ---
+  // --- FETCH ASSESSMENTS ---
   useEffect(() => {
     const fetchAssessments = async () => {
         try {
@@ -192,7 +172,6 @@ export function InsightsPage() {
             }
 
             // 3. Merge and Set
-            // Note: In a real app we would deduplicate IDs, but for visualization we merge to show "All History"
             const combined = [...remoteData, ...localData];
             setAssessments(combined);
         } catch (e) {
@@ -235,19 +214,13 @@ export function InsightsPage() {
     const totalInt = filteredEntries.reduce((sum, e) => sum + e.intensity, 0);
     const journalAvg = total > 0 ? parseFloat((totalInt / total).toFixed(1)) : 0;
 
-    // --- NEW: INTEGRATE ASSESSMENT SCORES ---
-    // If assessments exist, they should heavily influence the "Wellness Baseline"
-    // Assessment scores are 0-100. We normalize to 0-10.
     let finalWellnessScore = journalAvg;
     
     if (assessments.length > 0) {
-        // Calculate average assessment score (all time or filtered by period? Let's use all recent for stability)
-        const recentAssessments = assessments.slice(-5); // Take last 5
+        const recentAssessments = assessments.slice(-5);
         const assessmentAvg100 = recentAssessments.reduce((acc, curr) => acc + (curr.score || 0), 0) / recentAssessments.length;
-        const assessmentAvg10 = parseFloat((assessmentAvg100 / 10).toFixed(1)); // Normalize to 10
+        const assessmentAvg10 = parseFloat((assessmentAvg100 / 10).toFixed(1)); 
         
-        // Weighted Average: 70% Assessment (Clinical), 30% Journal (Daily) if both exist
-        // Or just use Assessment if Journal is empty
         if (total > 0) {
              finalWellnessScore = parseFloat(((assessmentAvg10 * 0.7) + (journalAvg * 0.3)).toFixed(1));
         } else {
@@ -270,7 +243,7 @@ export function InsightsPage() {
     });
 
     return { 
-        totalEntries: total + assessments.length, // Count both
+        totalEntries: total + assessments.length, 
         averageMood: finalWellnessScore, 
         dominantEmotion: sorted[0] || "Neutral",
         secondaryEmotion: sorted[1] || "None",
@@ -287,19 +260,14 @@ export function InsightsPage() {
     })).filter(item => item.value > 0 || defaults.slice(0,5).includes(item.name));
   }, [stats]);
 
-  // --- UPDATED: MOOD PROGRESSION (INCLUDES ASSESSMENTS) ---
   const moodProgression = useMemo(() => {
-    // If we have assessments, plot them as the primary "Clinical" view 
     if (assessments.length > 0) {
-        // Map assessments to chart format
-        // Assessments score 0-100 -> convert to 0-10
         return assessments.slice(-10).map((a, i) => ({
-            label: a.testName ? a.testName.split(' ')[0] : `Test ${i+1}`, // Shorten name
+            label: a.testName ? a.testName.split(' ')[0] : `Test ${i+1}`,
             score: parseFloat((a.score / 10).toFixed(1))
         }));
     }
 
-    // Fallback to Journal Entries if no assessments
     const now = new Date();
     if (timePeriod === 'day') {
         if (filteredEntries.length === 0) return [{ label: "Now", score: 0 }];
@@ -308,8 +276,6 @@ export function InsightsPage() {
             .map((e, i) => ({ label: `Log ${i+1}`, score: e.intensity }));
     } 
     
-    // ... (Keep existing Day/Week/Year logic for Journal Aggregation if needed) ...
-    // For simplicity and stability in this update, we will return the standard week view if no assessments
     const days = [];
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -343,9 +309,9 @@ export function InsightsPage() {
         return {
           title: "Primary Emotional State",
           value: stats.dominantEmotion,
-          mainIcon: <div className="text-yellow-500">{React.createElement(IconComponent as any, { size: 48 })}</div>,
-          color: "from-yellow-500/20 to-orange-500/20",
-          border: "border-yellow-500/30",
+          mainIcon: <div className="text-primary">{React.createElement(IconComponent as any, { size: 48 })}</div>,
+          color: "from-yellow-500/10 to-orange-500/10",
+          border: "border-primary/30",
           sections: [
             { label: "Meaning", content: content.meaning },
             { label: "What You Should Know", content: content.know },
@@ -372,7 +338,7 @@ export function InsightsPage() {
           title: "Total Data Points",
           value: stats.totalEntries.toString(),
           mainIcon: <BookOpen size={48} className="text-blue-500" />,
-          color: "from-blue-500/20 to-cyan-500/20",
+          color: "from-blue-500/10 to-cyan-500/10",
           border: "border-blue-500/30",
           sections: [
             { label: "Data Source", content: `Combined Journal Entries (${filteredEntries.length}) and Clinical Assessments (${assessments.length}).` },
@@ -404,22 +370,22 @@ export function InsightsPage() {
 
   const getSmartInsights = () => {
     if (stats.totalEntries === 0) return [
-        { title: "Initialize", text: "Log your first entry to unlock analysis.", icon: <PenTool/>, color: "bg-slate-50 dark:bg-slate-800", urgent: false },
-        { title: "Tip", text: "Honesty > Frequency. Log how you truly feel.", icon: <Sparkles/>, color: "bg-slate-50 dark:bg-slate-800", urgent: false }
+        { title: "Initialize", text: "Log your first entry to unlock analysis.", icon: <PenTool/>, color: "bg-muted/50", urgent: false },
+        { title: "Tip", text: "Honesty > Frequency. Log how you truly feel.", icon: <Sparkles/>, color: "bg-muted/50", urgent: false }
     ];
     
     const dom = stats.dominantEmotion;
     const sec = stats.secondaryEmotion;
     const insights = [];
 
-    // --- NEW: LATEST CLINICAL INSIGHT ---
+    // --- LATEST CLINICAL INSIGHT ---
     if (assessments.length > 0) {
         const lastTest = assessments[assessments.length - 1];
         insights.push({ 
             title: "Latest Assessment", 
             text: `You scored ${lastTest.score}% on ${lastTest.testName || 'Assessment'}.`, 
             icon: <ClipboardCheck/>, 
-            color: "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200", 
+            color: "bg-primary/5 border-primary/20", 
             urgent: false 
         });
     }
@@ -427,22 +393,22 @@ export function InsightsPage() {
     const isUrgent = ["Anxious", "Stressed", "Angry", "Overwhelmed"].includes(dom);
 
     if (isUrgent) {
-        insights.push({ title: "Fact: High Arousal", text: "Action: Use 'Box Breathing' tool.", icon: <ShieldCheck/>, color: "bg-rose-50 dark:bg-rose-900/20 border-rose-200", urgent: true });
+        insights.push({ title: "Fact: High Arousal", text: "Action: Use 'Box Breathing' tool.", icon: <ShieldCheck/>, color: "bg-rose-500/10 border-rose-500/20", urgent: true });
     } else {
-        insights.push({ title: "Fact: Positive Baseline", text: "Action: Tackle high-focus tasks now.", icon: <Zap/>, color: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200", urgent: false });
+        insights.push({ title: "Fact: Positive Baseline", text: "Action: Tackle high-focus tasks now.", icon: <Zap/>, color: "bg-emerald-500/10 border-emerald-500/20", urgent: false });
     }
 
     if (["Sad", "Lonely"].includes(dom)) {
-        insights.push({ title: "Fact: Processing Mode", text: "Action: Remember feelings are transient.", icon: <CloudRain/>, color: "bg-blue-50 dark:bg-blue-900/20 border-blue-200", urgent: false });
+        insights.push({ title: "Fact: Processing Mode", text: "Action: Remember feelings are transient.", icon: <CloudRain/>, color: "bg-blue-500/10 border-blue-500/20", urgent: false });
     } else if (dom === "Happy") {
-        insights.push({ title: "Fact: Joy Detected", text: "Action: Anchor this with gratitude.", icon: <Heart/>, color: "bg-pink-50 dark:bg-pink-900/20 border-pink-200", urgent: false });
+        insights.push({ title: "Fact: Joy Detected", text: "Action: Anchor this with gratitude.", icon: <Heart/>, color: "bg-pink-500/10 border-pink-500/20", urgent: false });
     }
 
     if (sec !== "None" && sec !== "Neutral") {
-        insights.push({ title: `Fact: Also ${sec}`, text: "Action: Acknowledge the mix.", icon: <LayoutGrid/>, color: "bg-purple-50 dark:bg-purple-900/20 border-purple-200", urgent: false });
+        insights.push({ title: `Fact: Also ${sec}`, text: "Action: Acknowledge the mix.", icon: <LayoutGrid/>, color: "bg-purple-500/10 border-purple-500/20", urgent: false });
     }
 
-    insights.push({ title: "Fact: Energy Level", text: stats.averageMood < 5 ? "Action: Hydrate & Move." : "Action: Maintain routine.", icon: <Battery/>, color: "bg-orange-50 dark:bg-orange-900/20 border-orange-200", urgent: false });
+    insights.push({ title: "Fact: Energy Level", text: stats.averageMood < 5 ? "Action: Hydrate & Move." : "Action: Maintain routine.", icon: <Battery/>, color: "bg-orange-500/10 border-orange-500/20", urgent: false });
 
     return insights;
   };
@@ -453,36 +419,35 @@ export function InsightsPage() {
   const bgGradient = EMOTION_GRADIENTS[stats.dominantEmotion] || EMOTION_GRADIENTS["Neutral"];
 
   return (
-    <div className="min-h-screen relative font-sans text-slate-800 dark:text-slate-100 transition-colors duration-700 overflow-x-hidden">
-      <div className="fixed inset-0 -z-10 bg-slate-50 dark:bg-[#05050A]">
-         <motion.div 
-            key={stats.dominantEmotion}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1, scale: [1, 1.05, 1] }}
-            transition={{ duration: 8, repeat: Infinity, repeatType: "reverse" }}
-            className={`absolute inset-0 bg-gradient-to-br ${bgGradient}`}
-         />
-         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 dark:opacity-20 mix-blend-soft-light"></div>
+    <div className="min-h-screen relative font-sans text-foreground transition-colors duration-700 overflow-x-hidden">
+      
+      {/* 1. DYNAMIC BACKGROUND */}
+      <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
+         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
+         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
+         <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
-<div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
+
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
       
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-               <BarChart3 className="text-slate-800 dark:text-white h-8 w-8" />
+            <div className="p-3 bg-card/60 backdrop-blur-md rounded-xl shadow-sm border border-border">
+               <PieChart className="text-primary h-8 w-8" />
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
                 Insights
             </h1>
           </div>
-          <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">
+          <p className="text-lg text-muted-foreground max-w-2xl pl-1">
               Analyzing your patterns for <span className="font-bold text-primary capitalize">{timePeriod === 'day' ? 'Today' : 'This ' + timePeriod}</span>.
           </p>
         </motion.div>
 
         <div className="mb-6 flex gap-2 flex-wrap">
           {PERIODS.map((period) => (
-            <button key={period} onClick={() => handlePeriodChange(period)} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 backdrop-blur-md border shadow-sm ${timePeriod === period ? "bg-purple-600 text-white border-purple-500 shadow-purple-500/20 scale-105" : "bg-white/40 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400 border-white/50 dark:border-slate-700 hover:bg-white/60 dark:hover:bg-slate-800/60"}`}>
+            <button key={period} onClick={() => handlePeriodChange(period)} className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 backdrop-blur-md border shadow-sm ${timePeriod === period ? "bg-primary text-primary-foreground border-primary shadow-primary/20 scale-105" : "bg-card/40 text-muted-foreground border-border/50 hover:bg-card/60"}`}>
               <span className="flex items-center gap-2 capitalize"><Calendar size={14} /> {period === "day" ? "Today" : period === "week" ? "This Week" : period === "month" ? "This Month" : "This Year"}</span>
             </button>
           ))}
@@ -499,22 +464,24 @@ export function InsightsPage() {
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="w-full relative z-20"
             >
+                {/* METRIC CARDS ROW */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8 relative z-30">
-                    <MetricCard title="Primary Emotional State" value={stats.totalEntries > 0 ? stats.dominantEmotion : "No Data"} icon={<div style={{ color: DominantColor }}>{React.createElement(DominantIconForCard as any, { size: 80 })}</div>} color={stats.totalEntries > 0 ? "text-slate-800 dark:text-white" : "text-slate-400"} subtext={stats.totalEntries > 0 ? "Most Frequent" : "Log entries to see"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('dominant')} disabled={stats.totalEntries === 0}/>
-                    <MetricCard title="Total Data Points" value={stats.totalEntries} icon={<BookOpen size={80} className="text-blue-500"/>} color="text-slate-800 dark:text-white" subtext={stats.totalEntries > 0 ? " recorded entries" : "Start writing"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('total')} disabled={stats.totalEntries === 0}/>
+                    <MetricCard title="Primary Emotional State" value={stats.totalEntries > 0 ? stats.dominantEmotion : "No Data"} icon={<div style={{ color: DominantColor }}>{React.createElement(DominantIconForCard as any, { size: 80 })}</div>} color={stats.totalEntries > 0 ? "text-foreground" : "text-muted-foreground"} subtext={stats.totalEntries > 0 ? "Most Frequent" : "Log entries to see"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('dominant')} disabled={stats.totalEntries === 0}/>
+                    <MetricCard title="Total Data Points" value={stats.totalEntries} icon={<BookOpen size={80} className="text-blue-500"/>} color="text-foreground" subtext={stats.totalEntries > 0 ? " recorded entries" : "Start writing"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('total')} disabled={stats.totalEntries === 0}/>
                     <MetricCard title="Wellness Baseline" value={stats.totalEntries > 0 ? stats.averageMood : "-"} icon={<Activity size={80} className="text-emerald-500"/>} color={stats.averageMood >= 7 ? 'text-emerald-500' : stats.averageMood <= 4 ? 'text-rose-500' : 'text-blue-500'} subtext={stats.totalEntries > 0 ? "/10 Intensity" : "No ratings yet"} onClick={() => stats.totalEntries > 0 && setSelectedMetric('average')} disabled={stats.totalEntries === 0}/>
                 </div>
 
+                {/* CHARTS ROW */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                     <ChartCard title={assessments.length > 0 ? "Assessment Progression" : "Mood Progression"} icon={<TrendingUp size={20}/>} isEmpty={stats.totalEntries === 0}>
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={moodProgression} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <defs><linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} /><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} /></linearGradient></defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.2)" />
+                                <defs><linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="currentColor" stopOpacity={0.5} className="text-primary"/><stop offset="95%" stopColor="currentColor" stopOpacity={0} className="text-primary"/></linearGradient></defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
                                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} tickMargin={10} interval="preserveStartEnd" />
                                 <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
-                                <Area type="monotone" dataKey="score" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorMood)" connectNulls={true} animationDuration={800} />
+                                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(255,255,255,0.8)', color: 'black', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }} />
+                                <Area type="monotone" dataKey="score" stroke="currentColor" strokeWidth={3} fill="url(#colorMood)" connectNulls={true} animationDuration={800} className="text-primary"/>
                             </AreaChart>
                         </ResponsiveContainer>
                     </ChartCard>
@@ -522,7 +489,7 @@ export function InsightsPage() {
                     <ChartCard title="Emotion Mix" icon={<BarChart3 size={20}/>} isEmpty={false}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={emotionData} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(148, 163, 184, 0.2)" />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#64748b' }} />
                                 <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px' }} />
@@ -534,6 +501,7 @@ export function InsightsPage() {
                     </ChartCard>
                 </div>
                 
+                {/* RADAR CHART */}
                 <ChartCard title="Emotional Profile" icon={<Activity size={20}/>} isEmpty={stats.totalEntries === 0} fullWidth>
                     <div className="h-full flex justify-center">
                         <ResponsiveContainer width="100%" height="100%">
@@ -541,7 +509,7 @@ export function InsightsPage() {
                             <PolarGrid stroke="rgba(148, 163, 184, 0.2)" />
                             <PolarAngleAxis dataKey="emotion" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                            <Radar name="Intensity" dataKey="value" stroke="#ec4899" strokeWidth={3} fill="#ec4899" fillOpacity={0.4} />
+                            <Radar name="Intensity" dataKey="value" stroke="currentColor" strokeWidth={3} fill="currentColor" fillOpacity={0.4} className="text-primary"/>
                             <Tooltip />
                             </RadarChart>
                         </ResponsiveContainer>
@@ -550,11 +518,11 @@ export function InsightsPage() {
             </motion.div>
         </AnimatePresence>
 
-        <div className= "p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Bot size={24} className="text-amber-500"/> AI Analysis</h2>
+        {/* AI ANALYSIS SECTION */}
+        <div className= "p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-card/40 backdrop-blur-xl border border-border/50 shadow-xl">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-foreground"><Bot size={24} className="text-primary"/> AI Analysis</h2>
             {stats.totalEntries > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-
                     {getSmartInsights().map((rec: any, idx) => (
                         <AnimatePresence mode="wait" key={rec.key || idx}>
                             <motion.div 
@@ -562,35 +530,20 @@ export function InsightsPage() {
                                 animate={{ opacity: 1, y: 0 }} 
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ delay: idx * 0.04, duration: 0.4 }} 
-                                whileHover={{ scale: 1.02, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }}
-                                className={`p-6 rounded-2xl flex flex-col gap-3 border-l-4 ${rec.color} shadow-sm bg-white/50 dark:bg-black/20`}
+                                whileHover={{ scale: 1.02 }}
+                                className={`p-6 rounded-2xl flex flex-col gap-3 border-l-4 ${rec.color} shadow-sm bg-background/40`}
                             >
                                 <div className="flex items-center gap-3 relative">
-                                    <div className="p-2 bg-white/80 dark:bg-white/10 rounded-full relative">
+                                    <div className="p-2 bg-background/80 rounded-full relative">
                                         {idx === 0 && rec.urgent && (
                                             <motion.div variants={pulseGlow} animate="animate" className="absolute inset-0 rounded-full border border-red-500/50" />
                                         )}
                                         {rec.icon}
                                     </div>
-                                    <h4 className="font-bold text-lg text-slate-800 dark:text-slate-100">{rec.title}</h4>
+                                    <h4 className="font-bold text-lg text-foreground">{rec.title}</h4>
                                 </div>
                                 <div className="flex-1">
-                                    <p className="text-slate-700 dark:text-slate-300 font-medium text-sm leading-relaxed">{rec.text}</p>
-                                    
-                                    {rec.viz === 'sleep' && (
-                                        <div className="h-10 w-full mt-2">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <LineChart data={[{v:4},{v:3},{v:5},{v:7},{v:6},{v:8},{v:9}]}>
-                                                    <Line type="monotone" dataKey="v" stroke="#6366f1" strokeWidth={2} dot={false} isAnimationActive={true} />
-                                                </LineChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    )}
-                                    {rec.viz === 'social' && (
-                                        <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full mt-3 overflow-hidden">
-                                            <motion.div initial={{ width: 0 }} whileInView={{ width: "65%" }} transition={{ duration: 1 }} className="h-full bg-teal-500" />
-                                        </div>
-                                    )}
+                                    <p className="text-muted-foreground font-medium text-sm leading-relaxed">{rec.text}</p>
                                 </div>
                             </motion.div>
                         </AnimatePresence>
@@ -598,25 +551,26 @@ export function InsightsPage() {
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center opacity-60">
-                    <Bot size={48} className="mb-4 text-slate-400"/>
-                    <p className="text-lg font-medium text-slate-500">Not enough data to generate insights.</p>
-                    <p className="text-sm text-slate-400">Your AI analysis will appear here once you start journaling.</p>
+                    <Bot size={48} className="mb-4 text-muted-foreground"/>
+                    <p className="text-lg font-medium text-muted-foreground">Not enough data to generate insights.</p>
+                    <p className="text-sm text-muted-foreground/60">Your AI analysis will appear here once you start journaling.</p>
                 </div>
             )}
         </div>
 
+        {/* METRIC MODAL */}
         <AnimatePresence>
           {selectedMetric && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md" onClick={() => setSelectedMetric(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={() => setSelectedMetric(null)}>
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9, y: 20 }} 
                 animate={{ opacity: 1, scale: 1, y: 0 }} 
                 exit={{ opacity: 0, scale: 0.9, y: 20 }} 
                 transition={{ type: "spring", stiffness: 300, damping: 25 }} 
                 onClick={(e) => e.stopPropagation()} 
-                className="bg-white/95 dark:bg-slate-900/95 w-full max-w-lg rounded-2xl sm:rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-slate-700 p-8 relative backdrop-blur-xl overflow-y-auto max-h-[85vh]"
+                className="bg-card/95 w-full max-w-lg rounded-2xl sm:rounded-[2.5rem] shadow-2xl border border-border/50 p-8 relative backdrop-blur-xl overflow-y-auto max-h-[85vh]"
               >
-                <button onClick={() => setSelectedMetric(null)} className="absolute top-6 right-6 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors"><X size={24} className="text-slate-400"/></button>
+                <button onClick={() => setSelectedMetric(null)} className="absolute top-6 right-6 p-2 hover:bg-muted rounded-full transition-colors"><X size={24} className="text-muted-foreground"/></button>
                 
                 {(() => {
                   const info = getMetricExplanation();
@@ -627,23 +581,23 @@ export function InsightsPage() {
                         {info.mainIcon}
                       </div>
                       <div>
-                        <h3 className="text-3xl font-black text-slate-800 dark:text-white mb-2">{info.title}</h3>
+                        <h3 className="text-3xl font-black text-foreground mb-2">{info.title}</h3>
                         <div className="flex items-baseline gap-3">
-                            <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">{info.value}</div>
+                            <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">{info.value}</div>
                             {/* @ts-ignore */}
-                            {info.subValue && <span className="text-xl font-bold text-slate-500 uppercase tracking-widest">{info.subValue}</span>}
+                            {info.subValue && <span className="text-xl font-bold text-muted-foreground uppercase tracking-widest">{info.subValue}</span>}
                         </div>
                       </div>
                       
                       <div className="space-y-4">
                         {info.sections.map((section, idx) => (
-                            <div key={idx} className={`p-5 rounded-2xl border ${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700' : 'bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-800/30'}`}>
-                                <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${idx % 2 === 0 ? 'text-slate-500' : 'text-purple-600 dark:text-purple-400'}`}>{section.label}</p>
+                            <div key={idx} className={`p-5 rounded-2xl border ${idx % 2 === 0 ? 'bg-muted/30 border-border/30' : 'bg-primary/5 border-primary/10'}`}>
+                                <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${idx % 2 === 0 ? 'text-muted-foreground' : 'text-primary'}`}>{section.label}</p>
                                 {Array.isArray(section.content) ? (
                                     <ul className="space-y-2">
-                                        {section.content.map((item, i) => <li key={i} className="flex items-start gap-2 text-slate-700 dark:text-slate-300 font-medium text-md"><CheckCircle size={16} className="mt-1 text-emerald-500 shrink-0"/> {item}</li>)}
+                                        {section.content.map((item, i) => <li key={i} className="flex items-start gap-2 text-foreground font-medium text-md"><CheckCircle size={16} className="mt-1 text-primary shrink-0"/> {item}</li>)}
                                     </ul>
-                                ) : <p className={`font-medium text-lg leading-relaxed ${idx % 2 === 0 ? 'text-slate-700 dark:text-slate-300' : 'text-purple-900 dark:text-purple-200'}`}>{section.content}</p>}
+                                ) : <p className={`font-medium text-lg leading-relaxed text-foreground`}>{section.content}</p>}
                             </div>
                         ))}
                       </div>
@@ -655,31 +609,32 @@ export function InsightsPage() {
           )}
         </AnimatePresence>
       </div>
+      <style>{`@keyframes blob { 0%, 100% { transform: translate(0px, 0px) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% { transform: translate(0px, 0px) scale(1); } } .animate-blob { animation: blob 10s infinite; } .animation-delay-2000 { animation-delay: 2s; } .animation-delay-4000 { animation-delay: 4s; }`}</style>
     </div>
   );
 }
 
 function MetricCard({ title, value, icon, color, subtext, onClick, disabled }: any) {
     return (
-        <motion.div whileHover={!disabled ? { y: -5, scale: 1.02 } : {}} whileTap={!disabled ? { scale: 0.98 } : {}} onClick={onClick} className={`p-6 rounded-[2rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-lg relative overflow-hidden group transition-all ${!disabled ? 'cursor-pointer hover:shadow-xl' : 'opacity-80'}`}>
+        <motion.div whileHover={!disabled ? { y: -5, scale: 1.02 } : {}} whileTap={!disabled ? { scale: 0.98 } : {}} onClick={onClick} className={`p-6 rounded-[2rem] bg-card/40 backdrop-blur-xl border border-border/50 shadow-lg relative overflow-hidden group transition-all ${!disabled ? 'cursor-pointer hover:shadow-xl hover:border-primary/20' : 'opacity-80'}`}>
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">{icon}</div>
-            {!disabled && <div className="absolute top-4 right-4 p-2 bg-slate-100 dark:bg-slate-800 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Info size={16} className="text-slate-400"/></div>}
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">{title}</p>
+            {!disabled && <div className="absolute top-4 right-4 p-2 bg-background/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Info size={16} className="text-muted-foreground"/></div>}
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-wider mb-2">{title}</p>
             <h3 className={`text-3xl sm:text-4xl font-black ${color} flex items-center gap-2`}>
 {value}</h3>
-            <div className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 bg-slate-100/50 dark:bg-slate-800/50 px-3 py-1 rounded-full w-fit">{subtext}</div>
+            <div className="mt-4 flex items-center gap-2 text-sm font-bold text-muted-foreground bg-muted/50 px-3 py-1 rounded-full w-fit">{subtext}</div>
         </motion.div>
     );
 }
 
 function ChartCard({ title, icon, children, isEmpty, fullWidth }: any) {
     return (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-white/60 dark:bg-slate-900/50 backdrop-blur-xl border border-white/50 dark:border-slate-700 shadow-xl ${fullWidth ? 'mb-8' : ''}`}>
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800 dark:text-white">{icon} {title}</h2>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-5 sm:p-8 rounded-2xl sm:rounded-[2.5rem] bg-card/40 backdrop-blur-xl border border-border/50 shadow-xl ${fullWidth ? 'mb-8' : ''}`}>
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-foreground">{icon} {title}</h2>
             <div className="h-[240px] sm:h-[300px] w-full">
                 {isEmpty ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 font-medium bg-slate-50/50 dark:bg-black/20 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                        <div className="p-4 bg-white dark:bg-slate-800 rounded-full mb-3 shadow-sm"><PenTool size={24}/></div>
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground font-medium bg-muted/20 rounded-2xl border border-dashed border-border/50">
+                        <div className="p-4 bg-background rounded-full mb-3 shadow-sm"><PenTool size={24}/></div>
                         <p>No data yet</p>
                     </div>
                 ) : children}
