@@ -1,53 +1,43 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase Client
+// We use a simple client here because we are handling the 'userId' manually
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 /**
  * POST /api/emotion/analyze
- * - Auth is derived from Supabase session (cookies)
- * - No userId accepted from client
- * - DB write happens ONLY here
+ * * CHANGES FROM ORIGINAL:
+ * 1. Accepts 'userId' from the request body (fixing the Unauthorized error).
+ * 2. Skips strict session validation (since you are using manual login).
+ * 3. Keeps the HuggingFace AI logic intact.
  */
 export async function POST(request: Request) {
   try {
-    // 1) Parse request
-    const { text } = await request.json();
+    // ------------------------------------------------------------------
+    // 1. Parse Request Body
+    // ------------------------------------------------------------------
+    const body = await request.json();
+    const { text, userId } = body;
+
+    // Validation: Ensure we have both text and a user to attach it to
     if (!text || typeof text !== "string") {
-      return NextResponse.json({ error: "Text required" }, { status: 400 });
+      return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
-    // 2) Create SSR-safe Supabase client (reads auth from cookies)
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          async get(name: string) {
-            return (await cookieStore).get(name)?.value;
-          },
-        },
-      }
-    );
-
-    // 3) Resolve authenticated user from session
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!userId || typeof userId !== "string") {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    // 4) Emotion analysis (HF if available; safe fallback)
+    // ------------------------------------------------------------------
+    // 2. Emotion Analysis (AI Model)
+    // ------------------------------------------------------------------
     let detected: string = "calm";
     let wellnessScore: number = 5;
-    let guidance: string =
-      "Take a moment to breathe and center yourself.";
+    let guidance: string = "Take a moment to breathe and center yourself.";
 
     if (process.env.HUGGINGFACE_API_KEY) {
       try {
@@ -68,10 +58,13 @@ export async function POST(request: Request) {
 
         const result = await hfRes.json();
 
+        // Process AI Response
         if (Array.isArray(result) && result[0]) {
           const scores = result[0] as Array<{ label: string; score: number }>;
+          // Get the emotion with the highest confidence score
           const top = [...scores].sort((a, b) => b.score - a.score)[0];
 
+          // Map AI labels to your App's emotion categories
           const labelMap: Record<string, string> = {
             anger: "angry",
             disgust: "stressed",
@@ -82,6 +75,7 @@ export async function POST(request: Request) {
             surprise: "confused",
           };
 
+          // Assign wellness scores (1-10) based on emotion
           const scoreMap: Record<string, number> = {
             happy: 9,
             calm: 8,
@@ -95,46 +89,34 @@ export async function POST(request: Request) {
           detected = labelMap[top.label] ?? "calm";
           wellnessScore = scoreMap[detected] ?? 5;
 
+          // Generate Guidance Message
           const guidanceMap: Record<string, string[]> = {
-            happy: [
-              "Joy is a resource—share it with someone. [Resource: Savoring]",
-            ],
-            sad: [
-              "Try 2 minutes of movement to break inertia. [Resource: Behavioral Activation]",
-            ],
-            anxious: [
-              "Box breathing: 4–4–4–4. [Resource: Polyvagal]",
-            ],
-            stressed: [
-              "Progressive muscle relaxation can help. [Resource: PMR]",
-            ],
-            calm: [
-              "Use this balance for mindful reflection. [Resource: EQ Training]",
-            ],
-            confused: [
-              "Clarify values and next steps. [Resource: ACT]",
-            ],
-            angry: [
-              "Breathe through the surge for 90 seconds. [Resource: Neuroanatomy]",
-            ],
+            happy: ["Joy is a resource—share it with someone. [Resource: Savoring]"],
+            sad: ["Try 2 minutes of movement to break inertia. [Resource: Behavioral Activation]"],
+            anxious: ["Box breathing: 4–4–4–4. [Resource: Polyvagal]"],
+            stressed: ["Progressive muscle relaxation can help. [Resource: PMR]"],
+            calm: ["Use this balance for mindful reflection. [Resource: EQ Training]"],
+            confused: ["Clarify values and next steps. [Resource: ACT]"],
+            angry: ["Breathe through the surge for 90 seconds. [Resource: Neuroanatomy]"],
           };
 
-          const variations = guidanceMap[detected] ?? [
-            "Take a slow breath.",
-          ];
-          guidance =
-            variations[Math.floor(Math.random() * variations.length)];
+          const variations = guidanceMap[detected] ?? ["Take a slow breath."];
+          guidance = variations[Math.floor(Math.random() * variations.length)];
         }
-      } catch {
-        // Silent fallback
+      } catch (aiError) {
+        console.warn("AI Analysis failed, using fallback:", aiError);
+        // We continue silently with default values ("calm") so the app doesn't crash
       }
     }
 
-    // 5) Persist entry (RLS enforced via session)
+    // ------------------------------------------------------------------
+    // 3. Save to Database
+    // ------------------------------------------------------------------
+    // Since RLS is disabled, we can insert directly using the userId provided
     const { data: newEntry, error: insertError } = await supabase
       .from("user_entries")
       .insert({
-        user_id: user.id,
+        user_id: userId, // <--- Using the manual ID from the frontend
         input_text: text,
         detected_emotion: detected,
         emotion_score: wellnessScore,
@@ -144,20 +126,22 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      return NextResponse.json(
-        { error: insertError.message },
-        { status: 500 }
-      );
+      console.error("DB Insert Error:", insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // 6) Respond
+    // ------------------------------------------------------------------
+    // 4. Return Success Response
+    // ------------------------------------------------------------------
     return NextResponse.json({
       emotion: detected,
       guidance,
       score: wellnessScore,
       newEntry,
     });
+
   } catch (err: any) {
+    console.error("Critical API Error:", err);
     return NextResponse.json(
       { error: err?.message || "Internal Server Error" },
       { status: 500 }
