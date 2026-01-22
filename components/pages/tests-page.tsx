@@ -6,14 +6,13 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
-import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts"
+import { BarChart, Bar, ResponsiveContainer, Cell, AreaChart, Area } from "recharts"
 import { 
   ChevronRight, Award, Sparkles, ClipboardCheck, Search, 
   Brain, Heart, Activity, Zap, Users, Smile, Clock, 
   ArrowRight, Wind, MessageSquare, PenTool, AlertCircle, 
-  CheckCircle2, History, X, BookOpen, Moon, Shield, 
-  Fingerprint, RefreshCw, Eye, BatteryWarning, CloudRain,
-  Calendar, Filter, ChevronUp, ChevronDown
+  CheckCircle2, History, X, Layout, ChevronUp, ChevronDown,
+  CloudRain, Moon, BatteryWarning, Eye, RefreshCw, Shield, Fingerprint, HelpCircle
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
@@ -37,7 +36,7 @@ interface Test {
 }
 
 const MEDICAL_12: Test[] = [
-  // --- 🚨 CLINICAL SCREENERS (The Essentials) ---
+  // --- 🚨 CLINICAL SCREENERS ---
   {
     id: "phq9",
     name: "Depression Screening",
@@ -269,10 +268,17 @@ const getActionableRoute = (score: number) => {
 export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const [activeTab, setActiveTab] = useState<"library" | "history">("library")
   const [historyFilter, setHistoryFilter] = useState<"all" | "today" | "week">("all")
+  
+  // Navigation & View States
   const [showAllTests, setShowAllTests] = useState(false)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
   const [showPreTestModal, setShowPreTestModal] = useState(false)
+  const [showScoreInfo, setShowScoreInfo] = useState(false) // New Modal for Explainability
+  
+  // Logic Flow States
+  const [isRecommendation, setIsRecommendation] = useState(false) // Prevents Infinite Loops
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [historyData, setHistoryData] = useState<any[]>([])
   
@@ -287,27 +293,30 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
   // --- DATA LOADING ---
   useEffect(() => {
-      // Load history from local storage as fallback/demo
       const localHistory = JSON.parse(localStorage.getItem('offline_assessments') || '[]');
       setHistoryData(localHistory.reverse()); 
   }, [quizState.completed]); 
 
-  // --- ACTIONS ---
+  // --- NAVIGATION SAFEGUARD ---
+  const handleNavigate = (path: string) => {
+      if (onNavigate) {
+          onNavigate(path); // Priority: Internal SPA Switch
+      } else {
+          router.push(`/${path}`); // Fallback: URL Routing
+      }
+  }
+
+  // --- TEST FLOW ACTIONS ---
   const handleTestClick = (testId: string) => {
       setSelectedTest(testId);
+      setIsRecommendation(false); // Reset Loop Flag
       setShowPreTestModal(true);
   }
 
-  const handleHistoryClick = (item: any) => {
-      setSelectedHistoryItem(item);
-  }
-
-  const handleRetakeFromHistory = () => {
-      if (selectedHistoryItem) {
-          setSelectedTest(selectedHistoryItem.testId);
-          setSelectedHistoryItem(null);
-          setShowPreTestModal(true);
-      }
+  const handleStartRecommendation = (testId: string) => {
+      setSelectedTest(testId);
+      setIsRecommendation(true); // Set Loop Flag: Next result will NOT recommend another test
+      setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
   }
 
   const handleStartTest = () => {
@@ -319,6 +328,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       setSelectedTest(null);
       setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
       setShowPreTestModal(false);
+      setIsRecommendation(false);
   }
 
   const saveResult = async (finalScore: number) => {
@@ -327,16 +337,14 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
         testName: MEDICAL_12.find(t => t.id === selectedTest)?.name,
         category: MEDICAL_12.find(t => t.id === selectedTest)?.category,
         score: finalScore,
-        maxScore: 5 * 5, // 5 questions * 5 points
+        maxScore: 5 * 5, 
         date: new Date().toISOString()
     }
 
-    // 1. Local Save
     const existingData = JSON.parse(localStorage.getItem('offline_assessments') || '[]')
     existingData.push(payload)
     localStorage.setItem('offline_assessments', JSON.stringify(existingData))
 
-    // 2. DB Save (Silent)
     try {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user?.id) {
@@ -363,21 +371,13 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       }
   }
 
-  const handleActionClick = (routeKey: string) => {
-     if (onNavigate) {
-         onNavigate(routeKey)
-     } else {
-         const paths: any = { regulation: '/regulation', chatbot: '/chat', journal: '/journal', dashboard: '/' }
-         router.push(paths[routeKey] || '/')
-     }
-  }
-
   const activeTest = MEDICAL_12.find(t => t.id === selectedTest);
   
-  // Filtering Logic
+  // Smart Filtering
   const visibleTests = useMemo(() => {
       const filtered = MEDICAL_12.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      return showAllTests ? filtered : filtered.slice(0, 6);
+      // Show 3 per category (ODD NUMBER) to fill rows nicely
+      return showAllTests ? filtered : filtered.slice(0, 3);
   }, [searchTerm, showAllTests]);
 
   const filteredHistory = useMemo(() => {
@@ -430,17 +430,16 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       )
   }
 
-  // --- VIEW 2: RESULTS DASHBOARD (DYNAMIC GLASS) ---
+  // --- VIEW 2: RESULTS DASHBOARD ---
   if (selectedTest && quizState.completed && activeTest) {
       const max = 25;
       const severity = getSeverity(quizState.score, max);
       const percentage = Math.round((quizState.score / max) * 100);
-      const recommendations = getRecommendations(percentage);
       const suggestedAction = getActionableRoute(percentage);
 
-      // Smart Recommendation Logic: Limit to 1 next step or Dashboard
-      const nextTestId = percentage > 50 ? activeTest.nextSteps.high : activeTest.nextSteps.low;
-      const nextTest = MEDICAL_12.find(t => t.id === nextTestId);
+      // LOOP BREAKER: Only suggest next test if this was NOT a recommendation itself
+      const nextTestId = (!isRecommendation && percentage > 50) ? activeTest.nextSteps.high : (!isRecommendation ? activeTest.nextSteps.low : null);
+      const nextTest = nextTestId ? MEDICAL_12.find(t => t.id === nextTestId) : null;
 
       const scoreData = [
         { category: "Score", value: percentage, fill: "url(#scoreGradient)" },
@@ -455,8 +454,17 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <div className="relative z-10 text-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold mb-8"><CheckCircle2 size={16}/> Assessment Complete</div>
                         
-                        <h1 className="text-5xl md:text-7xl font-black text-foreground mb-2">{percentage}%</h1>
-                        <p className="text-muted-foreground text-lg uppercase tracking-widest font-bold mb-10">Wellness Score</p>
+                        {/* CLICKABLE SCORE FOR EXPLANATION */}
+                        <motion.div 
+                            whileHover={{ scale: 1.05 }} 
+                            onClick={() => setShowScoreInfo(true)} 
+                            className="cursor-pointer inline-block"
+                        >
+                            <h1 className="text-5xl md:text-7xl font-black text-foreground mb-2 flex items-center justify-center gap-4">
+                                {percentage}% <HelpCircle className="text-muted-foreground/30 w-8 h-8"/>
+                            </h1>
+                            <p className="text-muted-foreground text-lg uppercase tracking-widest font-bold mb-10">Wellness Score</p>
+                        </motion.div>
                         
                         <div className="bg-muted/30 border border-border/50 p-8 rounded-3xl text-left max-w-2xl mx-auto mb-10">
                             <div className="flex justify-between items-center mb-4">
@@ -469,15 +477,15 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                         </div>
 
                         <div className="flex flex-col md:flex-row gap-6 justify-center">
-                            {/* RECOMMENDATION: Either Next Test OR Action (Journal/Dashboard) */}
+                            {/* SMART CHAINING: Prevents Loop */}
                             {nextTest ? (
-                                <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => { setQuizState({ ...quizState, completed: false, currentQuestion: 0, score: 0 }); setSelectedTest(nextTest.id); }}>
+                                <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => handleStartRecommendation(nextTest.id)}>
                                     <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Follow-Up</div>
                                     <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{nextTest.name}</h3>
                                     <p className="text-sm text-muted-foreground">Deepen your insight.</p>
                                 </Card>
                             ) : (
-                                <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => handleActionClick(suggestedAction.route)}>
+                                <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group" onClick={() => handleNavigate(suggestedAction.route)}>
                                     <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2">{suggestedAction.icon} Recommended Action</div>
                                     <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{suggestedAction.title}</h3>
                                     <p className="text-sm text-muted-foreground">{suggestedAction.desc}</p>
@@ -485,14 +493,33 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             )}
                             
                             <Card className="p-6 text-left flex-1 bg-card hover:bg-muted/50 transition-all cursor-pointer border-border/50" onClick={handleRestart}>
-                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><CheckCircle2 size={14}/> Complete</div>
-                                <h3 className="text-xl font-bold text-foreground mb-1">Return to Dashboard</h3>
-                                <p className="text-sm text-muted-foreground">Review logs and progress.</p>
+                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Layout size={14}/> Assessment Library</div>
+                                <h3 className="text-xl font-bold text-foreground mb-1">Return to Tests</h3>
+                                <p className="text-sm text-muted-foreground">Browse other tools.</p>
                             </Card>
                         </div>
                     </div>
                 </Card>
             </div>
+
+            {/* SCORE EXPLANATION MODAL */}
+            <AnimatePresence>
+                {showScoreInfo && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-card w-full max-w-md rounded-[2rem] p-8 shadow-2xl relative border border-border">
+                            <button onClick={() => setShowScoreInfo(false)} className="absolute top-4 right-4 text-muted-foreground"><X/></button>
+                            <h3 className="text-xl font-bold text-foreground mb-4">Understanding Your Score</h3>
+                            <p className="text-sm text-muted-foreground mb-6">Scores are calculated based on standardized clinical scales (0-25 points normalized to 100%).</p>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20"><div className="w-3 h-3 bg-emerald-500 rounded-full"/><span className="text-sm font-bold text-emerald-600">76-100% : Optimal</span></div>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20"><div className="w-3 h-3 bg-yellow-500 rounded-full"/><span className="text-sm font-bold text-yellow-600">51-75% : Mild Symptoms</span></div>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20"><div className="w-3 h-3 bg-orange-500 rounded-full"/><span className="text-sm font-bold text-orange-600">26-50% : Moderate</span></div>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20"><div className="w-3 h-3 bg-rose-500 rounded-full"/><span className="text-sm font-bold text-rose-600">0-25% : Clinical Concern</span></div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
       )
   }
@@ -555,7 +582,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                                     <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{test.name}</h3>
                                                     <p className="text-sm text-muted-foreground mb-6 line-clamp-2 flex-1">{test.description}</p>
                                                     
-                                                    {/* CLINICAL CHIPS (Replced dummy graph) */}
                                                     <div className="flex flex-wrap gap-2 mb-6">
                                                         {test.focusTags.map(tag => (
                                                             <span key={tag} className="px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-bold border border-primary/10">{tag}</span>
@@ -574,8 +600,9 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             })}
                         </div>
 
-                        {!showAllTests && searchTerm === "" && (
-                            <div className="mt-12 text-center">
+                        {/* TOGGLE FULL LIBRARY BUTTON */}
+                        {searchTerm === "" && (
+                            <div className="mt-12 text-center pb-20">
                                 <Button onClick={() => setShowAllTests(!showAllTests)} variant="outline" className="px-8 py-6 rounded-full border-border/50 hover:bg-card/50 text-foreground font-bold flex items-center gap-2 mx-auto">
                                     {showAllTests ? "Collapse Library" : "View Full Clinical Library"} {showAllTests ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                 </Button>
@@ -595,22 +622,21 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                 {filteredHistory.map((record, i) => {
                                     const severity = getSeverity(record.score, record.maxScore);
                                     return (
-                                        <Card key={i} onClick={() => handleHistoryClick(record)} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors cursor-pointer group">
+                                        <Card key={i} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors cursor-default">
                                             <div className="flex items-center gap-6 mb-4 md:mb-0 w-full md:w-auto">
                                                 <div className="w-16 h-16 rounded-2xl bg-background/50 flex items-center justify-center font-black text-xl text-primary border border-border/50">
                                                     {Math.round((record.score / record.maxScore) * 100)}%
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">{record.testName}</h3>
+                                                    <h3 className="font-bold text-foreground text-lg">{record.testName}</h3>
                                                     <div className="flex items-center gap-3 mt-1">
-                                                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1"><Calendar size={10}/> {new Date(record.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                                                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1"><Clock size={10}/> {new Date(record.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1"><History size={10}/> {new Date(record.date).toLocaleDateString()}</span>
+                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${severity.bg} ${severity.color}`}>{severity.label}</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                                                <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${severity.bg} ${severity.color} border ${severity.border}`}>{severity.label}</span>
-                                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-background"><ChevronRight className="text-muted-foreground group-hover:text-primary"/></Button>
+                                            <div className="flex items-center gap-3">
+                                                <Button size="sm" variant="outline" className="rounded-xl font-bold h-10 border-border/50" onClick={() => handleTestClick(record.testId)}>Retake</Button>
                                             </div>
                                         </Card>
                                     )
@@ -653,32 +679,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={() => setShowPreTestModal(false)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Cancel</Button>
-                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform">Begin Assessment</Button>
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* HISTORICAL REPORT MODAL (READ ONLY) */}
-        <AnimatePresence>
-            {selectedHistoryItem && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
-                        <div className="p-8 text-center">
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Historical Report</div>
-                            <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
-                            <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                            
-                            <div className="text-6xl font-black text-primary mb-2">{Math.round((selectedHistoryItem.score / selectedHistoryItem.maxScore) * 100)}%</div>
-                            <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border mb-8 ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
-                                {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
-                            </div>
-
-                            <div className="flex gap-3">
-                                <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Close Report</Button>
-                                <Button onClick={handleRetakeFromHistory} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform">Retake Test</Button>
+                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin Assessment</Button>
                             </div>
                         </div>
                     </motion.div>
