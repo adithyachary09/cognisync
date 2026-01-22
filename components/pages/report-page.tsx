@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { 
   Calendar, BookOpen, CheckCircle2, Clock, 
-  FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer, Download, Filter
+  FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer, Download, Filter, TrendingUp, AlertTriangle, Info
 } from "lucide-react"
 import { useJournal } from "@/components/pages/journal-context"
 import { createBrowserClient } from '@supabase/ssr'
@@ -32,13 +32,13 @@ interface Assessment {
 // --- HELPERS ---
 const getSeverity = (score: number, type: 'journal' | 'assessment') => {
     if (type === 'assessment') {
-        if (score >= 80) return { label: "High", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800" }
-        if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" }
-        return { label: "Concern", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800" }
+        if (score >= 80) return { label: "High", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800" }
+        if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-800" }
+        return { label: "Concern", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-800" }
     } else {
-        if (score >= 7) return { label: "Positive", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800" }
-        if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" }
-        return { label: "Negative", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800" }
+        if (score >= 7) return { label: "Positive", color: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800" }
+        if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-800" }
+        return { label: "Negative", color: "text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-800" }
     }
 }
 
@@ -93,6 +93,8 @@ export function ReportPage() {
   const currentData = useMemo(() => {
     const now = new Date()
     const start = new Date()
+    
+    // Calculate Date Range based on Active Tab
     if (activeTab === 'today') {
         start.setHours(0, 0, 0, 0)
         now.setHours(23, 59, 59, 999)
@@ -134,8 +136,8 @@ export function ReportPage() {
         testCount,
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
-        journalAvg, // THIS LINE FIXES THE TS ERROR
-        testAvg10,  // THIS LINE FIXES THE TS ERROR
+        journalAvg, // Fixes TS Error 1
+        testAvg10,  // Fixes TS Error 2
         filteredEntries, 
         filteredAssessments,
         dateRange: activeTab === 'today' ? "Today" : `Last ${historyPeriod} Days`
@@ -166,45 +168,34 @@ export function ReportPage() {
         ["Clinical Average", `${currentData.avgTestScore}%`, "-"],
         ["Total Activities", currentData.totalEntries, "-"],
         [""],
-        ["DETAILED LOGS"]
+        ["ASSESSMENT LOGS"]
     ]
 
-    const headers = ["Date", "Time", "Activity Type", "Name/Emotion", "Score (Raw)", "Interpretation", "Notes/Details"]
+    const assessmentHeaders = ["Date", "Time", "Activity Type", "Name", "Score", "Category", "Interpretation"]
+    const assessmentRows = currentData.filteredAssessments.map(a => {
+        const d = new Date(a.created_at);
+        const status = getSeverity(a.score, 'assessment')
+        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Assessment", a.test_name, `${a.score}%`, a.category, status.label]
+    })
 
-    const rows = [
-        ...currentData.filteredAssessments.map(a => {
-            const d = new Date(a.created_at);
-            const status = getSeverity(a.score, 'assessment')
-            return [
-                d.toLocaleDateString(),
-                d.toLocaleTimeString(),
-                "Assessment", 
-                `"${a.test_name}"`, 
-                `${a.score}%`, 
-                status.label, 
-                `"${a.category}"`
-            ]
-        }),
-        ...currentData.filteredEntries.map(e => {
-            const d = new Date(e.date);
-            const status = getSeverity(e.intensity, 'journal')
-            const safeText = e.text ? e.text.replace(/"/g, '""') : ""
-            return [
-                d.toLocaleDateString(),
-                d.toLocaleTimeString(),
-                "Journal", 
-                e.emotion, 
-                `${e.intensity}/10`, 
-                status.label, 
-                `"${safeText}"`
-            ]
-        })
-    ]
+    const journalMetaData = ["", "JOURNAL LOGS"]
+    const journalHeaders = ["Date", "Time", "Activity Type", "Emotion", "Intensity", "Notes"]
+    const journalRows = currentData.filteredEntries.map(e => {
+        const d = new Date(e.date);
+        const safeText = e.text ? e.text.replace(/"/g, '""') : ""
+        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, `"${safeText}"`]
+    })
+
+    const footer = ["", "DISCLAIMER: This report is generated automatically by CogniSync. It summarizes self-reported data and is not a clinical diagnosis."]
 
     const csvContent = BOM + 
         metaData.map(row => row.join(",")).join("\n") + "\n" +
-        headers.join(",") + "\n" +
-        rows.join("\n")
+        assessmentHeaders.join(",") + "\n" +
+        assessmentRows.map(row => row.join(",")).join("\n") + "\n" +
+        journalMetaData.join(",") + "\n" +
+        journalHeaders.join(",") + "\n" +
+        journalRows.map(row => row.join(",")).join("\n") + "\n" +
+        footer.join(",")
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -229,19 +220,106 @@ export function ReportPage() {
          <div className="absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-primary/10 rounded-full mix-blend-multiply filter blur-[120px] animate-blob"></div>
       </div>
 
-      {/* --- HIDDEN PRINT TEMPLATE (Plain White) --- */}
-      <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900">
-          <style type="text/css" media="print">{`@page { size: auto; margin: 15mm; } body { -webkit-print-color-adjust: exact; background-color: white !important; } .print-hidden { display: none !important; } table { page-break-inside: auto; width: 100%; border-collapse: collapse; } tr { page-break-inside: avoid; page-break-after: auto; } th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 12px; } thead { display: table-header-group; background-color: #f8fafc; } tfoot { display: table-footer-group; }`}</style>
-          <div className="p-10">
-              <h1 className="text-3xl font-bold mb-2">CogniSync Clinical Report</h1>
-              <p>Generated: {new Date().toLocaleString()}</p>
-              <table className="w-full mt-10 border-collapse border border-slate-300">
-                  <thead><tr className="bg-slate-100"><th className="border p-2">Date</th><th className="border p-2">Type</th><th className="border p-2">Detail</th><th className="border p-2">Score</th></tr></thead>
-                  <tbody>
-                      {currentData.filteredAssessments.map((a,i) => <tr key={i}><td className="border p-2">{new Date(a.created_at).toLocaleDateString()}</td><td className="border p-2">Assessment</td><td className="border p-2">{a.test_name}</td><td className="border p-2">{a.score}%</td></tr>)}
-                      {currentData.filteredEntries.map((e,i) => <tr key={i}><td className="border p-2">{new Date(e.date).toLocaleDateString()}</td><td className="border p-2">Journal</td><td className="border p-2">{e.emotion}</td><td className="border p-2">{e.intensity}/10</td></tr>)}
-                  </tbody>
-              </table>
+      {/* --- HIDDEN PRINT TEMPLATE (MEDICAL GRADE) --- */}
+      <div className="hidden print:block absolute top-0 left-0 w-full h-full bg-white z-[9999] text-slate-900 overflow-visible">
+          <style type="text/css" media="print">{`
+            @page { size: A4; margin: 10mm; } 
+            body { -webkit-print-color-adjust: exact; background-color: white !important; font-family: sans-serif; } 
+            .print-hidden { display: none !important; } 
+            .page-break { page-break-before: always; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            th { background-color: #f1f5f9; color: #475569; font-weight: 800; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+            td { padding: 8px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+            tr:nth-child(even) { background-color: #f8fafc; }
+            .header-box { border-bottom: 4px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; }
+            .stat-box { border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+            .footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+          `}</style>
+          
+          <div className="p-8 max-w-4xl mx-auto">
+              {/* Header */}
+              <div className="header-box flex justify-between items-end">
+                  <div>
+                      <h1 className="text-4xl font-black text-slate-900 tracking-tight">CogniSync</h1>
+                      <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Clinical Progress Report</p>
+                  </div>
+                  <div className="text-right">
+                      <p className="font-bold text-lg text-slate-800">Date: {new Date().toLocaleDateString()}</p>
+                      <p className="text-xs text-slate-500">Ref: {`USR-${Math.floor(Math.random() * 10000)}`}</p>
+                      <p className="text-xs text-slate-500 font-medium">Period: {currentData.dateRange}</p>
+                  </div>
+              </div>
+
+              {/* Vitals Summary */}
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                  <div className="stat-box">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Wellness Score</p>
+                      <p className="text-3xl font-black text-blue-600">{currentData.avgMood}/10</p>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Clinical Avg</p>
+                      <p className="text-3xl font-black text-purple-600">{currentData.avgTestScore}%</p>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Total Logs</p>
+                      <p className="text-3xl font-black text-slate-700">{currentData.totalEntries}</p>
+                  </div>
+                  <div className="stat-box bg-slate-50">
+                      <p className="text-[10px] uppercase font-bold text-slate-500 mb-1">Status</p>
+                      <p className="text-xl font-black text-emerald-600">{wellnessStatus.label}</p>
+                  </div>
+              </div>
+
+              {/* Section 1: Assessments */}
+              <div className="mb-8">
+                  <h2 className="text-lg font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                      <Stethoscope size={20}/> Clinical Assessments
+                  </h2>
+                  <table>
+                      <thead><tr><th>Date</th><th>Test Name</th><th>Category</th><th>Score</th><th>Interpretation</th></tr></thead>
+                      <tbody>
+                          {currentData.filteredAssessments.length > 0 ? currentData.filteredAssessments.map((a, i) => {
+                              const status = getSeverity(a.score, 'assessment');
+                              return (
+                                  <tr key={i}>
+                                      <td>{new Date(a.created_at).toLocaleDateString()}</td>
+                                      <td className="font-bold">{a.test_name}</td>
+                                      <td>{a.category}</td>
+                                      <td className="font-mono font-bold">{a.score}%</td>
+                                      <td><span className="font-bold text-xs uppercase">{status.label}</span></td>
+                                  </tr>
+                              )
+                          }) : <tr><td colSpan={5} className="text-center italic text-slate-500 py-4">No assessments found in this period.</td></tr>}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* Section 2: Journal Logs */}
+              <div className="mb-8">
+                  <h2 className="text-lg font-bold mb-4 uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                      <FileText size={20}/> Journal & Emotion Logs
+                  </h2>
+                  <table>
+                      <thead><tr><th>Date</th><th>Time</th><th>Emotion</th><th>Intensity</th><th>Notes</th></tr></thead>
+                      <tbody>
+                          {currentData.filteredEntries.length > 0 ? currentData.filteredEntries.map((e, i) => (
+                              <tr key={i}>
+                                  <td>{new Date(e.date).toLocaleDateString()}</td>
+                                  <td>{new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                  <td className="font-bold">{e.emotion}</td>
+                                  <td>{e.intensity}/10</td>
+                                  <td className="italic text-slate-600">{e.text ? (e.text.length > 60 ? e.text.substring(0,60)+"..." : e.text) : "-"}</td>
+                              </tr>
+                          )) : <tr><td colSpan={5} className="text-center italic text-slate-500 py-4">No journal entries found in this period.</td></tr>}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* Footer */}
+              <div className="footer">
+                  <p>CONFIDENTIAL REPORT GENERATED BY COGNISYNC AI</p>
+                  <p className="mt-1">DISCLAIMER: This report summarizes self-reported data and is not a clinical diagnosis. Consult a professional for medical advice.</p>
+              </div>
           </div>
       </div>
 
@@ -259,11 +337,11 @@ export function ReportPage() {
           </div>
           
           <div className="flex gap-3">
-             <Button onClick={handlePrintPDF} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 border border-blue-500">
+             <Button onClick={handlePrintPDF} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 border border-blue-500 transition-all">
                 <Printer className="mr-2" size={18}/> {isExporting ? "Generating..." : "PDF Report"}
              </Button>
              
-             <Button onClick={handleExportCSV} className="bg-card hover:bg-muted font-bold border border-border text-foreground shadow-sm">
+             <Button onClick={handleExportCSV} className="bg-card hover:bg-muted font-bold border border-border text-foreground shadow-sm transition-all">
                 <FileSpreadsheet className="mr-2 text-emerald-600" size={18}/> Export CSV
              </Button>
           </div>
@@ -294,36 +372,37 @@ export function ReportPage() {
                 title="Total Data Points" 
                 value={currentData.totalEntries} 
                 icon={<BookOpen size={24} className="text-blue-500"/>} 
-                color="bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" 
+                color="bg-blue-50/20 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800" 
                 onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
             />
             <MetricCard 
                 title="Wellness Score" 
                 value={`${currentData.avgMood}/10`} 
                 icon={<Activity size={24} className="text-emerald-500"/>} 
-                color="bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" 
+                color="bg-emerald-50/20 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800" 
                 onClick={() => setSelectedMetric("mood")}
             />
             <MetricCard 
                 title="Tests Taken" 
                 value={currentData.testCount} 
                 icon={<CheckCircle2 size={24} className="text-purple-500"/>} 
-                color="bg-purple-50/50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
+                color="bg-purple-50/20 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800" 
                 onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown('tests'); }}
             />
             <MetricCard 
                 title="Avg Clinical Score" 
                 value={`${currentData.avgTestScore}%`} 
                 icon={<Brain size={24} className="text-orange-500"/>} 
-                color="bg-orange-50/50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800" 
+                color="bg-orange-50/20 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800" 
                 onClick={() => setSelectedMetric("score")}
             />
         </div>
 
         {/* DETAILED ACTIVITY LOG (SCROLLABLE BOX) */}
         <Card className="overflow-hidden bg-card/60 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl h-[600px] flex flex-col">
-            <div className="p-6 border-b border-border/50 bg-muted/20 shrink-0">
+            <div className="p-6 border-b border-border/50 bg-muted/20 shrink-0 flex justify-between items-center">
                 <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><BookOpen size={20} className="text-primary"/> Activity Log - {currentData.dateRange}</h3>
+                <Badge variant="outline" className="font-mono">{currentData.filteredEntries.length + currentData.filteredAssessments.length} Items</Badge>
             </div>
             
             <div className="overflow-y-auto flex-1 p-0">
@@ -396,13 +475,13 @@ export function ReportPage() {
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-3 bg-muted/50 rounded-xl border border-border">
-                                            <p className="text-xs text-muted-foreground">Highest</p>
+                                            <p className="text-xs text-muted-foreground uppercase font-bold">Highest</p>
                                             <p className="text-xl font-bold text-emerald-500">
                                                 {currentData.filteredAssessments.length > 0 ? Math.max(...currentData.filteredAssessments.map(a => a.score)) : 0}%
                                             </p>
                                         </div>
                                         <div className="p-3 bg-muted/50 rounded-xl border border-border">
-                                            <p className="text-xs text-muted-foreground">Lowest</p>
+                                            <p className="text-xs text-muted-foreground uppercase font-bold">Lowest</p>
                                             <p className="text-xl font-bold text-rose-500">
                                                 {currentData.filteredAssessments.length > 0 ? Math.min(...currentData.filteredAssessments.map(a => a.score)) : 0}%
                                             </p>
@@ -422,13 +501,16 @@ export function ReportPage() {
                                         </div>
                                         {expandedDrillDown === 'journal' && (
                                             <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredEntries.map((e, i) => (
-                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                        <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
-                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
+                                                {currentData.filteredEntries.length > 0 ? (
+                                                    <div className="h-[200px] overflow-y-auto pr-2 space-y-2">
+                                                        {currentData.filteredEntries.map((e, i) => (
+                                                            <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                                <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
+                                                                <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                                {currentData.filteredEntries.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No entries in this period.</p>}
+                                                ) : <p className="text-xs text-center text-muted-foreground italic">No entries.</p>}
                                             </div>
                                         )}
                                     </div>
@@ -440,13 +522,16 @@ export function ReportPage() {
                                         </div>
                                         {expandedDrillDown === 'tests' && (
                                             <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredAssessments.map((a, i) => (
-                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                        <span>{a.test_name}</span>
-                                                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
+                                                {currentData.filteredAssessments.length > 0 ? (
+                                                    <div className="h-[200px] overflow-y-auto pr-2 space-y-2">
+                                                        {currentData.filteredAssessments.map((a, i) => (
+                                                            <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                                <span>{a.test_name}</span>
+                                                                <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
-                                                {currentData.filteredAssessments.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No assessments in this period.</p>}
+                                                ) : <p className="text-xs text-center text-muted-foreground italic">No assessments.</p>}
                                             </div>
                                         )}
                                     </div>
