@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useUser } from "@/lib/user-context"; // <--- Direct connection
+import { useState, useEffect } from "react";
+import { useUser } from "@/lib/user-context"; 
 import { useTheme } from "@/lib/theme-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
   isOpen: boolean;
-  userName: string; // Kept for interface compatibility but we use Context
+  userName: string; 
   onLogout: () => Promise<void>;
 }
 
@@ -39,14 +39,27 @@ export function Sidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  
+  // NEW: Local state to force-show avatar from storage immediately
+  const [forceAvatar, setForceAvatar] = useState<string | null>(null);
 
-  // 1. Get Live User Data Immediately
   const { user, logout: contextLogout } = useUser();
   const { settings, resetTheme } = useTheme();
 
-  // 2. Prioritize Live Data -> Then Settings -> Then Defaults
+  // FIX: Immediately check LocalStorage when user is found
+  // This mirrors the logic in your Settings Page exactly.
+  useEffect(() => {
+    if (user?.id) {
+        const stored = localStorage.getItem(`cognisync:avatar:${user.id}`);
+        if (stored) {
+            setForceAvatar(stored);
+        }
+    }
+  }, [user?.id]);
+
+  // PRIORITY: ForceAvatar (Direct Storage) -> User Context -> Settings -> Default
   const displayName = user?.name || settings.username || "User";
-  const displayAvatar = user?.avatarUrl || settings.avatar;
+  const displayAvatar = forceAvatar || user?.avatarUrl || settings.avatar;
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home },
@@ -66,8 +79,8 @@ export function Sidebar({
 
   const handleLogout = async () => {
     resetTheme();
-    contextLogout(); // Clear context
-    await onLogout(); // Run parent cleanup
+    contextLogout(); 
+    await onLogout(); 
     setMobileOpen(false);
   };
 
