@@ -43,9 +43,9 @@ const getSeverity = (score: number, type: 'journal' | 'assessment') => {
 }
 
 const getWellnessStatus = (score: number) => {
-    if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-600", border: "border-emerald-200", bg: "bg-emerald-50 dark:bg-emerald-900/20" }
-    if (score >= 4) return { label: "STABLE", text: "text-blue-600", border: "border-blue-200", bg: "bg-blue-50 dark:bg-blue-900/20" }
-    return { label: "ATTENTION", text: "text-rose-600", border: "border-rose-200", bg: "bg-rose-50 dark:bg-rose-900/20" }
+    if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800", bg: "bg-emerald-50 dark:bg-emerald-900/20" }
+    if (score >= 4) return { label: "STABLE", text: "text-blue-600 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-50 dark:bg-blue-900/20" }
+    return { label: "ATTENTION", text: "text-rose-600 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800", bg: "bg-rose-50 dark:bg-rose-900/20" }
 }
 
 export function ReportPage() {
@@ -56,11 +56,17 @@ export function ReportPage() {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null)
   const [expandedDrillDown, setExpandedDrillDown] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   
   const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   ))
+
+  // HYDRATION FIX
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     const fetchAssessments = async () => {
@@ -108,10 +114,14 @@ export function ReportPage() {
     const journalCount = filteredEntries.length
     const testCount = filteredAssessments.length
     const journalSum = filteredEntries.reduce((acc, curr) => acc + curr.intensity, 0)
-    const journalAvg = journalCount > 0 ? (journalSum / journalCount) : 0
+    
+    // Calculate Averages
+    const journalAvgRaw = journalCount > 0 ? (journalSum / journalCount) : 0
+    const journalAvg = parseFloat(journalAvgRaw.toFixed(1)) // Normalized 0-10
+
     const testSum = filteredAssessments.reduce((acc, curr) => acc + curr.score, 0)
     const testAvg100 = testCount > 0 ? (testSum / testCount) : 0
-    const testAvg10 = testAvg100 / 10
+    const testAvg10 = parseFloat((testAvg100 / 10).toFixed(1)) // Normalized 0-10
 
     let wellnessScore = 0
     if (journalCount > 0 && testCount > 0) wellnessScore = (journalAvg * 0.3) + (testAvg10 * 0.7)
@@ -120,13 +130,15 @@ export function ReportPage() {
 
     return {
         totalEntries: journalCount + testCount,
-        journalCount, testCount,
+        journalCount, 
+        testCount,
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
-        journalAvg: parseFloat(journalAvg.toFixed(1)),
-        testAvg10: parseFloat(testAvg10.toFixed(1)),
+        journalAvg, // THIS LINE FIXES THE TS ERROR
+        testAvg10,  // THIS LINE FIXES THE TS ERROR
         filteredEntries, 
-        filteredAssessments
+        filteredAssessments,
+        dateRange: activeTab === 'today' ? "Today" : `Last ${historyPeriod} Days`
     }
   }, [entries, assessments, activeTab, historyPeriod])
 
@@ -145,7 +157,7 @@ export function ReportPage() {
     const metaData = [
         ["COGNISYNC - CLINICAL DATA EXPORT"],
         ["Generated Date", new Date().toLocaleString()],
-        ["Report Type", activeTab === 'today' ? "Daily Snapshot" : `Historical (${historyPeriod} Days)`],
+        ["Report Type", currentData.dateRange],
         ["Patient Reference", `USER-${Math.floor(Math.random() * 10000)}`],
         [""],
         ["EXECUTIVE SUMMARY"],
@@ -204,19 +216,22 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
+  // Prevent Hydration Mismatch by not rendering until client loads
+  if (!isMounted) return null;
+
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-10 relative font-sans text-foreground overflow-x-hidden">
       
-      {/* 1. DYNAMIC BACKGROUND */}
+      {/* 1. DYNAMIC BACKGROUND (Preserved Aesthetic) */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500 print:hidden">
          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
          <div className="absolute top-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-primary/10 rounded-full mix-blend-multiply filter blur-[120px] animate-blob"></div>
       </div>
 
-      {/* --- HIDDEN PRINT TEMPLATE --- */}
+      {/* --- HIDDEN PRINT TEMPLATE (Plain White) --- */}
       <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900">
-          <style type="text/css" media="print">{`@page { size: auto; margin: 15mm; } body { -webkit-print-color-adjust: exact; background-color: white !important; } .print-hidden { display: none !important; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } tfoot { display: table-footer-group; }`}</style>
+          <style type="text/css" media="print">{`@page { size: auto; margin: 15mm; } body { -webkit-print-color-adjust: exact; background-color: white !important; } .print-hidden { display: none !important; } table { page-break-inside: auto; width: 100%; border-collapse: collapse; } tr { page-break-inside: avoid; page-break-after: auto; } th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 12px; } thead { display: table-header-group; background-color: #f8fafc; } tfoot { display: table-footer-group; }`}</style>
           <div className="p-10">
               <h1 className="text-3xl font-bold mb-2">CogniSync Clinical Report</h1>
               <p>Generated: {new Date().toLocaleString()}</p>
@@ -244,18 +259,11 @@ export function ReportPage() {
           </div>
           
           <div className="flex gap-3">
-             <Button 
-                onClick={handlePrintPDF} 
-                disabled={isExporting} 
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20"
-             >
+             <Button onClick={handlePrintPDF} disabled={isExporting} className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-lg shadow-blue-500/20 border border-blue-500">
                 <Printer className="mr-2" size={18}/> {isExporting ? "Generating..." : "PDF Report"}
              </Button>
              
-             <Button 
-                onClick={handleExportCSV} 
-                className="bg-card hover:bg-muted font-bold border border-border text-foreground"
-             >
+             <Button onClick={handleExportCSV} className="bg-card hover:bg-muted font-bold border border-border text-foreground shadow-sm">
                 <FileSpreadsheet className="mr-2 text-emerald-600" size={18}/> Export CSV
              </Button>
           </div>
@@ -280,58 +288,61 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* SUMMARY METRIC CARDS (INTERACTIVE) */}
+        {/* SUMMARY CARDS (DARK MODE FIXED) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <MetricCard 
                 title="Total Data Points" 
                 value={currentData.totalEntries} 
                 icon={<BookOpen size={24} className="text-blue-500"/>} 
-                color="bg-blue-50 dark:bg-blue-900/10 border-blue-200" 
+                color="bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800" 
                 onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
             />
             <MetricCard 
                 title="Wellness Score" 
                 value={`${currentData.avgMood}/10`} 
                 icon={<Activity size={24} className="text-emerald-500"/>} 
-                color="bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200" 
+                color="bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800" 
                 onClick={() => setSelectedMetric("mood")}
             />
             <MetricCard 
                 title="Tests Taken" 
                 value={currentData.testCount} 
                 icon={<CheckCircle2 size={24} className="text-purple-500"/>} 
-                color="bg-purple-50 dark:bg-purple-900/10 border-purple-200" 
+                color="bg-purple-50/50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
                 onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown('tests'); }}
             />
             <MetricCard 
                 title="Avg Clinical Score" 
                 value={`${currentData.avgTestScore}%`} 
                 icon={<Brain size={24} className="text-orange-500"/>} 
-                color="bg-orange-50 dark:bg-orange-900/10 border-orange-200" 
+                color="bg-orange-50/50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800" 
                 onClick={() => setSelectedMetric("score")}
             />
         </div>
 
-        {/* DETAILED TABLE (GLASS UI) */}
-        <Card className="overflow-hidden bg-card/60 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl">
-            <div className="p-6 border-b border-border/50 bg-muted/20">
-                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><BookOpen size={20} className="text-primary"/> Activity Log</h3>
+        {/* DETAILED ACTIVITY LOG (SCROLLABLE BOX) */}
+        <Card className="overflow-hidden bg-card/60 backdrop-blur-xl border border-border/50 rounded-[2.5rem] shadow-xl h-[600px] flex flex-col">
+            <div className="p-6 border-b border-border/50 bg-muted/20 shrink-0">
+                <h3 className="text-lg font-bold flex items-center gap-2 text-foreground"><BookOpen size={20} className="text-primary"/> Activity Log - {currentData.dateRange}</h3>
             </div>
-            <div className="overflow-x-auto">
+            
+            <div className="overflow-y-auto flex-1 p-0">
                 <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-bold uppercase text-xs tracking-wider">
+                    <thead className="bg-muted/50 text-muted-foreground font-bold uppercase text-xs tracking-wider sticky top-0 z-10 backdrop-blur-md">
                         <tr>
-                            <th className="p-4">Time/Date</th>
-                            <th className="p-4">Type</th>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Score</th>
-                            <th className="p-4">Status</th>
+                            <th className="p-4 bg-card/90">Time/Date</th>
+                            <th className="p-4 bg-card/90">Type</th>
+                            <th className="p-4 bg-card/90">Name</th>
+                            <th className="p-4 bg-card/90">Score</th>
+                            <th className="p-4 bg-card/90">Status</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                         {currentData.filteredAssessments.length === 0 && currentData.filteredEntries.length === 0 && (
                             <tr><td colSpan={5} className="p-10 text-center text-muted-foreground">No records found for this period.</td></tr>
                         )}
+                        
+                        {/* Assessments */}
                         {currentData.filteredAssessments.map((a, i) => {
                             const status = getSeverity(a.score, 'assessment');
                             return (
@@ -344,6 +355,8 @@ export function ReportPage() {
                                 </tr>
                             )
                         })}
+                        
+                        {/* Journal Entries */}
                         {currentData.filteredEntries.map((e, i) => {
                             const status = getSeverity(e.intensity, 'journal');
                             return (
@@ -361,35 +374,99 @@ export function ReportPage() {
             </div>
         </Card>
 
-        {/* METRIC MODAL (For Deep Dive) */}
+        {/* METRIC DRILL DOWN MODAL (ENHANCED) */}
         <AnimatePresence>
             {selectedMetric && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-card w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-border max-h-[85vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-bold text-foreground">{selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Explanation" : selectedMetric === 'score' ? "Clinical Score Analysis" : "Metric Details"}</h3>
+                            <h3 className="text-2xl font-bold text-foreground capitalize">
+                                {selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Analysis" : selectedMetric === 'score' ? "Clinical Score Analysis" : "Metric Details"}
+                            </h3>
                             <button onClick={() => setSelectedMetric(null)}><X className="text-muted-foreground hover:text-foreground"/></button>
                         </div>
+                        
                         <div className="space-y-4">
+                            {/* Score Analysis Drill Down */}
+                            {selectedMetric === 'score' && (
+                                <div className="space-y-4">
+                                    <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800 text-center">
+                                        <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">Average Score</p>
+                                        <p className="text-5xl font-black text-foreground mt-2">{currentData.avgTestScore}%</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                                            <p className="text-xs text-muted-foreground">Highest</p>
+                                            <p className="text-xl font-bold text-emerald-500">
+                                                {currentData.filteredAssessments.length > 0 ? Math.max(...currentData.filteredAssessments.map(a => a.score)) : 0}%
+                                            </p>
+                                        </div>
+                                        <div className="p-3 bg-muted/50 rounded-xl border border-border">
+                                            <p className="text-xs text-muted-foreground">Lowest</p>
+                                            <p className="text-xl font-bold text-rose-500">
+                                                {currentData.filteredAssessments.length > 0 ? Math.min(...currentData.filteredAssessments.map(a => a.score)) : 0}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground text-center italic">Calculated from {currentData.testCount} clinical assessments in the selected period.</p>
+                                </div>
+                            )}
+
+                            {/* Data Points Drill Down */}
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-3">
                                     <div className="bg-muted/30 rounded-xl overflow-hidden border border-border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
-                                        <div className="flex justify-between p-4 items-center"><span className="font-semibold flex items-center gap-2 text-foreground"><BookOpen size={16}/> Journal Entries</span><div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div></div>
-                                        {expandedDrillDown === 'journal' && <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between text-muted-foreground"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span></div>)}</div>}
+                                        <div className="flex justify-between p-4 items-center hover:bg-muted/50 transition-colors">
+                                            <span className="font-semibold flex items-center gap-2 text-foreground"><BookOpen size={16}/> Journal Entries</span>
+                                            <div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                        </div>
+                                        {expandedDrillDown === 'journal' && (
+                                            <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
+                                                {currentData.filteredEntries.map((e, i) => (
+                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                        <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
+                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
+                                                    </div>
+                                                ))}
+                                                {currentData.filteredEntries.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No entries in this period.</p>}
+                                            </div>
+                                        )}
                                     </div>
+                                    
                                     <div className="bg-muted/30 rounded-xl overflow-hidden border border-border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
-                                        <div className="flex justify-between p-4 items-center"><span className="font-semibold flex items-center gap-2 text-foreground"><CheckCircle2 size={16}/> Clinical Tests</span><div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div></div>
-                                        {expandedDrillDown === 'tests' && <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between text-muted-foreground"><span>{a.test_name}</span><span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{a.score}%</span></div>)}</div>}
+                                        <div className="flex justify-between p-4 items-center hover:bg-muted/50 transition-colors">
+                                            <span className="font-semibold flex items-center gap-2 text-foreground"><CheckCircle2 size={16}/> Clinical Tests</span>
+                                            <div className="flex items-center gap-2 text-foreground"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                        </div>
+                                        {expandedDrillDown === 'tests' && (
+                                            <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
+                                                {currentData.filteredAssessments.map((a, i) => (
+                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                        <span>{a.test_name}</span>
+                                                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
+                                                    </div>
+                                                ))}
+                                                {currentData.filteredAssessments.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No assessments in this period.</p>}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
+
+                            {/* Wellness Score Drill Down */}
                             {selectedMetric === 'mood' && (
                                 <div className="space-y-4">
-                                    <p className="text-sm text-muted-foreground">We calculate your Wellness Score by combining your daily journal logs (30%) and your clinical test results (70%).</p>
-                                    <div className="p-4 bg-muted/50 rounded-lg font-mono text-sm space-y-2 text-foreground"><p>({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p><p className="text-xl font-bold text-emerald-600">= {currentData.avgMood}/10</p></div>
+                                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800 text-center">
+                                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">Wellness Score</p>
+                                        <p className="text-5xl font-black text-foreground mt-2">{currentData.avgMood}<span className="text-2xl text-muted-foreground">/10</span></p>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">This score is a weighted average of your subjective journal entries (30%) and objective clinical assessments (70%).</p>
+                                    <div className="p-4 bg-muted/50 rounded-lg font-mono text-sm space-y-2 text-foreground border border-border">
+                                        <p>({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p>
+                                        <p className="text-xl font-bold text-emerald-500">= {currentData.avgMood}/10</p>
+                                    </div>
                                 </div>
                             )}
-                            {selectedMetric === 'score' && <div className="text-center py-8"><p className="text-4xl font-black text-orange-500 mb-2">{currentData.avgTestScore}%</p><p className="text-sm text-muted-foreground">Average across all taken assessments</p></div>}
                         </div>
                     </motion.div>
                 </div>
@@ -410,7 +487,7 @@ function MetricCard({ title, value, icon, color, onClick }: any) {
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">{title}</p>
                     <h3 className="text-3xl font-black text-foreground">{value}</h3>
                 </div>
-                <div className="p-2 bg-background/80 rounded-full shadow-sm">{icon}</div>
+                <div className="p-2 bg-background/50 rounded-full shadow-sm">{icon}</div>
             </div>
             <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground/60">Tap for details <ChevronRight size={12}/></div>
         </motion.div>
