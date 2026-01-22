@@ -218,22 +218,60 @@ export function JournalPage() {
 
         {/* ENTRIES LIST */}
         <div className="relative space-y-8 pb-32">
-          {filteredEntries.length > 0 && (<div className="absolute left-[9px] top-4 bottom-10 w-[3px] bg-border z-0 rounded-full"></div>)}
+          {filteredEntries.length > 0 && (
+            // EXTENDED LINE: Changed bottom-10 to bottom-0 to reach the end node
+            <div className="absolute left-[9px] top-4 bottom-0 w-[3px] bg-border z-0 rounded-full"></div>
+          )}
+          
           <AnimatePresence mode='popLayout'>
             {filteredEntries.map((entry) => {
               const style = getEmotionStyle(entry.emotion);
               return (
                 <motion.div key={entry.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="relative pl-10 group">
-                  <div className="absolute left-0 top-8 flex items-center justify-center z-10"><div className={`absolute w-full h-full rounded-full animate-ping opacity-75 ${style.glow}`}></div><div className={`relative w-5 h-5 rounded-full border-[3px] border-background shadow-md z-20 ${style.dot}`}></div></div>
+                  <div className="absolute left-0 top-8 flex items-center justify-center z-10">
+                    <div className={`absolute w-full h-full rounded-full animate-ping opacity-75 ${style.glow}`}></div>
+                    <div className={`relative w-5 h-5 rounded-full border-[3px] border-background shadow-md z-20 ${style.dot}`}></div>
+                  </div>
                   <motion.div whileHover={{ scale: 1.01, y: -2 }} className={`relative p-7 rounded-[2rem] border backdrop-blur-xl transition-all duration-300 shadow-sm hover:shadow-xl ${style.cardBg}`}>
-                    <div className="flex justify-between items-start mb-4"><div className="flex flex-col gap-2"><span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{new Date(entry.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span><div className={`self-start inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${style.pill}`}>{style.icon}{entry.emotion}</div></div><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200"><button onClick={() => setEditingEntry(entry)} className="p-2 rounded-xl text-muted-foreground hover:bg-background"><Edit2 size={16} /></button><button onClick={() => handleDelete(entry.id)} className="p-2 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-background"><Trash2 size={16} /></button></div></div>
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex flex-col gap-2">
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{new Date(entry.date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+                            <div className={`self-start inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${style.pill}`}>{style.icon}{entry.emotion}</div>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                            <button onClick={() => setEditingEntry(entry)} className="p-2 rounded-xl text-muted-foreground hover:bg-background"><Edit2 size={16} /></button>
+                            <button onClick={() => handleDelete(entry.id)} className="p-2 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-background"><Trash2 size={16} /></button>
+                        </div>
+                    </div>
                     <p className="text-lg leading-relaxed text-foreground font-serif whitespace-pre-wrap">{entry.text}</p>
                   </motion.div>
                 </motion.div>
               );
             })}
           </AnimatePresence>
-          {filteredEntries.length === 0 && (<div className="flex flex-col items-center justify-center py-20 opacity-60"><div className="bg-muted p-6 rounded-full mb-4"><BookOpen size={32} className="text-muted-foreground" /></div><p className="text-muted-foreground font-medium text-lg">No journal entries found.</p></div>)}
+
+          {/* DYNAMIC END POINT (The Anchor) */}
+          {filteredEntries.length > 0 && (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative pl-10 pt-4">
+                <div className="absolute left-0 top-6 flex items-center justify-center z-10">
+                   {/* Hollow Circle to indicate the "Root" or "Start" */}
+                   <div className="w-5 h-5 rounded-full border-[3px] border-border bg-background z-20"></div>
+                </div>
+                <div className="flex items-center gap-3 opacity-50">
+                   <div className="h-px w-8 bg-border"></div>
+                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Start of Journal</span>
+                </div>
+             </motion.div>
+          )}
+
+          {filteredEntries.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 opacity-60">
+                <div className="bg-muted p-6 rounded-full mb-4">
+                    <BookOpen size={32} className="text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground font-medium text-lg">No journal entries found.</p>
+            </div>
+          )}
         </div>
 
         {/* EDIT MODAL */}
