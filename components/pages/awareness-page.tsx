@@ -5,13 +5,9 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useJournal } from "@/components/pages/journal-context"
 import { 
-  // Base Icons
   Heart, Brain, Zap, Play, Check, AlertCircle, Info, X, Phone, Search, ExternalLink, ChevronRight, BookOpen, BrainCircuit,
-  // Mood Icons (Faces)
   CloudRain, Frown, Meh, Smile, Laugh, 
-  // Exercise Icons
   Leaf, Wind, LayoutGrid, Flame, Activity, Sun, Snowflake, Tag, HelpCircle, Disc, Accessibility, Sunrise, Scale, Eye, Rocket,
-  // Science Icons
   Network, Handshake, Waves, Thermometer, Award, Scan, Tags, Expand, Bug, Footprints
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -32,35 +28,35 @@ const CITY_SEARCHES = ["Hyderabad", "Bangalore", "Mumbai", "Delhi", "Chennai", "
    2. DATA: READING & TECHNIQUES (PRESERVED)
    ========================================================================= */
 const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: string, desc: string}[], technique: {name: string, desc: string} }> = {
-  1: { // Overwhelmed
+  1: { 
     books: [
       { title: "Burnout", author: "Emily Nagoski", desc: "The secret to unlocking the stress cycle." },
       { title: "The Body Keeps the Score", author: "Bessel van der Kolk", desc: "How trauma affects the body." }
     ],
     technique: { name: "The 90-Second Rule", desc: "Wait 90 seconds. Let the chemical surge flush out before reacting." }
   },
-  2: { // Anxious
+  2: { 
     books: [
       { title: "Dare", author: "Barry McDonagh", desc: "The new way to end anxiety and panic." },
       { title: "Unwinding Anxiety", author: "Dr. Judson Brewer", desc: "Train your brain to heal your mind." }
     ],
     technique: { name: "5-4-3-2-1 Grounding", desc: "Name 5 things you see, 4 feel, 3 hear, 2 smell, 1 taste." }
   },
-  3: { // Neutral
+  3: { 
     books: [
       { title: "Atomic Habits", author: "James Clear", desc: "Build good habits and break bad ones." },
       { title: "Essentialism", author: "Greg McKeown", desc: "The disciplined pursuit of less." }
     ],
     technique: { name: "Values Audit", desc: "List your top 3 values. Is today's plan aligned with them?" }
   },
-  4: { // Calm
+  4: { 
     books: [
       { title: "The Power of Now", author: "Eckhart Tolle", desc: "A guide to spiritual enlightenment." },
       { title: "Stillness Is the Key", author: "Ryan Holiday", desc: "Ancient strategy for modern life." }
     ],
     technique: { name: "Presence Watch", desc: "Observe an object for 2 minutes. Notice texture, light, and shadow." }
   },
-  5: { // Happy
+  5: { 
     books: [
       { title: "Flow", author: "Mihaly Csikszentmihalyi", desc: "The psychology of optimal experience." },
       { title: "Authentic Happiness", author: "Martin Seligman", desc: "Using the new Positive Psychology." }
@@ -73,18 +69,18 @@ const READING_RECOMMENDATIONS: Record<number, { books: {title: string, author: s
    3. DATA: ALL 12 EXERCISES (PRESERVED)
    ========================================================================= */
 const ALL_EXERCISES = [
-  { id: "grounding", title: "5-4-3-2-1 Grounding", desc: "Engage 5 senses to stop spiraling.", duration: "5 min", type: "SOS", color: "from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950", border: "border-emerald-200 dark:border-emerald-800", icon: Leaf },
-  { id: "breathing", title: "Box Breathing", desc: "Inhale 4s, hold 4s, exhale 4s, hold 4s.", duration: "3 min", type: "Somatic", color: "from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950", border: "border-blue-200 dark:border-blue-800", icon: Wind },
-  { id: "ice-dive", title: "The Ice Dive", desc: "Splash cold water to trigger 'Dive Reflex'.", duration: "2 min", type: "Distress", color: "from-sky-50 to-indigo-50 dark:from-sky-950 dark:to-indigo-950", border: "border-sky-200 dark:border-sky-800", icon: Snowflake },
-  { id: "naming", title: "Emotion Naming", desc: "Identify specific emotion to reduce intensity.", duration: "5 min", type: "CBT", color: "from-rose-50 to-pink-50 dark:from-rose-950 dark:to-pink-950", border: "border-rose-200 dark:border-rose-800", icon: Tag },
-  { id: "why-ladder", title: "The 'Why' Ladder", desc: "Ask 'Why?' 5 times to find root cause.", duration: "8 min", type: "Analysis", color: "from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950", border: "border-violet-200 dark:border-violet-800", icon: HelpCircle },
-  { id: "wheel", title: "Wheel of Control", desc: "Focus only on what you can control.", duration: "6 min", type: "Stoicism", color: "from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950", border: "border-amber-200 dark:border-amber-800", icon: Disc },
-  { id: "body-scan", title: "Body Scan", desc: "Scan head to toe to release tension.", duration: "10 min", type: "Meditation", color: "from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900", border: "border-slate-200 dark:border-slate-800", icon: Accessibility },
-  { id: "pmr", title: "PMR Release", desc: "Tense and release muscles.", duration: "8 min", type: "Somatic", color: "from-lime-50 to-green-50 dark:from-lime-950 dark:to-green-950", border: "border-lime-200 dark:border-lime-800", icon: Activity },
-  { id: "yawn", title: "Restorative Yawn", desc: "Fake a yawn to stimulate vagus nerve.", duration: "2 min", type: "Somatic", color: "from-teal-50 to-cyan-50 dark:from-teal-950 dark:to-cyan-950", border: "border-teal-200 dark:border-teal-800", icon: Sunrise },
-  { id: "fact-opinion", title: "Fact vs. Opinion", desc: "Is your thought a fact or just an opinion?", duration: "6 min", type: "CBT", color: "from-yellow-50 to-amber-50 dark:from-yellow-950 dark:to-amber-950", border: "border-yellow-200 dark:border-yellow-800", icon: Scale },
-  { id: "compassion", title: "Compassionate Observer", desc: "What advice would you give a friend?", duration: "7 min", type: "Self-Love", color: "from-fuchsia-50 to-pink-50 dark:from-fuchsia-950 dark:to-pink-950", border: "border-fuchsia-200 dark:border-fuchsia-800", icon: Eye },
-  { id: "future", title: "Future Self", desc: "Visualize yourself having overcome this.", duration: "5 min", type: "Visual", color: "from-indigo-50 to-violet-50 dark:from-indigo-950 dark:to-violet-950", border: "border-indigo-200 dark:border-indigo-800", icon: Rocket }
+  { id: "grounding", title: "5-4-3-2-1 Grounding", desc: "Engage 5 senses to stop spiraling.", duration: "5 min", type: "SOS", color: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/20", icon: Leaf },
+  { id: "breathing", title: "Box Breathing", desc: "Inhale 4s, hold 4s, exhale 4s, hold 4s.", duration: "3 min", type: "Somatic", color: "from-blue-500/20 to-cyan-500/20", border: "border-blue-500/20", icon: Wind },
+  { id: "ice-dive", title: "The Ice Dive", desc: "Splash cold water to trigger 'Dive Reflex'.", duration: "2 min", type: "Distress", color: "from-sky-500/20 to-indigo-500/20", border: "border-sky-500/20", icon: Snowflake },
+  { id: "naming", title: "Emotion Naming", desc: "Identify specific emotion to reduce intensity.", duration: "5 min", type: "CBT", color: "from-rose-500/20 to-pink-500/20", border: "border-rose-500/20", icon: Tag },
+  { id: "why-ladder", title: "The 'Why' Ladder", desc: "Ask 'Why?' 5 times to find root cause.", duration: "8 min", type: "Analysis", color: "from-violet-500/20 to-purple-500/20", border: "border-violet-500/20", icon: HelpCircle },
+  { id: "wheel", title: "Wheel of Control", desc: "Focus only on what you can control.", duration: "6 min", type: "Stoicism", color: "from-amber-500/20 to-orange-500/20", border: "border-amber-500/20", icon: Disc },
+  { id: "body-scan", title: "Body Scan", desc: "Scan head to toe to release tension.", duration: "10 min", type: "Meditation", color: "from-slate-500/20 to-gray-500/20", border: "border-slate-500/20", icon: Accessibility },
+  { id: "pmr", title: "PMR Release", desc: "Tense and release muscles.", duration: "8 min", type: "Somatic", color: "from-lime-500/20 to-green-500/20", border: "border-lime-500/20", icon: Activity },
+  { id: "yawn", title: "Restorative Yawn", desc: "Fake a yawn to stimulate vagus nerve.", duration: "2 min", type: "Somatic", color: "from-teal-500/20 to-cyan-500/20", border: "border-teal-500/20", icon: Sunrise },
+  { id: "fact-opinion", title: "Fact vs. Opinion", desc: "Is your thought a fact or just an opinion?", duration: "6 min", type: "CBT", color: "from-yellow-500/20 to-amber-500/20", border: "border-yellow-500/20", icon: Scale },
+  { id: "compassion", title: "Compassionate Observer", desc: "What advice would you give a friend?", duration: "7 min", type: "Self-Love", color: "from-fuchsia-500/20 to-pink-500/20", border: "border-fuchsia-500/20", icon: Eye },
+  { id: "future", title: "Future Self", desc: "Visualize yourself having overcome this.", duration: "5 min", type: "Visual", color: "from-indigo-500/20 to-violet-500/20", border: "border-indigo-500/20", icon: Rocket }
 ]
 
 const SCIENCE_CARDS = [
@@ -115,11 +111,6 @@ function getDailySelection<T>(items: T[], count: number, salt: string): T[] {
   })
   return shuffled.slice(0, count)
 }
-
-// Helper to check same day status
-const getTodayKey = (key: string) => {
-    return `${key}_${new Date().toISOString().split('T')[0]}`;
-};
 
 export function AwarenessPage() {
   const { addEntry } = useJournal();
@@ -224,7 +215,7 @@ export function AwarenessPage() {
   return (
     <div className="min-h-screen relative font-sans text-foreground transition-colors duration-700 overflow-x-hidden">
       
-      {/* 1. DYNAMIC BACKGROUND: Uses Theme Variables (Blobs + Noise) */}
+      {/* 1. DYNAMIC ANIMATED BACKGROUND (Glass Effect) */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
@@ -232,8 +223,8 @@ export function AwarenessPage() {
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
       
-      {/* 2. SOS BANNER - FIXED (Rose color stays for safety visibility) */}
-      <div className="w-full bg-rose-600 text-white px-4 py-3 text-sm font-medium shadow-md relative z-10 sticky top-0 backdrop-blur-md bg-rose-600/90 supports-[backdrop-filter]:bg-rose-600/90">
+      {/* 2. SOS BANNER - PREMIUM GLASS STYLE */}
+      <div className="w-full bg-rose-600/95 backdrop-blur-md text-white px-4 py-3 text-sm font-medium shadow-md relative z-10 sticky top-0 border-b border-rose-500">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
            <div className="flex items-center gap-2 text-center md:text-left px-2 md:px-0">
                 <AlertCircle size={20} className="shrink-0 animate-pulse" />
@@ -492,7 +483,7 @@ export function AwarenessPage() {
         </div>
 
       </div>
-      <style jsx global>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); }`}</style>
+      <style jsx global>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); } .animate-blob { animation: blob 10s infinite; } @keyframes blob { 0%, 100% { transform: translate(0px, 0px) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% { transform: translate(0px, 0px) scale(1); } } .animation-delay-2000 { animation-delay: 2s; }`}</style>
     </div>
   )
 }
