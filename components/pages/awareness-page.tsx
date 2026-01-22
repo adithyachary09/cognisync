@@ -407,26 +407,26 @@ export function AwarenessPage() {
           </AnimatePresence>
         </section>
 
-        {/* 5. THE SCIENCE OF YOU (PREMIUM ANIMATED GLASS EDITION) */}
+        {/* 5. THE SCIENCE OF YOU (DYNAMIC GLASS EDITION) */}
         <section className="space-y-10 relative">
-          {/* Subtle section glow to break the solid background */}
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 blur-[100px] pointer-events-none rounded-full" />
+          {/* Subtle section ambient glow */}
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-primary/5 blur-[120px] pointer-events-none rounded-full" />
           
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-4 border-l-4 border-primary pl-4">
-               <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+               <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tight flex items-center gap-2">
                  The Science of You
                  <motion.span 
-                  animate={{ opacity: [0.4, 1, 0.4] }} 
-                  transition={{ duration: 2, repeat: Infinity }}
+                  animate={{ opacity: [0.3, 1, 0.3], scale: [0.9, 1.1, 0.9] }} 
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                  >
-                  <Sparkles size={18} className="text-primary/60" />
+                  <Sparkles size={20} className="text-primary/40" />
                  </motion.span>
                </h2>
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 bg-muted/30 px-3 py-1 rounded-full border border-border/50">
-              Neuroscience
-            </span>
+            <div className="hidden sm:flex px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-md">
+              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary/70">Neuro-Biological Insights</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -436,48 +436,53 @@ export function AwarenessPage() {
                 initial={{ opacity: 0, y: 30 }} 
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1, duration: 0.5 }}
-                className="h-64 perspective-1000 group cursor-pointer"
+                transition={{ delay: i * 0.1, duration: 0.6, type: "spring", stiffness: 100 }}
+                className="h-72 perspective-1000 group cursor-pointer"
                 onClick={() => toggleFlip(card.id)}
               >
                 <div className={`relative w-full h-full transition-all duration-700 transform-style-3d ${flippedCards.includes(card.id) ? 'rotate-y-180' : ''}`}>
                   
-                  {/* FRONT: Animated Glass Card */}
-                  <Card className="absolute w-full h-full backface-hidden p-8 flex flex-col justify-center items-center text-center bg-card/40 backdrop-blur-2xl border-border/50 shadow-xl overflow-hidden rounded-[2.5rem] group-hover:border-primary/40 group-hover:shadow-primary/5 transition-all">
-                    {/* Animated Internal Glow */}
-                    <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-primary/10 blur-3xl rounded-full group-hover:bg-primary/20 transition-colors duration-500" />
+                  {/* FRONT: Premium Glass Card */}
+                  <Card className="absolute w-full h-full backface-hidden p-8 flex flex-col justify-center items-center text-center bg-card/30 backdrop-blur-3xl border-border/50 shadow-2xl overflow-hidden rounded-[2.5rem] group-hover:border-primary/50 transition-all duration-500">
+                    {/* Floating Orb inside the card */}
+                    <motion.div 
+                      animate={{ y: [0, -10, 0] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 blur-3xl rounded-full" 
+                    />
                     
                     <motion.div 
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      className="mb-6 p-5 bg-gradient-to-tr from-primary/20 to-primary/5 rounded-2xl text-primary shadow-inner border border-primary/10 relative z-10"
+                      whileHover={{ scale: 1.15, rotate: [0, 5, -5, 0] }}
+                      className="mb-6 p-6 bg-gradient-to-tr from-primary/20 to-primary/5 rounded-[2rem] text-primary shadow-inner border border-primary/10 relative z-10"
                     >
-                      <card.icon size={36} strokeWidth={1.5} />
+                      <card.icon size={40} strokeWidth={1.2} />
                     </motion.div>
                     
-                    <h3 className="text-xl font-black text-foreground tracking-tight relative z-10 group-hover:text-primary transition-colors">{card.front}</h3>
+                    <h3 className="text-xl font-black text-foreground tracking-tight relative z-10 group-hover:text-primary transition-colors duration-300">{card.front}</h3>
                     
-                    <div className="mt-8 flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10 text-[9px] font-black uppercase tracking-widest text-primary/70 relative z-10 transition-all group-hover:bg-primary group-hover:text-white">
-                      Deep Dive <ChevronRight size={10} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
+                    <div className="mt-8 flex items-center gap-2 px-5 py-2 rounded-full bg-background/50 border border-border text-[9px] font-black uppercase tracking-widest text-muted-foreground relative z-10 transition-all group-hover:bg-primary group-hover:text-white group-hover:border-primary">
+                      Discover <ChevronRight size={10} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
                     </div>
                   </Card>
 
-                  {/* BACK: Dynamic Theme Reveal */}
-                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-8 flex flex-col justify-center items-center text-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-                    {/* Premium Texture Overlay */}
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+                  {/* BACK: Dynamic Aesthetic Reveal (No Solid Fill) */}
+                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-8 flex flex-col justify-center items-center text-center bg-card/80 backdrop-blur-3xl border-2 border-primary/30 shadow-2xl rounded-[2.5rem] overflow-hidden">
+                    {/* Gradient Mesh Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
+                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-15 mix-blend-overlay pointer-events-none" />
                     
-                    <div className="flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-[0.2em] relative z-10">
-                      <BrainCircuit size={14} strokeWidth={2.5} /> Biological Insight
+                    <div className="flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] relative z-10 border border-primary/10">
+                      <BrainCircuit size={14} strokeWidth={2.5} /> Cognitive Lab
                     </div>
                     
-                    <p className="text-base leading-relaxed font-bold tracking-tight opacity-95 relative z-10">
+                    <p className="text-base leading-relaxed font-bold tracking-tight text-foreground/90 relative z-10 px-2">
                       {card.back}
                     </p>
                     
-                    <div className="absolute bottom-6 flex gap-1 opacity-40">
-                      {[1, 2, 3].map((dot) => (
-                        <div key={dot} className="w-1 h-1 rounded-full bg-current" />
-                      ))}
+                    <div className="absolute bottom-8 flex gap-1.5 opacity-30">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0s' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.4s' }} />
                     </div>
                   </Card>
                 </div>
