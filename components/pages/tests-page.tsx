@@ -12,7 +12,7 @@ import {
   ArrowRight, Wind, MessageSquare, PenTool, AlertCircle, 
   CheckCircle2, History, X, Layout, ChevronUp, ChevronDown,
   CloudRain, Moon, BatteryWarning, Eye, RefreshCw, Shield, 
-  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff, Lightbulb, Stethoscope, PlayCircle, RotateCcw
+  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff, Lightbulb, Stethoscope, PlayCircle, RotateCcw, XCircle
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
@@ -92,8 +92,12 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   // Navigation & View States
   const [activeTab, setActiveTab] = useState<"library" | "history">("library")
   const [showAllTests, setShowAllTests] = useState(false)
+  
+  // Selection States
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
+  
+  // Modals
   const [showPreTestModal, setShowPreTestModal] = useState(false)
   const [showScoreInfo, setShowScoreInfo] = useState(false)
   
@@ -141,58 +145,51 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       setHistoryData(localHistory.reverse()); 
   }, [quizState.completed]); 
 
-  // --- NAVIGATION HANDLER ---
-  const handleNavigate = (path: string) => {
-      if (onNavigate) onNavigate(path);
-      else router.push(`/${path}`);
-  }
-
   // --- ACTIONS ---
+  
+  // 1. Open Pre-Test from Library
   const handleTestClick = (testId: string) => {
       setSelectedTest(testId);
       setShowPreTestModal(true);
   }
 
-  // Starts the quiz from the Pre-Test Modal
+  // 2. Start Test (From Pre-Test Modal)
   const handleStartTest = () => {
     setShowPreTestModal(false);
-    // If we came from history, we can close the history modal now that quiz is starting
-    if (selectedHistoryItem) setSelectedHistoryItem(null); 
-    
+    setSelectedHistoryItem(null); // Clear history modal if we came from there
     const test = MEDICAL_15.find(t => t.id === selectedTest);
-    setTimeLeft(test ? test.durationSeconds : 300);
+    setTimeLeft(test ? test.durationSeconds : 300); // Set timer explicitly
     setIsTimedOut(false);
     setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 })
   }
 
-  // Resets everything to Library view
-  const handleRestart = () => {
+  // 3. Cancel Pre-Test (Backtrack Logic)
+  const handleClosePreTest = () => {
+      setShowPreTestModal(false);
+      // If we came from history, don't clear everything, just close this modal so History Modal remains
+      // If we came from Library, clear selectedTest
+      if (!selectedHistoryItem) {
+          setSelectedTest(null);
+      }
+  }
+
+  // 4. Retake from History Modal
+  const handleRetakeFromHistory = () => {
+      if (selectedHistoryItem) {
+          // Do NOT close selectedHistoryItem yet (in case they cancel)
+          setSelectedTest(selectedHistoryItem.testId);
+          setShowPreTestModal(true);
+      }
+  }
+
+  // 5. Exit Quiz (Abort)
+  const handleAbortQuiz = () => {
       setSelectedTest(null);
       setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
       setShowPreTestModal(false);
       setIsTimedOut(false);
       setTimeLeft(null);
-      setSelectedHistoryItem(null);
-  }
-
-  // Called when Retaking from History Item
-  const handleRetakeFromHistory = () => {
-      if (selectedHistoryItem) {
-          const testID = selectedHistoryItem.testId;
-          // Don't close history item yet, wait for Pre-Test confirmation
-          setSelectedTest(testID);
-          setShowPreTestModal(true);
-      }
-  }
-
-  // Handles "Cancel" in Pre-Test Modal
-  const handleClosePreTest = () => {
-      setShowPreTestModal(false);
-      // If we were retaking from history, go back to history report. 
-      // If we came from library, selectedHistoryItem is null, so we just close.
-      if (!selectedHistoryItem) {
-          setSelectedTest(null);
-      }
+      setSelectedHistoryItem(null); // Fully exit
   }
 
   const saveResult = async (finalScore: number) => {
@@ -237,7 +234,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
   const activeTest = MEDICAL_15.find(t => t.id === selectedTest);
   
-  // Library Logic: Filter by search, then split by category
+  // Library Logic
   const filteredLibrary = useMemo(() => {
       return MEDICAL_15.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [searchTerm]);
@@ -260,7 +257,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                 <p className="text-muted-foreground mb-8">For clinical accuracy, this test must be completed within the time limit.</p>
                 <div className="flex flex-col gap-3">
                     <Button onClick={() => { setIsTimedOut(false); handleStartTest(); }} className="h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-lg">Retake Assessment</Button>
-                    <Button onClick={handleRestart} variant="ghost" className="h-12 rounded-xl text-muted-foreground hover:text-white">Cancel</Button>
+                    <Button onClick={handleAbortQuiz} variant="ghost" className="h-12 rounded-xl text-muted-foreground hover:text-white">Cancel</Button>
                 </div>
             </div>
         </motion.div>
@@ -285,9 +282,9 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             )}
                         </div>
                     </div>
-                    {/* ENHANCED EXIT BUTTON */}
-                    <Button onClick={handleRestart} className="bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-full px-6 font-bold border border-rose-500/20 transition-all">
-                        <X className="mr-2" size={18}/> Quit Session
+                    {/* DYNAMIC EXIT BUTTON */}
+                    <Button onClick={handleAbortQuiz} className="bg-rose-500/10 hover:bg-rose-600 text-rose-500 hover:text-white rounded-full px-6 font-bold border border-rose-500/20 transition-all shadow-sm hover:shadow-rose-500/20">
+                        <XCircle className="mr-2" size={20}/> Abort Session
                     </Button>
                 </div>
                 
@@ -318,13 +315,10 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       const severity = getSeverity(quizState.score, max);
       const percentage = Math.round((quizState.score / max) * 100);
       
-      const actions = [
-          { title: "Reflect in Journal", route: "journal", icon: PenTool, desc: "Document your feelings now." },
-          { title: "Talk to AI Assistant", route: "chatbot", icon: MessageSquare, desc: "Process this result with AI." },
-          { title: "Regulation Exercise", route: "regulation", icon: Wind, desc: "Balance your nervous system." },
-          { title: "View Dashboard", route: "dashboard", icon: Layout, desc: "Check your overall stats." }
-      ];
-      const suggestedAction = percentage < 50 ? actions[2] : (percentage > 80 ? actions[3] : actions[0]);
+      const scoreData = [
+        { category: "Score", value: percentage, fill: "url(#scoreGradient)" },
+        { category: "Remaining", value: 100 - percentage, fill: "transparent" },
+      ]
 
       return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="min-h-screen p-4 md:p-10">
@@ -334,6 +328,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <div className="relative z-10 text-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold mb-8"><CheckCircle2 size={16}/> Assessment Complete</div>
                         
+                        {/* INTERACTIVE SCORE */}
                         <motion.div whileHover={{ scale: 1.05 }} onClick={() => setShowScoreInfo(true)} className="cursor-pointer inline-block p-6 rounded-[2.5rem] bg-background/50 border border-primary/10 hover:border-primary/30 transition-all hover:shadow-2xl hover:shadow-primary/10">
                             <h1 className="text-6xl md:text-8xl font-black text-foreground mb-2 flex items-center justify-center gap-4">{percentage}% <HelpCircle className="text-muted-foreground/30 w-8 h-8 animate-bounce"/></h1>
                             <p className="text-muted-foreground text-lg uppercase tracking-widest font-bold">Wellness Score (Tap to Explain)</p>
@@ -361,26 +356,16 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                              </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row gap-6 justify-center">
-                            <Card className="p-6 text-left flex-1 bg-gradient-to-br from-primary/10 to-transparent border-primary/20 cursor-default">
-                                <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2">{suggestedAction.icon && <suggestedAction.icon size={14}/>} Recommended Action</div>
-                                <h3 className="text-xl font-bold text-foreground mb-1">{suggestedAction.title}</h3>
-                                <p className="text-sm text-muted-foreground">{suggestedAction.desc}</p>
-                            </Card>
-                            
-                            <Card className="p-6 text-left flex-1 bg-card hover:bg-muted/50 transition-all cursor-pointer border-border/50 group" onClick={handleRestart}>
-                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Layout size={14}/> Assessment Library</div>
-                                <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">Return to Library</h3>
-                                <p className="text-sm text-muted-foreground">Select a different assessment.</p>
-                            </Card>
-                        </div>
+                        <Button onClick={handleAbortQuiz} size="lg" className="px-10 py-6 rounded-full text-lg font-bold bg-primary text-primary-foreground shadow-xl hover:scale-105 transition-all">
+                            Return to Assessment Library
+                        </Button>
 
                         <div className="mt-12 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex items-start gap-4 text-left max-w-3xl mx-auto animate-pulse">
                             <AlertCircle className="text-rose-500 shrink-0 mt-1" size={20} />
                             <div>
                                 <h4 className="text-sm font-bold text-rose-500 uppercase tracking-wider mb-1">Medical Disclaimer</h4>
                                 <p className="text-xs text-muted-foreground leading-relaxed">
-                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the <span className="font-bold cursor-pointer hover:underline" onClick={() => handleNavigate('regulation')}>SOS Features</span> in the Regulation tab immediately.
+                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the SOS Features in the Regulation tab immediately.
                                 </p>
                             </div>
                         </div>
@@ -429,9 +414,10 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <p className="text-lg text-muted-foreground max-w-xl pl-1">Clinical-grade tools to measure and monitor your mental health.</p>
                 </div>
                 
+                {/* DARK MODE VISIBLE TABS */}
                 <div className="flex p-1 bg-muted/50 rounded-full border border-border/50 backdrop-blur-md">
-                    <button onClick={() => setActiveTab("library")} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === "library" ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}>Library</button>
-                    <button onClick={() => setActiveTab("history")} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === "history" ? "bg-background text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`}>History</button>
+                    <button onClick={() => setActiveTab("library")} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === "library" ? "bg-background text-foreground shadow-md dark:bg-primary dark:text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Library</button>
+                    <button onClick={() => setActiveTab("history")} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${activeTab === "history" ? "bg-background text-foreground shadow-md dark:bg-primary dark:text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>History</button>
                 </div>
             </div>
 
@@ -544,21 +530,27 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
         <AnimatePresence>
             {showPreTestModal && activeTest && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
+                    <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative max-h-[90vh] overflow-y-auto">
                         <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-primary via-accent to-primary"></div>
                         <div className="p-8 md:p-10 text-center">
                             <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary animate-pulse border border-primary/20"><activeTest.icon size={40} /></div>
                             <h2 className="text-3xl font-black text-foreground mb-2">{activeTest.name}</h2>
                             <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] mb-8">{activeTest.clinicalFocus}</p>
+                            
                             <div className="bg-muted/30 rounded-3xl p-6 mb-8 text-left space-y-4 border border-border/50">
                                 <div className="flex items-start gap-3">
+                                    <div className="mt-1 p-1 bg-blue-500/10 rounded-md text-blue-500"><PenTool size={14} /></div>
+                                    <div><span className="text-sm font-bold text-foreground block">Purpose</span><p className="text-xs text-muted-foreground">Measures {activeTest.category.toLowerCase()} markers.</p></div>
+                                </div>
+                                <div className="flex items-start gap-3">
                                     <div className="mt-1 p-1 bg-orange-500/10 rounded-md text-orange-500"><Clock size={14} /></div>
-                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Approx {activeTest.time}. Answer based on the last 2 weeks.</p></div>
+                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Timed Session: {activeTest.time} ({activeTest.durationSeconds}s).</p></div>
                                 </div>
                             </div>
+
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleClosePreTest} className="flex-1 h-12 rounded-xl font-bold border-border/50">Cancel</Button>
-                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin Assessment</Button>
+                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin</Button>
                             </div>
                         </div>
                     </motion.div>
@@ -566,32 +558,30 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
             )}
         </AnimatePresence>
 
-        {/* HISTORICAL REPORT MODAL (ENHANCED OP BOX) */}
+        {/* HISTORICAL REPORT MODAL (PREMIUM UI) */}
         <AnimatePresence>
             {selectedHistoryItem && !showPreTestModal && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <motion.div 
-                        initial={{ scale: 0.9, rotateX: 10 }} 
-                        animate={{ scale: 1, rotateX: 0 }} 
-                        exit={{ scale: 0.9, rotateX: 10 }} 
-                        className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative perspective-1000"
-                    >
-                        <div className="p-8 text-center relative overflow-hidden">
-                            <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"/>
-                            <div className="relative z-10">
-                                <div className="text-xs font-bold text-primary uppercase tracking-widest mb-4 flex items-center justify-center gap-2"><History size={14}/> Historical Report</div>
-                                <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
-                                <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-                                
-                                <motion.div whileHover={{ scale: 1.1 }} className="text-7xl font-black text-foreground mb-4 drop-shadow-lg">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100) || 0}%</motion.div>
-                                <div className={`inline-block px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border mb-10 shadow-sm ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
+                    <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-card w-full max-w-lg rounded-[2.5rem] shadow-2xl border border-border overflow-hidden relative">
+                        {/* Glass Header Effect */}
+                        <div className="absolute top-0 w-full h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+                        
+                        <div className="p-10 text-center relative z-10">
+                            <div className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] mb-4 flex items-center justify-center gap-2"><History size={14}/> Clinical Report</div>
+                            <h2 className="text-3xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
+                            <p className="text-sm text-muted-foreground mb-8 font-medium">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            
+                            {/* Score Display */}
+                            <div className="relative inline-block mb-8">
+                                <div className="text-8xl font-black text-foreground drop-shadow-sm">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100) || 0}%</div>
+                                <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm whitespace-nowrap ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
                                     {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
                                 </div>
+                            </div>
 
-                                <div className="flex flex-col gap-3">
-                                    <Button onClick={handleRetakeFromHistory} className="w-full h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform flex items-center justify-center gap-2"><RotateCcw size={18}/> Retake Assessment</Button>
-                                    <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="w-full h-12 rounded-xl font-bold border-border/50 hover:bg-muted">Close Report</Button>
-                                </div>
+                            <div className="mt-8 flex flex-col gap-3">
+                                <Button onClick={handleRetakeFromHistory} className="w-full h-14 rounded-2xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 text-lg"><RotateCcw size={20}/> Retake Assessment</Button>
+                                <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="w-full h-12 rounded-xl font-bold border-border/50 hover:bg-muted text-muted-foreground">Close Report</Button>
                             </div>
                         </div>
                     </motion.div>
