@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,17 +8,18 @@ import { Input } from "@/components/ui/input"
 import { BarChart, Bar, ResponsiveContainer, Cell } from "recharts"
 import { 
   ChevronRight, Award, Sparkles, ClipboardCheck, Search, 
-  Brain, Heart, Activity, Zap, Users, Clock, 
-  ArrowRight, Wind, MessageSquare, PenTool, AlertCircle, 
+  Brain, Heart, Activity, Zap, Clock, 
+  ArrowRight, Wind, MessageSquare, AlertCircle, 
   CheckCircle2, History, X, Layout, ChevronUp, ChevronDown,
   CloudRain, Moon, BatteryWarning, Eye, RefreshCw, Shield, 
-  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff
+  Fingerprint, HelpCircle, Calendar, ShieldAlert, TimerOff, Lightbulb, Stethoscope,
+  PenTool
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createBrowserClient } from '@supabase/ssr'
 
 /* =========================================================================
-   1. CLINICAL DATA: THE "MEDICAL 15" (5 Per Category)
+   1. CLINICAL DATA: THE "MEDICAL 15"
    ========================================================================= */
 interface Test {
   id: string
@@ -29,108 +30,33 @@ interface Test {
   focusTags: string[]
   questions: number
   time: string
-  durationSeconds: number // New: Timer Logic
+  durationSeconds: number
   difficulty: "Easy" | "Medium" | "Hard"
   category: "Clinical" | "Cognitive" | "Growth"
   icon: any
 }
 
 const MEDICAL_15: Test[] = [
-  // --- 🚨 CLINICAL SCREENERS (5 Tests) ---
-  {
-    id: "phq9", name: "Depression Screening", acronym: "PHQ-9",
-    description: "Standard clinical tool to monitor severity of depressive symptoms.",
-    clinicalFocus: "Mood Pathology", focusTags: ["Mood", "Energy", "Anhedonia"],
-    questions: 9, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Clinical", icon: CloudRain
-  },
-  {
-    id: "gad7", name: "Anxiety Assessment", acronym: "GAD-7",
-    description: "Screening tool for Generalized Anxiety Disorder and panic symptoms.",
-    clinicalFocus: "Anxiety Disorders", focusTags: ["Worry", "Panic", "Tension"],
-    questions: 7, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Clinical", icon: Wind
-  },
-  {
-    id: "pss", name: "Perceived Stress Scale", acronym: "PSS",
-    description: "Measures the degree to which situations are appraised as stressful.",
-    clinicalFocus: "Stress Perception", focusTags: ["Overwhelm", "Control", "Pressure"],
-    questions: 10, time: "5 min", durationSeconds: 300, difficulty: "Easy", category: "Clinical", icon: Zap
-  },
-  {
-    id: "isi", name: "Insomnia Severity Index", acronym: "ISI",
-    description: "Assess the nature, severity, and impact of insomnia.",
-    clinicalFocus: "Sleep Hygiene", focusTags: ["Sleep Quality", "Fatigue", "Impact"],
-    questions: 7, time: "3 min", durationSeconds: 180, difficulty: "Easy", category: "Clinical", icon: Moon
-  },
-  {
-    id: "pcl5", name: "PTSD Checklist", acronym: "PCL-5",
-    description: "Screening for symptoms of post-traumatic stress.",
-    clinicalFocus: "Trauma Response", focusTags: ["Intrusion", "Avoidance", "Arousal"],
-    questions: 20, time: "8 min", durationSeconds: 480, difficulty: "Hard", category: "Clinical", icon: ShieldAlert
-  },
+  // --- 🚨 CLINICAL SCREENERS ---
+  { id: "phq9", name: "Depression Screening", acronym: "PHQ-9", description: "Standard clinical tool to monitor severity of depressive symptoms.", clinicalFocus: "Mood Pathology", focusTags: ["Mood", "Energy", "Anhedonia"], questions: 9, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Clinical", icon: CloudRain },
+  { id: "gad7", name: "Anxiety Assessment", acronym: "GAD-7", description: "Screening tool for Generalized Anxiety Disorder and panic symptoms.", clinicalFocus: "Anxiety Disorders", focusTags: ["Worry", "Panic", "Tension"], questions: 7, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Clinical", icon: Wind },
+  { id: "pss", name: "Perceived Stress Scale", acronym: "PSS", description: "Measures the degree to which situations are appraised as stressful.", clinicalFocus: "Stress Perception", focusTags: ["Overwhelm", "Control", "Pressure"], questions: 10, time: "5 min", durationSeconds: 300, difficulty: "Easy", category: "Clinical", icon: Zap },
+  { id: "isi", name: "Insomnia Severity Index", acronym: "ISI", description: "Assess the nature, severity, and impact of insomnia.", clinicalFocus: "Sleep Hygiene", focusTags: ["Sleep Quality", "Fatigue", "Impact"], questions: 7, time: "3 min", durationSeconds: 180, difficulty: "Easy", category: "Clinical", icon: Moon },
+  { id: "pcl5", name: "PTSD Checklist", acronym: "PCL-5", description: "Screening for symptoms of post-traumatic stress.", clinicalFocus: "Trauma Response", focusTags: ["Intrusion", "Avoidance", "Arousal"], questions: 20, time: "8 min", durationSeconds: 480, difficulty: "Hard", category: "Clinical", icon: ShieldAlert },
 
-  // --- 🧠 COGNITIVE & FOCUS (5 Tests) ---
-  {
-    id: "asrs", name: "ADHD Screener", acronym: "ASRS-v1.1",
-    description: "WHO screening tool for adult ADHD symptoms.",
-    clinicalFocus: "Executive Function", focusTags: ["Focus", "Impulsivity", "Attention"],
-    questions: 6, time: "4 min", durationSeconds: 240, difficulty: "Hard", category: "Cognitive", icon: Brain
-  },
-  {
-    id: "mbi", name: "Burnout Assessment", acronym: "MBI-GS",
-    description: "Measure emotional exhaustion and professional efficacy.",
-    clinicalFocus: "Occupational Health", focusTags: ["Exhaustion", "Cynicism", "Efficacy"],
-    questions: 16, time: "8 min", durationSeconds: 480, difficulty: "Medium", category: "Cognitive", icon: BatteryWarning
-  },
-  {
-    id: "maas", name: "Mindfulness Attention", acronym: "MAAS",
-    description: "Assess core characteristic of mindfulness: receptive awareness.",
-    clinicalFocus: "Present Awareness", focusTags: ["Presence", "Autopilot", "Awareness"],
-    questions: 15, time: "6 min", durationSeconds: 360, difficulty: "Easy", category: "Cognitive", icon: Eye
-  },
-  {
-    id: "oci", name: "Obsessive-Compulsive", acronym: "OCI-R",
-    description: "Explore symptoms related to obsessive thoughts.",
-    clinicalFocus: "Compulsive Behavior", focusTags: ["Checking", "Ordering", "Doubting"],
-    questions: 18, time: "9 min", durationSeconds: 540, difficulty: "Hard", category: "Cognitive", icon: RefreshCw
-  },
-  {
-    id: "cfq", name: "Cognitive Failures", acronym: "CFQ",
-    description: "Self-report on frequency of lapses in attention and memory.",
-    clinicalFocus: "Cognitive Slippage", focusTags: ["Memory", "Distraction", "Blunders"],
-    questions: 12, time: "5 min", durationSeconds: 300, difficulty: "Medium", category: "Cognitive", icon: Activity
-  },
+  // --- 🧠 COGNITIVE & FOCUS ---
+  { id: "asrs", name: "ADHD Screener", acronym: "ASRS-v1.1", description: "WHO screening tool for adult ADHD symptoms.", clinicalFocus: "Executive Function", focusTags: ["Focus", "Impulsivity", "Attention"], questions: 6, time: "4 min", durationSeconds: 240, difficulty: "Hard", category: "Cognitive", icon: Brain },
+  { id: "mbi", name: "Burnout Assessment", acronym: "MBI-GS", description: "Measure emotional exhaustion and professional efficacy.", clinicalFocus: "Occupational Health", focusTags: ["Exhaustion", "Cynicism", "Efficacy"], questions: 16, time: "8 min", durationSeconds: 480, difficulty: "Medium", category: "Cognitive", icon: BatteryWarning },
+  { id: "maas", name: "Mindfulness Attention", acronym: "MAAS", description: "Assess core characteristic of mindfulness: receptive awareness.", clinicalFocus: "Present Awareness", focusTags: ["Presence", "Autopilot", "Awareness"], questions: 15, time: "6 min", durationSeconds: 360, difficulty: "Easy", category: "Cognitive", icon: Eye },
+  { id: "oci", name: "Obsessive-Compulsive", acronym: "OCI-R", description: "Explore symptoms related to obsessive thoughts.", clinicalFocus: "Compulsive Behavior", focusTags: ["Checking", "Ordering", "Doubting"], questions: 18, time: "9 min", durationSeconds: 540, difficulty: "Hard", category: "Cognitive", icon: RefreshCw },
+  { id: "cfq", name: "Cognitive Failures", acronym: "CFQ", description: "Self-report on frequency of lapses in attention and memory.", clinicalFocus: "Cognitive Slippage", focusTags: ["Memory", "Distraction", "Blunders"], questions: 12, time: "5 min", durationSeconds: 300, difficulty: "Medium", category: "Cognitive", icon: Activity },
 
-  // --- 🌱 PERSONAL GROWTH (5 Tests) ---
-  {
-    id: "eqi", name: "Emotional Intelligence", acronym: "EQ-i",
-    description: "Evaluate social skills, empathy, and emotional regulation.",
-    clinicalFocus: "Social Competence", focusTags: ["Empathy", "Social", "Regulation"],
-    questions: 20, time: "10 min", durationSeconds: 600, difficulty: "Medium", category: "Growth", icon: Heart
-  },
-  {
-    id: "rosenberg", name: "Self-Esteem Scale", acronym: "RSES",
-    description: "A widely used measure of self-worth and self-acceptance.",
-    clinicalFocus: "Self-Concept", focusTags: ["Worth", "Confidence", "Criticism"],
-    questions: 10, time: "4 min", durationSeconds: 240, difficulty: "Easy", category: "Growth", icon: Award
-  },
-  {
-    id: "brs", name: "Brief Resilience Scale", acronym: "BRS",
-    description: "Assess your ability to bounce back from stress.",
-    clinicalFocus: "Adaptability", focusTags: ["Recovery", "Adaptation", "Strength"],
-    questions: 6, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Growth", icon: Shield
-  },
-  {
-    id: "big5", name: "Big Five Traits", acronym: "OCEAN",
-    description: "Comprehensive analysis of your core personality dimensions.",
-    clinicalFocus: "Personality Structure", focusTags: ["Openness", "Neuroticism", "Agreeableness"],
-    questions: 20, time: "10 min", durationSeconds: 600, difficulty: "Easy", category: "Growth", icon: Fingerprint
-  },
-  {
-    id: "grit", name: "Grit Scale", acronym: "GRIT-S",
-    description: "Measure of passion and perseverance for long-term goals.",
-    clinicalFocus: "Perseverance", focusTags: ["Passion", "Consistency", "Drive"],
-    questions: 8, time: "4 min", durationSeconds: 240, difficulty: "Medium", category: "Growth", icon: Zap
-  }
+  // --- 🌱 PERSONAL GROWTH ---
+  { id: "eqi", name: "Emotional Intelligence", acronym: "EQ-i", description: "Evaluate social skills, empathy, and emotional regulation.", clinicalFocus: "Social Competence", focusTags: ["Empathy", "Social", "Regulation"], questions: 20, time: "10 min", durationSeconds: 600, difficulty: "Medium", category: "Growth", icon: Heart },
+  { id: "rosenberg", name: "Self-Esteem Scale", acronym: "RSES", description: "A widely used measure of self-worth and self-acceptance.", clinicalFocus: "Self-Concept", focusTags: ["Worth", "Confidence", "Criticism"], questions: 10, time: "4 min", durationSeconds: 240, difficulty: "Easy", category: "Growth", icon: Award },
+  { id: "brs", name: "Brief Resilience Scale", acronym: "BRS", description: "Assess your ability to bounce back from stress.", clinicalFocus: "Adaptability", focusTags: ["Recovery", "Adaptation", "Strength"], questions: 6, time: "3 min", durationSeconds: 180, difficulty: "Medium", category: "Growth", icon: Shield },
+  { id: "big5", name: "Big Five Traits", acronym: "OCEAN", description: "Comprehensive analysis of your core personality dimensions.", clinicalFocus: "Personality Structure", focusTags: ["Openness", "Neuroticism", "Agreeableness"], questions: 20, time: "10 min", durationSeconds: 600, difficulty: "Easy", category: "Growth", icon: Fingerprint },
+  { id: "grit", name: "Grit Scale", acronym: "GRIT-S", description: "Measure of passion and perseverance for long-term goals.", clinicalFocus: "Perseverance", focusTags: ["Passion", "Consistency", "Drive"], questions: 8, time: "4 min", durationSeconds: 240, difficulty: "Medium", category: "Growth", icon: Zap }
 ];
 
 const GENERIC_QUESTIONS = [
@@ -144,7 +70,7 @@ const GENERIC_QUESTIONS = [
 // --- HELPERS ---
 const getCategoryIcon = (category: string) => {
   switch (category) {
-    case "Clinical": return <Activity className="text-rose-500" size={20} />;
+    case "Clinical": return <Stethoscope className="text-rose-500" size={20} />;
     case "Cognitive": return <Brain className="text-purple-500" size={20} />;
     case "Growth": return <Sparkles className="text-emerald-500" size={20} />;
     default: return <ClipboardCheck className="text-blue-500" size={20} />;
@@ -152,7 +78,7 @@ const getCategoryIcon = (category: string) => {
 }
 
 const getSeverity = (score: number, max: number) => {
-    const safeMax = max || 25; // Prevent NaN
+    const safeMax = max || 25;
     const p = (score / safeMax) * 100;
     if (p >= 75) return { label: "High / Severe", color: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20" };
     if (p >= 50) return { label: "Moderate", color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/20" };
@@ -164,26 +90,24 @@ const getSeverity = (score: number, max: number) => {
    COMPONENT: TESTS PAGE
    ========================================================================= */
 export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
+  // Navigation & View States
   const [activeTab, setActiveTab] = useState<"library" | "history">("library")
   const [showAllTests, setShowAllTests] = useState(false)
   const [selectedTest, setSelectedTest] = useState<string | null>(null)
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
   const [showPreTestModal, setShowPreTestModal] = useState(false)
   const [showScoreInfo, setShowScoreInfo] = useState(false)
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null)
   
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState("")
   const [historyData, setHistoryData] = useState<any[]>([])
-  const [historyDateFilter, setHistoryDateFilter] = useState<string>("") // YYYY-MM-DD
+  const [historyDateFilter, setHistoryDateFilter] = useState<string>("") 
   
   // Quiz Logic
   const [quizState, setQuizState] = useState({ currentQuestion: 0, answers: [] as number[], completed: false, score: 0 })
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [isTimedOut, setIsTimedOut] = useState(false)
   
-  // Loop Prevention
-  const [isRecommendation, setIsRecommendation] = useState(false)
-
   const router = useRouter()
   const [supabase] = useState(() => createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -193,7 +117,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   // --- TIMER LOGIC ---
   useEffect(() => {
       if (!timeLeft || timeLeft <= 0 || !selectedTest || showPreTestModal || quizState.completed) return;
-      
       const timer = setInterval(() => {
           setTimeLeft((prev) => {
               if (prev && prev <= 1) {
@@ -204,7 +127,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
               return prev ? prev - 1 : 0;
           });
       }, 1000);
-
       return () => clearInterval(timer);
   }, [timeLeft, selectedTest, showPreTestModal, quizState.completed]);
 
@@ -218,18 +140,11 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   useEffect(() => {
       const localHistory = JSON.parse(localStorage.getItem('offline_assessments') || '[]');
       setHistoryData(localHistory.reverse()); 
-  }, [quizState.completed]);
-
-  // --- NAVIGATION HANDLER ---
-  const handleNavigate = (path: string) => {
-      if (onNavigate) onNavigate(path);
-      else router.push(`/${path}`);
-  }
+  }, [quizState.completed]); 
 
   // --- ACTIONS ---
   const handleTestClick = (testId: string) => {
       setSelectedTest(testId);
-      setIsRecommendation(false);
       setShowPreTestModal(true);
   }
 
@@ -245,7 +160,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       setSelectedTest(null);
       setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
       setShowPreTestModal(false);
-      setIsRecommendation(false);
       setIsTimedOut(false);
       setTimeLeft(null);
   }
@@ -256,15 +170,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
           setQuizState({ currentQuestion: 0, answers: [], completed: false, score: 0 });
           const test = MEDICAL_15.find(t => t.id === selectedTest);
           setTimeLeft(test ? test.durationSeconds : 300);
-      }
-  }
-
-  const handleRetakeFromHistory = () => {
-      if (selectedHistoryItem) {
-          const testID = selectedHistoryItem.testId;
-          setSelectedHistoryItem(null);
-          setSelectedTest(testID);
-          setShowPreTestModal(true);
       }
   }
 
@@ -315,13 +220,11 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
 
   const activeTest = MEDICAL_15.find(t => t.id === selectedTest);
   
-  // Library Logic
-  const visibleTests = useMemo(() => {
-      const filtered = MEDICAL_15.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      return showAllTests ? filtered : filtered.slice(0, 3); // 3 per category (Odd number request)
-  }, [searchTerm, showAllTests]);
+  // Library Logic: Filter by search, then split by category
+  const filteredLibrary = useMemo(() => {
+      return MEDICAL_15.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [searchTerm]);
 
-  // History Filter Logic
   const filteredHistory = useMemo(() => {
       return historyData.filter(item => {
           if (!historyDateFilter) return true;
@@ -337,7 +240,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
             <div className="bg-card w-full max-w-md p-10 rounded-[3rem] border border-rose-500/50 shadow-[0_0_50px_rgba(225,29,72,0.2)]">
                 <TimerOff size={60} className="mx-auto text-rose-500 mb-6 animate-pulse"/>
                 <h2 className="text-3xl font-black text-white mb-2">Session Expired</h2>
-                <p className="text-muted-foreground mb-8">For clinical accuracy, this test must be completed within the time limit. Please try again when you are ready.</p>
+                <p className="text-muted-foreground mb-8">For clinical accuracy, this test must be completed within the time limit.</p>
                 <div className="flex flex-col gap-3">
                     <Button onClick={handleRetakeSame} className="h-12 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-lg">Retake Assessment</Button>
                     <Button onClick={handleRestart} variant="ghost" className="h-12 rounded-xl text-muted-foreground hover:text-white">Cancel</Button>
@@ -388,22 +291,12 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
       )
   }
 
-  // --- VIEW 3: RESULTS DASHBOARD (DYNAMIC & INTERACTIVE) ---
+  // --- VIEW 3: RESULTS DASHBOARD (FIXED) ---
   if (selectedTest && quizState.completed && activeTest) {
       const max = 25;
       const severity = getSeverity(quizState.score, max);
       const percentage = Math.round((quizState.score / max) * 100);
       
-      // Dynamic Action Pool
-      const actions = [
-          { title: "Reflect in Journal", route: "journal", icon: PenTool, desc: "Document your feelings now." },
-          { title: "Talk to AI Assistant", route: "chatbot", icon: MessageSquare, desc: "Process this result with AI." },
-          { title: "Regulation Exercise", route: "regulation", icon: Wind, desc: "Balance your nervous system." },
-          { title: "View Dashboard", route: "dashboard", icon: Layout, desc: "Check your overall stats." }
-      ];
-      // Simple shuffle based on score for variety
-      const suggestedAction = percentage < 50 ? actions[2] : (percentage > 80 ? actions[3] : actions[0]);
-
       const scoreData = [
         { category: "Score", value: percentage, fill: "url(#scoreGradient)" },
         { category: "Remaining", value: 100 - percentage, fill: "transparent" },
@@ -417,7 +310,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                     <div className="relative z-10 text-center">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold mb-8"><CheckCircle2 size={16}/> Assessment Complete</div>
                         
-                        {/* INTERACTIVE SCORE CARD */}
+                        {/* CLICKABLE SCORE */}
                         <motion.div 
                             whileHover={{ scale: 1.05 }} 
                             onClick={() => setShowScoreInfo(true)} 
@@ -439,28 +332,33 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             </p>
                         </div>
 
-                        {/* AI SUGGESTION & ACTIONS */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="p-6 text-left bg-gradient-to-br from-primary/10 to-transparent border-primary/20 hover:border-primary/40 transition-all cursor-pointer group hover:scale-[1.02]" onClick={() => handleNavigate(suggestedAction.route)}>
-                                <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Action</div>
-                                <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors flex items-center gap-2"><suggestedAction.icon size={20}/> {suggestedAction.title}</h3>
-                                <p className="text-sm text-muted-foreground">{suggestedAction.desc}</p>
+                        {/* STATIC RECOMMENDATIONS (UN-CLICKABLE) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <Card className="p-6 text-left bg-gradient-to-br from-primary/10 to-transparent border-primary/20 cursor-default">
+                                <div className="text-xs font-bold text-primary mb-2 flex items-center gap-2"><Sparkles size={14}/> Recommended Focus</div>
+                                <h3 className="text-xl font-bold text-foreground mb-2">Immediate Regulation</h3>
+                                <p className="text-sm text-muted-foreground">Your score indicates high arousal. We suggest focusing on calming the nervous system through box breathing or grounding techniques.</p>
                             </Card>
                             
-                            <Card className="p-6 text-left bg-card hover:bg-muted/50 transition-all cursor-pointer border-border/50 group hover:scale-[1.02]" onClick={handleRestart}>
-                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Layout size={14}/> Assessment Library</div>
-                                <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-foreground/80">Return to Library</h3>
-                                <p className="text-sm text-muted-foreground">Select a different assessment.</p>
+                            <Card className="p-6 text-left bg-card border-border/50 cursor-default">
+                                <div className="text-xs font-bold text-muted-foreground mb-2 flex items-center gap-2"><Lightbulb size={14}/> Clinical Insight</div>
+                                <h3 className="text-xl font-bold text-foreground mb-2">Long-term Strategy</h3>
+                                <p className="text-sm text-muted-foreground">Consistent sleep patterns and journaling triggers can significantly reduce symptoms over a 2-week period.</p>
                             </Card>
                         </div>
 
-                        {/* MEDICAL DISCLAIMER - ANIMATED */}
-                        <div className="mt-12 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex items-start gap-4 text-left max-w-3xl mx-auto">
+                        {/* ONLY WORKING BUTTON */}
+                        <Button onClick={handleRestart} size="lg" className="px-10 py-6 rounded-full text-lg font-bold bg-primary text-primary-foreground shadow-xl hover:scale-105 transition-all">
+                            Return to Assessment Library
+                        </Button>
+
+                        {/* MEDICAL DISCLAIMER */}
+                        <div className="mt-12 p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex items-start gap-4 text-left max-w-3xl mx-auto animate-pulse">
                             <AlertCircle className="text-rose-500 shrink-0 mt-1" size={20} />
                             <div>
                                 <h4 className="text-sm font-bold text-rose-500 uppercase tracking-wider mb-1">Medical Disclaimer</h4>
                                 <p className="text-xs text-muted-foreground leading-relaxed">
-                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the <span className="text-rose-500 font-bold cursor-pointer hover:underline" onClick={() => handleNavigate('regulation')}>SOS Features</span> in the Regulation tab immediately for professional support.
+                                    This assessment uses standard screening protocols but <strong>is not a medical diagnosis</strong>. If you are feeling overwhelmed or in crisis, please use the SOS Features in the Regulation tab immediately for professional support.
                                 </p>
                             </div>
                         </div>
@@ -493,7 +391,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
   // --- VIEW 4: LIBRARY & HISTORY (MAIN) ---
   return (
     <div className="min-h-screen p-6 md:p-10 relative overflow-x-hidden text-foreground">
-        {/* DYNAMIC BACKGROUND */}
         <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
@@ -501,7 +398,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
         </div>
 
         <div className="max-w-7xl mx-auto">
-            {/* HEADER & TABS */}
+            {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-10">
                 <div>
                     <div className="flex items-center gap-3 mb-2">
@@ -517,29 +414,30 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                 </div>
             </div>
 
-            {/* CONTENT AREA */}
+            {/* CONTENT */}
             <AnimatePresence mode="wait">
                 {activeTab === "library" ? (
                     <motion.div key="library" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                        {/* SEARCH */}
                         <div className="relative mb-8">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
                             <Input placeholder="Search for a specific test..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-12 h-14 rounded-2xl bg-card/40 border-border/50 focus:border-primary/50 text-lg shadow-sm backdrop-blur-md"/>
                         </div>
 
-                        {/* CATEGORY SECTIONS */}
                         <div className="space-y-12">
                             {["Clinical", "Cognitive", "Growth"].map((cat) => {
-                                const catTests = visibleTests.filter(t => t.category === cat);
+                                const catTests = filteredLibrary.filter(t => t.category === cat);
                                 if (catTests.length === 0) return null;
+                                // Correct logic: Show all if "showAllTests" is true, otherwise show 3.
+                                const displayedTests = showAllTests ? catTests : catTests.slice(0, 3);
+                                
                                 return (
                                     <div key={cat}>
                                         <h3 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-6 flex items-center gap-2">
                                             {getCategoryIcon(cat)} {cat} Instruments
                                         </h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {catTests.map(test => (
-                                                <Card key={test.id} onClick={() => handleTestClick(test.id)} className="group p-6 bg-card/60 backdrop-blur-xl border border-border/50 hover:border-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[2rem] cursor-pointer relative overflow-hidden flex flex-col h-full">
+                                            {displayedTests.map(test => (
+                                                <Card key={test.id} onClick={() => handleTestClick(test.id)} className="group p-6 bg-card/60 backdrop-blur-xl border border-border/50 hover:border-primary/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[2rem] cursor-pointer relative overflow-hidden flex flex-col h-full min-h-[280px]">
                                                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500"><test.icon size={80}/></div>
                                                     <div className="flex justify-between items-start mb-4 relative z-10">
                                                         <span className="px-3 py-1 rounded-full bg-background/50 border border-border/50 text-[10px] font-bold text-foreground uppercase tracking-wider">{test.acronym}</span>
@@ -549,7 +447,7 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                                     <p className="text-sm text-muted-foreground mb-6 line-clamp-2 flex-1">{test.description}</p>
                                                     
                                                     <div className="flex flex-wrap gap-2 mb-6">
-                                                        {test.focusTags.map(tag => (
+                                                        {test.focusTags.slice(0, 2).map(tag => (
                                                             <span key={tag} className="px-2 py-1 rounded-md bg-primary/5 text-primary text-[10px] font-bold border border-primary/10">{tag}</span>
                                                         ))}
                                                     </div>
@@ -566,7 +464,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             })}
                         </div>
 
-                        {/* TOGGLE FULL LIBRARY BUTTON */}
                         {searchTerm === "" && (
                             <div className="mt-12 text-center pb-20">
                                 <Button onClick={() => setShowAllTests(!showAllTests)} variant="outline" className="px-8 py-6 rounded-full border-border/50 hover:bg-card/50 text-foreground font-bold flex items-center gap-2 mx-auto">
@@ -592,10 +489,10 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                     const safeScore = record.score || 0;
                                     const severity = getSeverity(safeScore, safeMax);
                                     return (
-                                        <Card key={i} onClick={() => { setSelectedHistoryItem(record); }} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors cursor-pointer group">
+                                        <Card key={i} onClick={() => setSelectedHistoryItem(record)} className="p-6 flex flex-col md:flex-row items-center justify-between bg-card/40 border border-border/50 rounded-3xl hover:bg-card/60 transition-colors cursor-pointer group">
                                             <div className="flex items-center gap-6 mb-4 md:mb-0 w-full md:w-auto">
                                                 <div className="w-16 h-16 rounded-2xl bg-background/50 flex items-center justify-center font-black text-xl text-primary border border-border/50">
-                                                    {Math.round((safeScore / safeMax) * 100)}%
+                                                    {Math.round((safeScore / safeMax) * 100) || 0}%
                                                 </div>
                                                 <div>
                                                     <h3 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors">{record.testName}</h3>
@@ -606,7 +503,6 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                                                <Button size="sm" variant="outline" className="rounded-xl font-bold h-10 border-border/50" onClick={(e) => { e.stopPropagation(); setSelectedTest(record.testId); setShowPreTestModal(true); }}>Retake</Button>
                                                 <ChevronRight className="text-muted-foreground group-hover:text-primary"/>
                                             </div>
                                         </Card>
@@ -640,17 +536,17 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                             <div className="bg-muted/30 rounded-3xl p-6 mb-8 text-left space-y-4 border border-border/50">
                                 <div className="flex items-start gap-3">
                                     <div className="mt-1 p-1 bg-blue-500/10 rounded-md text-blue-500"><PenTool size={14} /></div>
-                                    <div><span className="text-sm font-bold text-foreground block">Purpose</span><p className="text-xs text-muted-foreground">Measures {activeTest.category.toLowerCase()} markers based on standard protocols.</p></div>
+                                    <div><span className="text-sm font-bold text-foreground block">Purpose</span><p className="text-xs text-muted-foreground">Measures {activeTest.category.toLowerCase()} markers.</p></div>
                                 </div>
                                 <div className="flex items-start gap-3">
                                     <div className="mt-1 p-1 bg-orange-500/10 rounded-md text-orange-500"><Clock size={14} /></div>
-                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Timed Session: {activeTest.time} ({activeTest.durationSeconds}s). Answer based on the last 2 weeks.</p></div>
+                                    <div><span className="text-sm font-bold text-foreground block">Duration</span><p className="text-xs text-muted-foreground">Timed Session: {activeTest.time} ({activeTest.durationSeconds}s).</p></div>
                                 </div>
                             </div>
 
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleClosePreTest} className="flex-1 h-12 rounded-xl font-bold border-border/50">Cancel</Button>
-                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin Assessment</Button>
+                                <Button onClick={handleStartTest} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-[1.02] transition-transform">Begin</Button>
                             </div>
                         </div>
                     </motion.div>
@@ -666,16 +562,15 @@ export function TestsPage({ onNavigate }: { onNavigate?: (page: string) => void 
                         <div className="p-8 text-center">
                             <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Historical Report</div>
                             <h2 className="text-2xl font-black text-foreground mb-1">{selectedHistoryItem.testName}</h2>
-                            <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                            <p className="text-sm text-muted-foreground mb-8">{new Date(selectedHistoryItem.date).toLocaleDateString()}</p>
                             
-                            <div className="text-6xl font-black text-primary mb-2">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100)}%</div>
+                            <div className="text-6xl font-black text-primary mb-2">{Math.round((selectedHistoryItem.score / (selectedHistoryItem.maxScore || 25)) * 100) || 0}%</div>
                             <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border mb-8 ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).bg} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).color} ${getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).border}`}>
                                 {getSeverity(selectedHistoryItem.score, selectedHistoryItem.maxScore).label}
                             </div>
 
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={() => setSelectedHistoryItem(null)} className="flex-1 h-12 rounded-xl font-bold border-border/50">Close</Button>
-                                <Button onClick={handleRetakeFromHistory} className="flex-1 h-12 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg hover:scale-105 transition-transform">Retake</Button>
                             </div>
                         </div>
                     </motion.div>
