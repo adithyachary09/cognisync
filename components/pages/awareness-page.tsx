@@ -8,7 +8,8 @@ import {
   Heart, Brain, Zap, Play, Check, AlertCircle, Info, X, Phone, Search, ExternalLink, ChevronRight, BookOpen, BrainCircuit,
   CloudRain, Frown, Meh, Smile, Laugh, 
   Leaf, Wind, LayoutGrid, Flame, Activity, Sun, Snowflake, Tag, HelpCircle, Disc, Accessibility, Sunrise, Scale, Eye, Rocket,
-  Network, Handshake, Waves, Thermometer, Award, Scan, Tags, Expand, Bug, Footprints
+  Network, Handshake, Waves, Thermometer, Award, Scan, Tags, Expand, Bug, Footprints,
+  Sparkles
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -406,26 +407,78 @@ export function AwarenessPage() {
           </AnimatePresence>
         </section>
 
-        {/* 5. SCIENCE OF YOU (Flip Cards with Theme Colors) */}
-        <section className="space-y-8">
-           <div className="flex items-center gap-3 px-1 border-l-4 border-primary pl-4">
-               <h2 className="text-2xl font-bold text-foreground">The Science of You</h2>
-           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* 5. THE SCIENCE OF YOU (PREMIUM ANIMATED GLASS EDITION) */}
+        <section className="space-y-10 relative">
+          {/* Subtle section glow to break the solid background */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 blur-[100px] pointer-events-none rounded-full" />
+          
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-4 border-l-4 border-primary pl-4">
+               <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                 The Science of You
+                 <motion.span 
+                  animate={{ opacity: [0.4, 1, 0.4] }} 
+                  transition={{ duration: 2, repeat: Infinity }}
+                 >
+                  <Sparkles size={18} className="text-primary/60" />
+                 </motion.span>
+               </h2>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 bg-muted/30 px-3 py-1 rounded-full border border-border/50">
+              Neuroscience
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {dailyScience.map((card, i) => (
-              <motion.div key={card.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.1 }} className="h-56 sm:h-64 perspective-1000 group cursor-pointer"
-               onClick={() => toggleFlip(card.id)}>
+              <motion.div 
+                key={card.id} 
+                initial={{ opacity: 0, y: 30 }} 
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                className="h-64 perspective-1000 group cursor-pointer"
+                onClick={() => toggleFlip(card.id)}
+              >
                 <div className={`relative w-full h-full transition-all duration-700 transform-style-3d ${flippedCards.includes(card.id) ? 'rotate-y-180' : ''}`}>
-                  {/* FRONT: Glass Card */}
-                  <Card className="absolute w-full h-full backface-hidden p-6 flex flex-col justify-center items-center text-center bg-card/80 backdrop-blur-xl border-border shadow-sm hover:shadow-xl hover:border-primary/50 transition-all rounded-3xl">
-                    <div className="mb-5 p-4 bg-primary/10 rounded-2xl text-primary shadow-inner"><card.icon size={32} /></div>
-                    <h3 className="text-lg font-bold text-foreground">{card.front}</h3>
-                    <p className="text-[10px] text-primary/80 mt-6 uppercase tracking-widest font-bold flex items-center gap-1 bg-primary/5 px-3 py-1 rounded-full">Tap to Learn <ChevronRight size={10} /></p>
+                  
+                  {/* FRONT: Animated Glass Card */}
+                  <Card className="absolute w-full h-full backface-hidden p-8 flex flex-col justify-center items-center text-center bg-card/40 backdrop-blur-2xl border-border/50 shadow-xl overflow-hidden rounded-[2.5rem] group-hover:border-primary/40 group-hover:shadow-primary/5 transition-all">
+                    {/* Animated Internal Glow */}
+                    <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-primary/10 blur-3xl rounded-full group-hover:bg-primary/20 transition-colors duration-500" />
+                    
+                    <motion.div 
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="mb-6 p-5 bg-gradient-to-tr from-primary/20 to-primary/5 rounded-2xl text-primary shadow-inner border border-primary/10 relative z-10"
+                    >
+                      <card.icon size={36} strokeWidth={1.5} />
+                    </motion.div>
+                    
+                    <h3 className="text-xl font-black text-foreground tracking-tight relative z-10 group-hover:text-primary transition-colors">{card.front}</h3>
+                    
+                    <div className="mt-8 flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/5 border border-primary/10 text-[9px] font-black uppercase tracking-widest text-primary/70 relative z-10 transition-all group-hover:bg-primary group-hover:text-white">
+                      Deep Dive <ChevronRight size={10} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
+                    </div>
                   </Card>
-                  {/* BACK: Solid Theme Color Gradient */}
-                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-6 flex flex-col justify-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none shadow-xl rounded-3xl">
-                    <div className="flex items-center gap-2 mb-4 text-primary-foreground/80 text-xs font-bold uppercase tracking-wider"><BrainCircuit size={14} /> Neuroscience</div>
-                    <p className="text-sm leading-relaxed font-medium opacity-95">{card.back}</p>
+
+                  {/* BACK: Dynamic Theme Reveal */}
+                  <Card className="absolute w-full h-full backface-hidden rotate-y-180 p-8 flex flex-col justify-center items-center text-center bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+                    {/* Premium Texture Overlay */}
+                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay" />
+                    
+                    <div className="flex items-center gap-2 mb-6 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-[0.2em] relative z-10">
+                      <BrainCircuit size={14} strokeWidth={2.5} /> Biological Insight
+                    </div>
+                    
+                    <p className="text-base leading-relaxed font-bold tracking-tight opacity-95 relative z-10">
+                      {card.back}
+                    </p>
+                    
+                    <div className="absolute bottom-6 flex gap-1 opacity-40">
+                      {[1, 2, 3].map((dot) => (
+                        <div key={dot} className="w-1 h-1 rounded-full bg-current" />
+                      ))}
+                    </div>
                   </Card>
                 </div>
               </motion.div>
