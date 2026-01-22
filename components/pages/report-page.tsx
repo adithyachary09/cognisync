@@ -93,8 +93,6 @@ export function ReportPage() {
   const currentData = useMemo(() => {
     const now = new Date()
     const start = new Date()
-    
-    // Calculate Date Range based on Active Tab
     if (activeTab === 'today') {
         start.setHours(0, 0, 0, 0)
         now.setHours(23, 59, 59, 999)
@@ -136,8 +134,8 @@ export function ReportPage() {
         testCount,
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
-        journalAvg, // Fixes TS Error 1
-        testAvg10,  // Fixes TS Error 2
+        journalAvg, // THIS LINE FIXES THE TS ERROR
+        testAvg10,  // THIS LINE FIXES THE TS ERROR
         filteredEntries, 
         filteredAssessments,
         dateRange: activeTab === 'today' ? "Today" : `Last ${historyPeriod} Days`
@@ -175,7 +173,15 @@ export function ReportPage() {
     const assessmentRows = currentData.filteredAssessments.map(a => {
         const d = new Date(a.created_at);
         const status = getSeverity(a.score, 'assessment')
-        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Assessment", a.test_name, `${a.score}%`, a.category, status.label]
+        return [
+            d.toLocaleDateString(),
+            d.toLocaleTimeString(),
+            "Assessment", 
+            `"${a.test_name}"`, 
+            `${a.score}%`, 
+            a.category, 
+            status.label
+        ]
     })
 
     const journalMetaData = ["", "JOURNAL LOGS"]
@@ -183,7 +189,14 @@ export function ReportPage() {
     const journalRows = currentData.filteredEntries.map(e => {
         const d = new Date(e.date);
         const safeText = e.text ? e.text.replace(/"/g, '""') : ""
-        return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, `"${safeText}"`]
+        return [
+            d.toLocaleDateString(),
+            d.toLocaleTimeString(),
+            "Journal", 
+            e.emotion, 
+            `${e.intensity}/10`, 
+            `"${safeText}"`
+        ]
     })
 
     const footer = ["", "DISCLAIMER: This report is generated automatically by CogniSync. It summarizes self-reported data and is not a clinical diagnosis."]
@@ -207,13 +220,13 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
-  // Prevent Hydration Mismatch by not rendering until client loads
+  // Prevent Hydration Mismatch
   if (!isMounted) return null;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-10 relative font-sans text-foreground overflow-x-hidden">
       
-      {/* 1. DYNAMIC BACKGROUND (Preserved Aesthetic) */}
+      {/* 1. DYNAMIC BACKGROUND */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500 print:hidden">
          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
@@ -469,7 +482,7 @@ export function ReportPage() {
                             {/* Score Analysis Drill Down */}
                             {selectedMetric === 'score' && (
                                 <div className="space-y-4">
-                                    <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800 text-center">
+                                    <div className="p-4 bg-orange-50/50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800 text-center">
                                         <p className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase">Average Score</p>
                                         <p className="text-5xl font-black text-foreground mt-2">{currentData.avgTestScore}%</p>
                                     </div>
@@ -501,16 +514,13 @@ export function ReportPage() {
                                         </div>
                                         {expandedDrillDown === 'journal' && (
                                             <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredEntries.length > 0 ? (
-                                                    <div className="h-[200px] overflow-y-auto pr-2 space-y-2">
-                                                        {currentData.filteredEntries.map((e, i) => (
-                                                            <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                                <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
-                                                                <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
-                                                            </div>
-                                                        ))}
+                                                {currentData.filteredEntries.map((e, i) => (
+                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                        <span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span>
+                                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-foreground">{e.intensity}/10</span>
                                                     </div>
-                                                ) : <p className="text-xs text-center text-muted-foreground italic">No entries.</p>}
+                                                ))}
+                                                {currentData.filteredEntries.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No entries in this period.</p>}
                                             </div>
                                         )}
                                     </div>
@@ -522,16 +532,13 @@ export function ReportPage() {
                                         </div>
                                         {expandedDrillDown === 'tests' && (
                                             <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                                                {currentData.filteredAssessments.length > 0 ? (
-                                                    <div className="h-[200px] overflow-y-auto pr-2 space-y-2">
-                                                        {currentData.filteredAssessments.map((a, i) => (
-                                                            <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
-                                                                <span>{a.test_name}</span>
-                                                                <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
-                                                            </div>
-                                                        ))}
+                                                {currentData.filteredAssessments.map((a, i) => (
+                                                    <div key={i} className="text-sm flex justify-between text-muted-foreground border-b border-border/30 pb-1 last:border-0">
+                                                        <span>{a.test_name}</span>
+                                                        <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span>
                                                     </div>
-                                                ) : <p className="text-xs text-center text-muted-foreground italic">No assessments.</p>}
+                                                ))}
+                                                {currentData.filteredAssessments.length === 0 && <p className="text-xs text-center text-muted-foreground italic">No assessments in this period.</p>}
                                             </div>
                                         )}
                                     </div>
