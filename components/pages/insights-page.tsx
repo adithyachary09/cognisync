@@ -4,11 +4,11 @@ import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useJournal } from "@/components/pages/journal-context";
 import { 
-  BarChart3, Calendar, TrendingUp, Zap, Brain, 
-  Activity, Smile, Frown, Flame, CloudRain, Sun, Info, X, 
+  BarChart3, Calendar, TrendingUp, Trophy, Zap, Brain, Coffee, 
+  ArrowUpRight, Activity, Smile, Frown, Flame, CloudRain, Sun, Info, X, 
   Bot, Sparkles, Heart, AlertCircle, ShieldCheck, PenTool, LayoutGrid, 
-  CheckCircle, BookOpen, Battery, Users,
-  PieChart, Clock, ArrowUp, ArrowDown
+  CheckCircle, Target, BookOpen, Battery, Moon, Users, BedDouble,
+  ClipboardCheck, PieChart, LineChart as LineIcon, Clock
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -16,7 +16,6 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line
 } from "recharts";
 import { createBrowserClient } from '@supabase/ssr';
-import { Button } from "react-day-picker";
 
 /* =========================================================================
    TYPES & CONFIG
@@ -54,28 +53,96 @@ const EMOTION_GRADIENTS: Record<string, string> = {
 };
 
 const PRIMARY_EMOTION_INSIGHTS: any = {
-  Happy: { meaning: "Environment supports core needs.", action: "Capture a happy moment (photo/journal)." },
-  Calm: { meaning: "Mind feels regulated and safe.", action: "Anchor it: 3 slow breaths." },
-  Sad: { meaning: "Signaling loss or unmet needs.", action: "Express yourself in writing (2-min rule)." },
-  Angry: { meaning: "Boundary crossed or fairness violated.", action: "Physically release energy (walk/push-ups)." },
-  Anxious: { meaning: "Brain predicting potential threat.", action: "Grounding: Name 3 things you see." },
-  Stressed: { meaning: "Demands exceeding resources.", action: "Prioritize one task, drop the rest." },
-  Lonely: { meaning: "Need for meaningful connection.", action: "Message one trusted person." },
-  Neutral: { meaning: "State of equilibrium.", action: "Check in with a simple task." },
-  Overwhelmed: { meaning: "System flooded.", action: "Use SOS button or deep rest." }
+  Happy: {
+    meaning: "Your environment is supporting your core needs and goals.",
+    know: "Joy strengthens memory and learning — your brain wants more of this.",
+    body: "Elevated dopamine increases motivation and creativity.",
+    action: "Capture one happy moment today (photo / journal sentence) to reinforce resilience."
+  },
+  Calm: {
+    meaning: "Your mind feels regulated and safe.",
+    know: "Calm improves decision-making and long-term planning.",
+    body: "Parasympathetic system is active — heart rate & cortisol stay low.",
+    action: "Anchor it — 3 slow breaths + name one thing you appreciate."
+  },
+  Sad: {
+    meaning: "Your emotions are signaling loss, unmet needs, or exhaustion.",
+    know: "Sadness is a processing state — it’s how we recover from change.",
+    body: "Low serotonin may lower energy and slow thinking.",
+    action: "Reach out to one person or express yourself in writing (2-minute rule)."
+  },
+  Angry: {
+    meaning: "A boundary has been crossed or fairness was violated.",
+    know: "Anger is a protective signal — misuse creates conflict.",
+    body: "Adrenaline spikes focus and tension in muscles.",
+    action: "Physically release energy — 20 push-ups, fast walk, or paced breathing."
+  },
+  Anxious: {
+    meaning: "Your brain is predicting a threat (even if none exists).",
+    know: "Anxiety comes from uncertainty, not weakness.",
+    body: "Elevated cortisol speeds heart and shallow breathing.",
+    action: "Name 3 objects you can see + 2 sounds you hear + 1 thing you feel — grounding."
+  },
+  Stressed: {
+    meaning: "Your demands are exceeding your current resources.",
+    know: "Short stress boosts performance; long stress drains focus.",
+    body: "Sleep disruption and headaches may appear.",
+    action: "Prioritize one task — drop or delay the rest for today."
+  },
+  Lonely: {
+    meaning: "You need connection — not necessarily more people, but meaningful presence.",
+    know: "Loneliness triggers the same brain region as physical pain.",
+    body: "Social hunger increases cortisol and reduces motivation.",
+    action: "Message someone you trust or join a space with other humans physically."
+  },
+  Confused: {
+    meaning: "Your emotions conflict with each other or clarity is missing.",
+    know: "Confusion precedes learning — it’s a transition state.",
+    body: "Decision fatigue lowers working memory temporarily.",
+    action: "Ask yourself one focusing question: “What matters right now?”"
+  },
+  Neutral: {
+    meaning: "You are in a state of equilibrium.",
+    know: "Neutrality is a valid resting state for the mind.",
+    body: "Homeostasis is maintained.",
+    action: "Check in with a simple task to gauge your energy direction."
+  },
+  Overwhelmed: {
+      meaning: "Your system is flooded and requires immediate regulation.",
+      know: "This is a temporary state of high arousal.",
+      body: "High cortisol and adrenaline levels.",
+      action: "Use the SOS button or a grounding exercise immediately."
+  }
 };
 
 const WELLNESS_BANDS = [
-  { min: 7, max: 10, label: "Thriving", color: "text-emerald-500", bg: "from-emerald-500/20 to-green-500/20", border: "border-emerald-500/30" },
-  { min: 5, max: 6.9, label: "Stable", color: "text-blue-500", bg: "from-blue-500/20 to-cyan-500/20", border: "border-blue-500/30" },
-  { min: 3, max: 4.9, label: "Vulnerable", color: "text-orange-500", bg: "from-orange-500/20 to-amber-500/20", border: "border-orange-500/30" },
-  { min: 0, max: 2.9, label: "Overwhelmed", color: "text-rose-500", bg: "from-rose-500/20 to-red-500/20", border: "border-rose-500/30" }
+  { min: 7, max: 10, label: "Thriving", overview: "You are emotionally energized and functioning at high quality.", why: "Habits + environment are reinforcing positive momentum.", plan: ["Keep social engagement active", "Maintain sleep & hydration routines", "Challenge yourself with one growth task"], color: "text-emerald-500", bg: "from-emerald-500/20 to-green-500/20", border: "border-emerald-500/30" },
+  { min: 5, max: 6.9, label: "Stable", overview: "Your mental state is consistent with mild fluctuations.", why: "Demands and recovery are balanced.", plan: ["Set one joyful activity per day", "Small goal improvements weekly", "Expand supportive relationships"], color: "text-blue-500", bg: "from-blue-500/20 to-cyan-500/20", border: "border-blue-500/30" },
+  { min: 3, max: 4.9, label: "Vulnerable", overview: "Emotional strain is noticeable and energy dips more often.", why: "Stress > recovery", plan: ["Use guided breathing once/day", "Reduce workload by one item", "Join one mild social interaction"], color: "text-orange-500", bg: "from-orange-500/20 to-amber-500/20", border: "border-orange-500/30" },
+  { min: 0, max: 2.9, label: "Overwhelmed", overview: "You may feel stuck, hopeless, easily exhausted.", why: "Brain is guarding energy; survival mode triggered.", plan: ["Sleep priority tonight (non-negotiable)", "Tiny win: 2-minute achievable task", "Talk to someone supportive or professional if persistent"], color: "text-rose-500", bg: "from-rose-500/20 to-red-500/20", border: "border-rose-500/30" }
 ];
 
 const slideVariants: Variants = {
   enter: (direction: number) => ({ x: direction > 0 ? 50 : -50, opacity: 0 }),
   center: { x: 0, opacity: 1 },
   exit: (direction: number) => ({ x: direction < 0 ? 50 : -50, opacity: 0 })
+};
+
+/* =========================================================================
+   CUSTOM TOOLTIP
+   ========================================================================= */
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-card/95 backdrop-blur-md p-4 rounded-xl border border-border shadow-xl">
+        <p className="text-sm font-bold text-foreground mb-1">{label}</p>
+        <p className="text-xs font-medium text-muted-foreground">
+          Score: <span className="text-primary font-bold">{payload[0].value}</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
 };
 
 /* =========================================================================
@@ -100,13 +167,11 @@ export function InsightsPage() {
             const localData = JSON.parse(localStorage.getItem('offline_assessments') || '[]');
             let remoteData: any[] = [];
             const { data: { session } } = await supabase.auth.getSession();
-            
             if (session) {
                 const { data } = await supabase.from('assessments').select('*').order('created_at', { ascending: true });
                 if (data) remoteData = data;
             }
             const combined = [...remoteData, ...localData];
-            // Deduplicate logic could go here if needed
             setAssessments(combined);
         } catch (e) { console.error(e); }
     };
@@ -123,11 +188,9 @@ export function InsightsPage() {
   const filteredEntries = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
     return entries.filter(entry => {
       const entryDate = new Date(entry.date);
       const dateToCheck = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
-
       switch (timePeriod) {
         case 'day': return dateToCheck.getTime() === today.getTime();
         case 'week': 
@@ -149,21 +212,17 @@ export function InsightsPage() {
 
     let finalWellnessScore = journalAvg;
     
-    // REWRITTEN LOGIC: Normalize Assessments (0-100) to 0-10 Scale
+    // Normalize Assessments (0-100) to 0-10 Scale
     if (assessments.length > 0) {
         const recentAssessments = assessments.slice(-5);
         let normalizedSum = 0;
-        
         recentAssessments.forEach(a => {
-            const max = a.maxScore || 25; // Default fallback to safe denominator
-            const normalized = (a.score / max) * 10; // Convert to 0-10 scale
+            const max = a.maxScore || 25; 
+            const normalized = (a.score / max) * 10;
             normalizedSum += normalized;
         });
-
         const assessmentAvg10 = parseFloat((normalizedSum / recentAssessments.length).toFixed(1));
-        
         if (total > 0) {
-             // Weighted: 60% Clinical Data, 40% Daily Journal
              finalWellnessScore = parseFloat(((assessmentAvg10 * 0.6) + (journalAvg * 0.4)).toFixed(1));
         } else {
              finalWellnessScore = assessmentAvg10;
@@ -171,12 +230,12 @@ export function InsightsPage() {
     }
 
     const counts: Record<string, number> = {};
-    
     filteredEntries.forEach(e => { 
         let key = e.emotion.charAt(0).toUpperCase() + e.emotion.slice(1).toLowerCase();
         counts[key] = (counts[key] || 0) + 1; 
     });
     
+    // Sort by count descending
     const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
 
     return { 
@@ -198,21 +257,28 @@ export function InsightsPage() {
     })).filter(item => item.value > 0 || defaults.slice(0,5).includes(item.name));
   }, [stats]);
 
-  // REWRITTEN: Assessment Progression (Correct Normalization)
   const moodProgression = useMemo(() => {
     if (assessments.length > 0) {
         return assessments.slice(-10).map((a, i) => {
             const max = a.maxScore || 25;
-            const normalized = (a.score / max) * 10; // Always 0-10 for chart consistency
+            const normalized = (a.score / max) * 10; 
             return {
                 label: a.testName ? a.testName.split(' ')[0] : `Test ${i+1}`,
                 score: parseFloat(normalized.toFixed(1))
             };
         });
     }
-
     // Fallback to Journal
     const now = new Date();
+    if (timePeriod === 'day') {
+        if (filteredEntries.length === 0) return [{ label: "Now", score: 0 }];
+        return filteredEntries
+            .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .map((e, i) => ({ 
+                label: new Date(e.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), 
+                score: e.intensity 
+            }));
+    } 
     const days = [];
     for (let i = 6; i >= 0; i--) {
         const d = new Date();
@@ -226,23 +292,19 @@ export function InsightsPage() {
         });
     }
     return days;
-  }, [entries, assessments]);
+  }, [entries, assessments, timePeriod, filteredEntries]);
 
-  // REWRITTEN: Emotional Profile (Average Intensity vs Frequency)
   const radarData = useMemo(() => {
       // Calculate Average Intensity per Emotion
       const emotionIntensities: Record<string, {sum: number, count: number}> = {};
-      
       entries.forEach(e => {
           let key = e.emotion.charAt(0).toUpperCase() + e.emotion.slice(1).toLowerCase();
           if (!emotionIntensities[key]) emotionIntensities[key] = { sum: 0, count: 0 };
           emotionIntensities[key].sum += e.intensity;
           emotionIntensities[key].count += 1;
       });
-
       return ["Happy", "Calm", "Anxious", "Sad", "Angry", "Overwhelmed"].map(key => ({
           emotion: key,
-          // Value is Average Intensity (0-10) scaled to 0-100 for Radar Chart
           value: emotionIntensities[key] ? Math.round((emotionIntensities[key].sum / emotionIntensities[key].count) * 10) : 0,
           fullMark: 100
       }));
@@ -252,31 +314,141 @@ export function InsightsPage() {
   const timeOfDayStats = useMemo(() => {
       const times = { Morning: 0, Afternoon: 0, Evening: 0 };
       const counts = { Morning: 0, Afternoon: 0, Evening: 0 };
-      
       entries.forEach(e => {
           const hour = new Date(e.date).getHours();
           let period = "Evening";
           if (hour >= 5 && hour < 12) period = "Morning";
           else if (hour >= 12 && hour < 17) period = "Afternoon";
-          
           // @ts-ignore
           times[period] += e.intensity;
           // @ts-ignore
           counts[period] += 1;
       });
-
       // @ts-ignore
       const getAvg = (p) => counts[p] > 0 ? times[p] / counts[p] : 0;
       const morningAvg = getAvg("Morning");
       const afternoonAvg = getAvg("Afternoon");
       const eveningAvg = getAvg("Evening");
-
       const bestTime = morningAvg >= afternoonAvg && morningAvg >= eveningAvg ? "Morning" : afternoonAvg >= eveningAvg ? "Afternoon" : "Evening";
-      
       return { bestTime, morningAvg, afternoonAvg, eveningAvg };
   }, [entries]);
 
-  // --- PRESENTATION HELPERS ---
+  // --- RESTORED: METRIC EXPLANATION LOGIC ---
+  const getMetricExplanation = () => {
+    const icon = EMOTION_CONFIG[stats.dominantEmotion]?.icon || Brain;
+    const IconComponent = typeof icon === 'function' ? icon : icon.type || icon;
+
+    switch (selectedMetric) {
+      case 'dominant':
+        const content = PRIMARY_EMOTION_INSIGHTS[stats.dominantEmotion] || PRIMARY_EMOTION_INSIGHTS["Neutral"];
+        return {
+          title: "Primary Emotional State",
+          value: stats.dominantEmotion,
+          mainIcon: <div className="text-primary">{React.createElement(IconComponent as any, { size: 48 })}</div>,
+          color: "from-yellow-500/10 to-orange-500/10",
+          border: "border-primary/30",
+          sections: [
+            { label: "Meaning", content: content.meaning },
+            { label: "What You Should Know", content: content.know },
+            { label: "Brain & Body", content: content.body },
+            { label: "Action To Take Today", content: content.action }
+          ]
+        };
+      case 'total':
+        let volumeStatus = "";
+        let volumeAction = "";
+        const count = stats.totalEntries;
+        if (count <= 3) {
+            volumeStatus = "Too low → Build consistency";
+            volumeAction = "Aim for one check-in per day to establish a baseline.";
+        } else if (count >= 10) {
+            volumeStatus = "High Volume → Good Data";
+            volumeAction = "You have plenty of data. Focus on quality over quantity today.";
+        } else {
+            volumeStatus = "Balanced → Positive routine";
+            volumeAction = "You are maintaining a healthy rhythm of self-reflection.";
+        }
+        return {
+          title: "Total Data Points",
+          value: stats.totalEntries.toString(),
+          mainIcon: <BookOpen size={48} className="text-blue-500" />,
+          color: "from-blue-500/10 to-cyan-500/10",
+          border: "border-blue-500/30",
+          sections: [
+            { label: "Data Source", content: `Combined Journal Entries (${filteredEntries.length}) and Clinical Assessments (${assessments.length}).` },
+            { label: "Your Pattern", content: volumeStatus },
+            { label: "Action", content: volumeAction }
+          ]
+        };
+      case 'average':
+        const score = stats.averageMood;
+        const band = WELLNESS_BANDS.find(b => score >= b.min && score <= b.max) || WELLNESS_BANDS[3];
+        return {
+          title: "Wellness Baseline",
+          value: `${score}/10`,
+          subValue: band.label,
+          mainIcon: <Activity size={48} className={band.color} />,
+          color: band.bg,
+          border: band.border,
+          sections: [
+            { label: "State Overview", content: band.overview },
+            { label: "Calculation", content: assessments.length > 0 ? "Weighted average including your recent clinical assessment scores." : "Based on your daily journal intensity." },
+            { label: "Stabilizing Plan", content: band.plan }
+          ]
+        };
+      default: return null;
+    }
+  };
+
+  // --- RESTORED: MULTI-SUGGESTION AI INSIGHTS ---
+  const getSmartInsights = () => {
+    if (stats.totalEntries === 0) return [
+        { title: "Initialize", text: "Log your first entry to unlock analysis.", icon: <PenTool/>, color: "bg-muted/50", urgent: false },
+        { title: "Tip", text: "Honesty > Frequency. Log how you truly feel.", icon: <Sparkles/>, color: "bg-muted/50", urgent: false }
+    ];
+    
+    const dom = stats.dominantEmotion;
+    const sec = stats.secondaryEmotion;
+    const insights = [];
+
+    // 1. Clinical Data
+    if (assessments.length > 0) {
+        const lastTest = assessments[assessments.length - 1];
+        insights.push({ 
+            title: "Latest Assessment", 
+            text: `You scored ${lastTest.score}% on ${lastTest.testName || 'Assessment'}.`, 
+            icon: <ClipboardCheck/>, 
+            color: "bg-primary/5 border-primary/20", 
+            urgent: false 
+        });
+    }
+
+    // 2. Urgent Response
+    const isUrgent = ["Anxious", "Stressed", "Angry", "Overwhelmed"].includes(dom);
+    if (isUrgent) {
+        insights.push({ title: "Fact: High Arousal", text: "Action: Use 'Box Breathing' tool.", icon: <ShieldCheck/>, color: "bg-rose-500/10 border-rose-500/20", urgent: true });
+    } else {
+        insights.push({ title: "Fact: Positive Baseline", text: "Action: Tackle high-focus tasks now.", icon: <Zap/>, color: "bg-emerald-500/10 border-emerald-500/20", urgent: false });
+    }
+
+    // 3. Emotion Specific
+    if (["Sad", "Lonely"].includes(dom)) {
+        insights.push({ title: "Fact: Processing Mode", text: "Action: Remember feelings are transient.", icon: <CloudRain/>, color: "bg-blue-500/10 border-blue-500/20", urgent: false });
+    } else if (dom === "Happy") {
+        insights.push({ title: "Fact: Joy Detected", text: "Action: Anchor this with gratitude.", icon: <Heart/>, color: "bg-pink-500/10 border-pink-500/20", urgent: false });
+    }
+
+    // 4. Secondary Emotion
+    if (sec !== "None" && sec !== "Neutral") {
+        insights.push({ title: `Fact: Also ${sec}`, text: "Action: Acknowledge the mix.", icon: <LayoutGrid/>, color: "bg-purple-500/10 border-purple-500/20", urgent: false });
+    }
+
+    // 5. Energy Management
+    insights.push({ title: "Fact: Energy Level", text: stats.averageMood < 5 ? "Action: Hydrate & Move." : "Action: Maintain routine.", icon: <Battery/>, color: "bg-orange-500/10 border-orange-500/20", urgent: false });
+
+    return insights;
+  };
+
   const DominantIconForCard = (EMOTION_CONFIG[stats.dominantEmotion]?.icon) || Brain;
   const DominantColor = EMOTION_CONFIG[stats.dominantEmotion]?.color || "#94a3b8";
   const bgGradient = EMOTION_GRADIENTS[stats.dominantEmotion] || EMOTION_GRADIENTS["Neutral"];
@@ -289,6 +461,7 @@ export function InsightsPage() {
          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
          <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6 sm:p-6 md:p-10 relative z-10">
@@ -335,20 +508,19 @@ export function InsightsPage() {
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
                                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} tickMargin={10} />
                                 <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8' }} />
-                                {/* FIXED DARK MODE VISIBLE TOOLTIP */}
-                                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(20, 20, 25, 0.9)', color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#aaa', fontWeight: 'bold' }} />
+                                <Tooltip content={<CustomTooltip />} />
                                 <Area type="monotone" dataKey="score" stroke="currentColor" strokeWidth={3} fill="url(#colorMood)" className="text-primary"/>
                             </AreaChart>
                         </ResponsiveContainer>
                     </ChartCard>
 
-                    <ChartCard title="Emotion Frequency" icon={<BarChart3 size={20}/>} isEmpty={false}>
+                    <ChartCard title="Emotion Mix" icon={<BarChart3 size={20}/>} isEmpty={false}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={emotionData} layout="vertical">
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(148, 163, 184, 0.1)" />
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600, fill: '#64748b' }} />
-                                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(20, 20, 25, 0.9)', color: '#fff' }} />
+                                <Tooltip cursor={{ fill: 'transparent' }} content={<CustomTooltip />} />
                                 <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={20}>
                                     {emotionData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                                 </Bar>
@@ -367,7 +539,7 @@ export function InsightsPage() {
                                 <PolarAngleAxis dataKey="emotion" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
                                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                                 <Radar name="Avg Intensity %" dataKey="value" stroke="currentColor" strokeWidth={3} fill="currentColor" fillOpacity={0.4} className="text-primary"/>
-                                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(20, 20, 25, 0.9)', color: '#fff' }} />
+                                <Tooltip content={<CustomTooltip />} />
                                 </RadarChart>
                             </ResponsiveContainer>
                         </div>
@@ -405,31 +577,85 @@ export function InsightsPage() {
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-foreground"><Bot size={24} className="text-primary"/> AI Analysis</h2>
             {stats.totalEntries > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                    {/* ... (Keep existing AI Analysis mapping logic from previous step, logic unchanged) ... */}
-                    {/* Placeholder for brevity, assuming standard mapping loop here */}
-                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10">
-                        <h4 className="font-bold text-foreground mb-2 flex items-center gap-2"><Zap size={16}/> Insight Generator</h4>
-                        <p className="text-sm text-muted-foreground">Continue journaling to unlock deeper AI pattern recognition tailored to your emotional profile.</p>
-                    </div>
+                    {getSmartInsights().map((rec: any, idx) => (
+                        <AnimatePresence mode="wait" key={rec.key || idx}>
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }} 
+                                animate={{ opacity: 1, y: 0 }} 
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ delay: idx * 0.04, duration: 0.4 }} 
+                                whileHover={{ scale: 1.02 }}
+                                className={`p-6 rounded-2xl flex flex-col gap-3 border-l-4 ${rec.color} shadow-sm bg-background/40`}
+                            >
+                                <div className="flex items-center gap-3 relative">
+                                    <div className="p-2 bg-background/80 rounded-full relative">
+                                        {rec.icon}
+                                    </div>
+                                    <h4 className="font-bold text-lg text-foreground">{rec.title}</h4>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-muted-foreground font-medium text-sm leading-relaxed">{rec.text}</p>
+                                </div>
+                            </motion.div>
+                        </AnimatePresence>
+                    ))}
                 </div>
             ) : (
                 <div className="flex flex-col items-center justify-center py-10 text-center opacity-60">
                     <Bot size={48} className="mb-4 text-muted-foreground"/>
                     <p className="text-lg font-medium text-muted-foreground">Not enough data to generate insights.</p>
+                    <p className="text-sm text-muted-foreground/60">Your AI analysis will appear here once you start journaling.</p>
                 </div>
             )}
         </div>
 
-        {/* METRIC MODAL (SAME AS BEFORE) */}
+        {/* METRIC MODAL */}
         <AnimatePresence>
           {selectedMetric && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={() => setSelectedMetric(null)}>
-              {/* ... (Standard Metric Modal Logic from previous step) ... */}
-              <div className="bg-card p-8 rounded-3xl max-w-md w-full border border-border">
-                  <h2 className="text-2xl font-bold text-foreground mb-4">Deep Dive: {selectedMetric}</h2>
-                  <p className="text-muted-foreground">Detailed breakdown of your {selectedMetric} metrics would appear here.</p>
-                  <Button className="mt-6 w-full" onClick={() => setSelectedMetric(null)}>Close</Button>
-              </div>
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }} 
+                animate={{ opacity: 1, scale: 1, y: 0 }} 
+                exit={{ opacity: 0, scale: 0.9, y: 20 }} 
+                transition={{ type: "spring", stiffness: 300, damping: 25 }} 
+                onClick={(e) => e.stopPropagation()} 
+                className="bg-card/95 w-full max-w-lg rounded-2xl sm:rounded-[2.5rem] shadow-2xl border border-border/50 p-8 relative backdrop-blur-xl overflow-y-auto max-h-[85vh]"
+              >
+                <button onClick={() => setSelectedMetric(null)} className="absolute top-6 right-6 p-2 hover:bg-muted rounded-full transition-colors"><X size={24} className="text-muted-foreground"/></button>
+                
+                {(() => {
+                  const info = getMetricExplanation();
+                  if (!info) return null;
+                  return (
+                    <div className="flex flex-col gap-6">
+                      <div className={`p-6 rounded-3xl w-fit bg-gradient-to-br ${info.color} border ${info.border}`}>
+                        {info.mainIcon}
+                      </div>
+                      <div>
+                        <h3 className="text-3xl font-black text-foreground mb-2">{info.title}</h3>
+                        <div className="flex items-baseline gap-3">
+                            <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">{info.value}</div>
+                            {/* @ts-ignore */}
+                            {info.subValue && <span className="text-xl font-bold text-muted-foreground uppercase tracking-widest">{info.subValue}</span>}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {info.sections.map((section, idx) => (
+                            <div key={idx} className={`p-5 rounded-2xl border ${idx % 2 === 0 ? 'bg-muted/30 border-border/30' : 'bg-primary/5 border-primary/10'}`}>
+                                <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${idx % 2 === 0 ? 'text-muted-foreground' : 'text-primary'}`}>{section.label}</p>
+                                {Array.isArray(section.content) ? (
+                                    <ul className="space-y-2">
+                                        {section.content.map((item, i) => <li key={i} className="flex items-start gap-2 text-foreground font-medium text-md"><CheckCircle size={16} className="mt-1 text-primary shrink-0"/> {item}</li>)}
+                                    </ul>
+                                ) : <p className={`font-medium text-lg leading-relaxed text-foreground`}>{section.content}</p>}
+                            </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </motion.div>
             </div>
           )}
         </AnimatePresence>
