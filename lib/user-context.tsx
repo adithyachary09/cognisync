@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { supabase } from "@/lib/supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
-// 1. Export Interfaces for use in other files
+// 1. Export Interfaces
 export interface User {
   id: string;
   name?: string;
@@ -17,6 +17,7 @@ export interface UserContextType {
   isLoading: boolean;
   setUser: (user: User | null) => void;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>; // Added helper to force-refresh data
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -34,17 +35,52 @@ export function UserProvider({ children }: { children: ReactNode }) {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  const mapSupabaseUser = (sbUser: SupabaseUser): User => ({
-    id: sbUser.id,
-    email: sbUser.email || "",
-    name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
-    avatarUrl: sbUser.user_metadata?.avatar_url || "",
-  });
+  // Helper: Merges Auth Data with Database Data (The Avatar Fix)
+  const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
+    // Start with basic info from Auth
+    let finalUser: User = {
+      id: sbUser.id,
+      email: sbUser.email || "",
+      name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
+      avatarUrl: sbUser.user_metadata?.avatar_url || "",
+    };
+
+    try {
+      // FETCH: Get the "real" avatar/name from the 'users' table
+      const { data, error } = await supabase
+        .from('users')
+        .select('name, avatar_url, full_name') // Try standard columns
+        .eq('id', sbUser.id)
+        .single();
+
+      if (data && !error) {
+        // OVERWRITE: If DB has data, it takes priority over Auth
+        finalUser = {
+          ...finalUser,
+          name: data.name || data.full_name || finalUser.name,
+          avatarUrl: data.avatar_url || finalUser.avatarUrl, // <--- This loads your avatar
+        };
+      }
+    } catch (err) {
+      console.error("Background profile fetch failed:", err);
+    }
+
+    return finalUser;
+  };
 
   const handleUserUpdate = (u: User | null) => {
     setUserState(u);
     if (u) localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
     else localStorage.removeItem(USER_STORAGE_KEY);
+  };
+
+  // Exposed function to re-fetch data (useful after updating settings)
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+        const freshUser = await fetchFullProfile(session.user);
+        handleUserUpdate(freshUser);
+    }
   };
 
   useEffect(() => {
@@ -55,8 +91,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
-          if (session?.user) handleUserUpdate(mapSupabaseUser(session.user));
-          else if (!user) handleUserUpdate(null);
+          if (session?.user) {
+            // Wait for the DB fetch to complete before updating state
+            const fullUser = await fetchFullProfile(session.user);
+            handleUserUpdate(fullUser);
+          } else if (!user) {
+            handleUserUpdate(null);
+          }
         }
       } catch (error) {
         console.error("Session check error:", error);
@@ -69,8 +110,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) handleUserUpdate(mapSupabaseUser(session.user));
-      else if (event === 'SIGNED_OUT') {
+      if (session?.user) {
+         // Also fetch fresh data on login/auth change
+         const fullUser = await fetchFullProfile(session.user);
+         handleUserUpdate(fullUser);
+      } else if (event === 'SIGNED_OUT') {
         handleUserUpdate(null);
         window.location.href = '/'; 
       }
@@ -86,7 +130,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ user, isLoading, setUser: handleUserUpdate, logout }}>
+    <UserContext.Provider value={{ user, isLoading, setUser: handleUserUpdate, logout, refreshProfile }}>
       {children}
     </UserContext.Provider>
   );
