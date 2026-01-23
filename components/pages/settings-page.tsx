@@ -38,22 +38,25 @@ import { cn } from "@/lib/utils";
 
 const PATCH_EVENT = "cognisync:settings:patch";
 
+// SORTED ORDER: Teal (Default/Medical) -> Blue -> Emerald -> Slate -> Amber -> Coral
+const THEME_ORDER = ["teal", "blue", "emerald", "slate", "amber", "coral"] as const;
+
 const ACCENT = {
-  blue: "#3A86FF", 
-  teal: "#06B6D4", 
-  coral: "#FF6B6B", 
-  slate: "#64748B", 
-  emerald: "#10B981", 
-  amber: "#F59E0B",
+  teal: "#06B6D4",    // Primary: Medical/Calm
+  blue: "#3B82F6",    // Trust/Professional
+  emerald: "#10B981", // Growth/Wellness
+  slate: "#64748B",   // Minimal/Focus
+  amber: "#F59E0B",   // Energy/Warmth
+  coral: "#F43F5E",   // Alert/Vibrant
 } as const;
 
 const THEME_NAMES = {
-  blue: "Neon Azure",
-  teal: "Cyber Teal",
-  coral: "Coral Blaze",
-  slate: "Shadow Slate",
-  emerald: "Verdant Pulse",
-  amber: "Solar Ember",
+  teal: "Clinical Teal",
+  blue: "Trust Blue",
+  emerald: "Vitality Green",
+  slate: "Focus Slate",
+  amber: "Solar Warmth",
+  coral: "Pulse Red",
 } as const;
 
 const FONT_SIZES = [14, 16, 18] as const;
@@ -583,7 +586,8 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
-                                {Object.entries(ACCENT).map(([key, color]) => {
+                                {THEME_ORDER.map((key) => {
+                                  const color = ACCENT[key];
                                   const isActive = settings.colorTheme === key;
                                   return (
                                     <button 
