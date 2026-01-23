@@ -38,25 +38,25 @@ import { cn } from "@/lib/utils";
 
 const PATCH_EVENT = "cognisync:settings:patch";
 
-// SORTED ORDER: Teal (Default/Medical) -> Blue -> Emerald -> Slate -> Amber -> Coral
-const THEME_ORDER = ["teal", "blue", "emerald", "slate", "amber", "coral"] as const;
+// SORTED ORDER: Aesthetic Spectrum (Cool -> Warm -> Neutral)
+const THEME_ORDER = ["teal", "blue", "emerald", "amber", "coral", "slate"] as const;
 
 const ACCENT = {
-  teal: "#06B6D4",    // Primary: Medical/Calm
-  blue: "#3B82F6",    // Trust/Professional
-  emerald: "#10B981", // Growth/Wellness
-  slate: "#64748B",   // Minimal/Focus
-  amber: "#F59E0B",   // Energy/Warmth
-  coral: "#F43F5E",   // Alert/Vibrant
+  teal: "#06B6D4",    // Cyan-500
+  blue: "#3B82F6",    // Blue-500
+  emerald: "#10B981", // Emerald-500
+  amber: "#F59E0B",   // Amber-500
+  coral: "#F43F5E",   // Rose-500
+  slate: "#64748B",   // Slate-500
 } as const;
 
 const THEME_NAMES = {
-  teal: "Clinical Teal",
-  blue: "Trust Blue",
-  emerald: "Vitality Green",
-  slate: "Focus Slate",
-  amber: "Solar Warmth",
-  coral: "Pulse Red",
+  teal: "Glacier",      // Clean, sterile, aesthetic
+  blue: "Azure",        // Calm, reliable, deep
+  emerald: "Mint",      // Fresh, growth, vibrant
+  amber: "Solar",       // Warmth, energy, light
+  coral: "Pulse",       // Vitality, life, urgent
+  slate: "Carbon",      // Minimal, sleek, tech
 } as const;
 
 const FONT_SIZES = [14, 16, 18] as const;
