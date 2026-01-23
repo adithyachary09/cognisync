@@ -15,8 +15,8 @@ import { useUser } from "./user-context";
 export interface ThemeSettings {
   darkMode: boolean;
   fontSize: 14 | 16 | 18;
-  // Added 'blaze' to match the CSS engine capabilities
-  colorTheme: "blue" | "teal" | "coral" | "slate" | "emerald" | "amber" | "blaze";
+  // Finalized list of 6 themes matching our Visual Identity
+  colorTheme: "blue" | "teal" | "coral" | "slate" | "emerald" | "amber";
   username: string;
   avatar: string | null;
 }
@@ -40,7 +40,7 @@ const STORAGE_PREFIX = "cognisync:settings:";
 const DEFAULT_SETTINGS: ThemeSettings = {
   darkMode: false,
   fontSize: 16,
-  colorTheme: "emerald", // Default matches CSS fallback
+  colorTheme: "blue", // Default is now Royal Blue (Trust)
   username: "User",
   avatar: null,
 };
@@ -48,7 +48,8 @@ const DEFAULT_SETTINGS: ThemeSettings = {
 /* ===================== HELPERS ===================== */
 
 function sanitize(raw: any): ThemeSettings {
-  const validThemes = ["blue", "teal", "coral", "slate", "emerald", "amber", "blaze"];
+  // strictly enforce our 6 allowed keys
+  const validThemes = ["blue", "teal", "coral", "slate", "emerald", "amber"];
   
   return {
     darkMode: typeof raw?.darkMode === "boolean" ? raw.darkMode : false,
@@ -56,7 +57,7 @@ function sanitize(raw: any): ThemeSettings {
     colorTheme:
       raw?.colorTheme && validThemes.includes(raw.colorTheme)
         ? raw.colorTheme
-        : "emerald",
+        : "blue", // Fallback to blue if invalid
     username: typeof raw?.username === "string" ? raw.username : "User",
     avatar: typeof raw?.avatar === "string" ? raw.avatar : null,
   };
@@ -123,9 +124,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         });
       }
       if ("colorTheme" in patch && prev.colorTheme !== next.colorTheme) {
+        // Capitalize first letter for the toast
+        const themeName = next.colorTheme.charAt(0).toUpperCase() + next.colorTheme.slice(1);
         showNotification({
           type: "success",
-          message: `Theme updated to ${next.colorTheme.charAt(0).toUpperCase() + next.colorTheme.slice(1)}.`,
+          message: `Theme updated to ${themeName}.`,
         });
       }
 

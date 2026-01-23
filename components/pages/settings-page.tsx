@@ -41,23 +41,22 @@ const PATCH_EVENT = "cognisync:settings:patch";
 // SORTED ORDER: Cool (Royal/Emerald/Slate) -> Warm/Deep (Violet/Rose/Amber)
 const THEME_ORDER = ["blue", "teal", "emerald", "slate", "coral", "amber"] as const;
 
-const ACCENT = {
-  blue: "#3B82F6",    // Royal Blue (Trust/Default)
-  teal: "#10B981",    // Emerald (Healing/Nature)
-  emerald: "#64748B", // Slate (Minimal/Clean) - Replaces the duplicate Green
-  slate: "#7C3AED",   // Deep Purple (Premium/Depth) - Fixes the "Grey Circle -> Purple UI" mismatch
-  coral: "#F43F5E",   // Rose (Vitality/Heart)
-  amber: "#F59E0B",   // Amber (Energy/Light)
-} as const;
-
-const THEME_NAMES = {
-  blue: "Royal Blue",
-  teal: "Emerald",
-  emerald: "Slate",
-  slate: "Deep Purple",
-  coral: "Rose",
-  amber: "Amber",
-} as const;
+// MAPPING STRATEGY: 
+// We map the 'label' and 'color' to the specific backend ID that renders that look.
+// - 'teal' ID renders Green UI -> Display "Emerald"
+// - 'emerald' ID renders Grey UI -> Display "Slate"
+// - 'slate' ID renders Purple UI -> Display "Deep Purple"
+const THEME_CONFIG = [
+  // Row 1: Cool & Professional
+  { id: "blue", label: "Royal Blue", color: "#3B82F6" },    // Trust/Default
+  { id: "teal", label: "Emerald", color: "#10B981" },       // Growth (Teal ID -> Green UI)
+  { id: "emerald", label: "Slate", color: "#64748B" },      // Minimal (Emerald ID -> Grey UI)
+  
+  // Row 2: Deep & Vibrant
+  { id: "slate", label: "Deep Purple", color: "#7C3AED" },  // Premium (Slate ID -> Purple UI)
+  { id: "coral", label: "Rose", color: "#F43F5E" },         // Vitality
+  { id: "amber", label: "Amber", color: "#F59E0B" },        // Energy
+] as const;
 
 const FONT_SIZES = [14, 16, 18] as const;
 
@@ -312,15 +311,18 @@ export default function SettingsPage() {
     // 2. Update Context
     updateSettings(defaults);
     
-    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme & 'emerald' accent)
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-      detail: { 
-        ...defaults, 
-        theme: 'light', 
-        accentColor: ACCENT['emerald'], 
-        username: settings.username 
-      } 
-    }));
+    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme & 'blue' default accent)
+        // Retrieve the hex color for the default 'blue' theme from our new config
+        const defaultColor = THEME_CONFIG.find(t => t.id === 'blue')?.color || '#3B82F6';
+
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+          detail: { 
+            ...defaults, 
+            theme: 'light', 
+            accentColor: defaultColor, 
+            username: settings.username 
+          } 
+        }));
 
     showNotification({ type: "success", message: "Interface reset to default.", duration: 2000 });
   };
@@ -585,31 +587,69 @@ export default function SettingsPage() {
                                 </div>
                             </div>
 
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
-                                {THEME_ORDER.map((key) => {
-                                  const color = ACCENT[key];
-                                  const isActive = settings.colorTheme === key;
+                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
+                                {THEME_CONFIG.map((theme) => {
+                                  const isActive = settings.colorTheme === theme.id;
                                   return (
-                                    <button 
-                                      key={key} 
-                                      onClick={() => handleInstantChange({ colorTheme: key as any })} 
+                                    <motion.button 
+                                      key={theme.id} 
+                                      onClick={() => handleInstantChange({ colorTheme: theme.id as any })}
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
                                       className="group/color flex flex-col items-center gap-3 relative p-4 rounded-3xl transition-colors hover:bg-muted/30 focus:outline-none"
                                     >
-                                      <div className={`relative w-16 h-16 rounded-full shadow-sm transition-all duration-300 flex items-center justify-center ${isActive ? 'scale-110 ring-4 ring-offset-4 ring-offset-card shadow-xl' : 'hover:scale-105 hover:shadow-md'}`}
-                                           style={{ backgroundColor: color, boxShadow: isActive ? `0 10px 25px -5px ${color}50` : undefined }}>
-                                        {isActive && (
-                                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
-                                            <Check className="w-6 h-6 text-white font-bold" strokeWidth={3} />
+                                      {/* Active Glow Ring */}
+                                      {isActive && (
+                                        <motion.div 
+                                          layoutId="activeThemeGlow"
+                                          className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10"
+                                          initial={{ opacity: 0 }}
+                                          animate={{ opacity: 1 }}
+                                          transition={{ duration: 0.3 }}
+                                        />
+                                      )}
+
+                                      <div className="relative">
+                                          {/* The Color Circle */}
+                                          <motion.div 
+                                            className={`relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center`}
+                                            style={{ backgroundColor: theme.color }}
+                                            animate={{ 
+                                              boxShadow: isActive ? `0 10px 30px -5px ${theme.color}60` : `0 4px 6px -1px ${theme.color}20`,
+                                              scale: isActive ? 1.1 : 1
+                                            }}
+                                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                          >
+                                            {isActive && (
+                                              <motion.div 
+                                                initial={{ scale: 0, rotate: -45 }} 
+                                                animate={{ scale: 1, rotate: 0 }} 
+                                                transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                                                className="bg-white/20 p-2 rounded-full backdrop-blur-sm"
+                                              >
+                                                <Check className="w-6 h-6 text-white font-bold" strokeWidth={3} />
+                                              </motion.div>
+                                            )}
                                           </motion.div>
-                                        )}
+                                          
+                                          {/* Selection Ring Indicator */}
+                                          {isActive && (
+                                            <motion.div
+                                                layoutId="outline"
+                                                className="absolute -inset-2 rounded-full border-2 border-primary/20"
+                                                initial={false}
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                            />
+                                          )}
                                       </div>
-                                      <span className={`text-[10px] font-black tracking-widest uppercase transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground/60 group-hover/color:text-foreground/80'}`}>
-                                        {THEME_NAMES[key]}
+
+                                      <span className={`text-[10px] font-black tracking-widest uppercase transition-colors duration-300 ${isActive ? 'text-foreground translate-y-0' : 'text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1'}`}>
+                                        {theme.label}
                                       </span>
-                                    </button>
+                                    </motion.button>
                                   );
                                 })}
-                            </div>  
+                            </div> 
                         </Card>
                       </motion.div>
                   </div>  
