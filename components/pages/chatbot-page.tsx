@@ -67,9 +67,9 @@ const SUGGESTIONS = [
   const [editTitle, setEditTitle] = useState("");
 
   const theme = THEME_STYLES[(settings.colorTheme as keyof typeof THEME_STYLES) || "blue"];
-  
-  // Local Dark Mode State (Isolated from global theme)
-  const [isDark, setIsDark] = useState(settings.darkMode);
+  // FIX: Isolated local dark mode state, initialized from settings but managed locally
+  const [isLocalDark, setIsLocalDark] = useState(settings.darkMode);
+  const isDark = isLocalDark; 
 
   // --- INITIALIZATION & REFRESH LOGIC ---
   useEffect(() => {
@@ -251,8 +251,8 @@ const SUGGESTIONS = [
     </motion.button>
   );
 
-  return (
-    // FIX: Added 'dark' class conditionally to the wrapper so child 'dark:' classes work locally
+    return (
+    // FIX: Added 'dark' class conditionally so child components can inherit if needed, though we use explicit styles below
     <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? "fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none bg-background" : "relative h-screen md:h-[calc(100vh-2rem)] rounded-none md:rounded-[2.5rem] m-0 md:m-4"} ${isDark ? "dark bg-[#09090b] text-white border-white/10" : "bg-slate-50 text-slate-900 border-slate-200"} border overflow-hidden`}>
       
       {/* BACKGROUND ANIMATION */}
@@ -269,9 +269,10 @@ const SUGGESTIONS = [
       <header className={`relative z-10 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b ${isDark ? "bg-slate-900/40 border-white/5" : "bg-white/40 border-slate-200"} backdrop-blur-xl`}>
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-             <Bot className="text-slate-800 dark:text-white h-6 w-6" />
+             <Bot className={`${isDark ? "text-white" : "text-slate-800"} h-6 w-6`} />
           </div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+          {/* FIX: Explicit text color based on local isDark state to guarantee visibility */}
+          <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
               AI Assistant
           </h1>
         </div>
@@ -370,7 +371,8 @@ const SUGGESTIONS = [
           </DropdownMenu>
 
           {/* FIX: Toggles local isDark state instead of global settings */}
-          <IconButton icon={isDark ? Sun : Moon} onClick={() => setIsDark(!isDark)} label="Theme" />
+          {/* FIX: Toggle modifies local state only */}
+          <IconButton icon={isDark ? Sun : Moon} onClick={() => setIsLocalDark(!isDark)} label="Theme" />
           <IconButton icon={isFullscreen ? Minimize2 : Maximize2} onClick={() => setIsFullscreen(!isFullscreen)} label="Fullscreen" />
         </div>
       </header>
@@ -382,7 +384,8 @@ const SUGGESTIONS = [
             <NeuralCore />
             <motion.h3 
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} 
-                className="text-3xl font-bold mt-8 bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400"
+                // FIX: Explicit gradient classes ensures visibility regardless of global dark mode class
+                className={`text-3xl font-bold mt-8 bg-clip-text text-transparent bg-gradient-to-r ${isDark ? "from-white to-slate-400" : "from-slate-900 to-slate-500"}`}
             >
                 CogniSync AI
             </motion.h3>
