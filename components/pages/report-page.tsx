@@ -90,7 +90,7 @@ export function ReportPage() {
     fetchAssessments()
   }, [supabase])
 
-  // --- CORE DATA PROCESSING (FIXED: 7/30/90 Days Logic) ---
+  // --- CORE DATA PROCESSING ---
   const getFilteredData = (mode: 'today' | 'history', days: number) => {
     const now = new Date()
     const start = new Date()
@@ -517,7 +517,8 @@ export function ReportPage() {
                             </div>
                         </div>
                         <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {selectedMetric === 'entries' && (
+                            {/* Unified view for Entries and Tests Taken history */}
+                            {(selectedMetric === 'entries' || selectedMetric === 'tests') && (
                                 <div className="space-y-4">
                                     <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer transition-all" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
                                         <div className="flex justify-between p-5 items-center hover:bg-muted/20">
@@ -563,6 +564,30 @@ export function ReportPage() {
                                     </div>
                                 </div>
                             )}
+                            {/* Assessment History for Clinical Score Metric */}
+                            {selectedMetric === 'score' && (
+                                <div className="space-y-4">
+                                    <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 p-6 flex flex-col items-center">
+                                        <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-4"><Zap className="text-orange-500" size={28}/></div>
+                                        <p className="text-4xl font-black text-orange-500 mb-1">{currentData.avgTestScore}%</p>
+                                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Average Consistency</p>
+                                    </div>
+                                    <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 p-1">
+                                        <div className="px-4 py-4 border-b border-border/50"><span className="text-xs font-bold text-foreground uppercase tracking-widest">Clinical History Log</span></div>
+                                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-3 space-y-2">
+                                            {currentData.filteredAssessments.map((a, i) => (
+                                                <div key={i} className="text-sm flex justify-between items-center p-3 rounded-xl bg-background/40 border border-transparent">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-foreground">{a.test_name}</span>
+                                                        <span className="text-[10px] opacity-70">{new Date(a.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20 px-3 py-1 rounded-full">{a.score}%</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {selectedMetric === 'mood' && (
                                 <div className="space-y-6">
                                     <p className="text-sm text-muted-foreground leading-relaxed">Your Wellness Score integrates subjective emotional logging (30%) with standardized clinical assessment results (70%).</p>
@@ -577,7 +602,6 @@ export function ReportPage() {
                                     </div>
                                 </div>
                             )}
-                            {selectedMetric === 'score' && <div className="text-center py-10 flex flex-col items-center"><div className="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center mb-4"><Zap className="text-orange-500" size={32}/></div><p className="text-5xl font-black text-orange-500 mb-2">{currentData.avgTestScore}%</p><p className="text-sm text-muted-foreground max-w-[200px]">Average consistency across standardized clinical benchmarks.</p></div>}
                         </div>
                     </motion.div>
                 </div>
