@@ -48,9 +48,9 @@ const getSeverity = (score: number, type: 'journal' | 'assessment') => {
 }
 
 const getWellnessStatus = (score: number) => {
-  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-500", border: "border-emerald-500/20", bg: "bg-emerald-500/10" }
-  if (score >= 4) return { label: "STABLE", text: "text-blue-500", border: "border-blue-500/20", bg: "bg-blue-500/10" }
-  return { label: "ATTENTION", text: "text-rose-500", border: "border-rose-500/20", bg: "bg-rose-500/10" }
+  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-600", border: "border-emerald-600", bg: "bg-emerald-50" }
+  if (score >= 4) return { label: "STABLE", text: "text-blue-600", border: "border-blue-600", bg: "bg-blue-50" }
+  return { label: "ATTENTION", text: "text-rose-600", border: "border-rose-600", bg: "bg-rose-50" }
 }
 
 export function ReportPage() {
@@ -114,7 +114,7 @@ export function ReportPage() {
 
     const generatePaddedData = (sourceData: any[], dateKey: string, valueKey: string) => {
         const paddedData = [];
-        const loopCount = mode === 'today' ? 1 : days; 
+        const loopCount = mode === 'today' ? 1 : days;
         for (let i = loopCount - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(new Date().getDate() - i);
@@ -142,9 +142,11 @@ export function ReportPage() {
     const chartDataAssess = generatePaddedData(filteredAssessments, 'created_at', 'score');
 
     const journalCount = filteredEntries.length
-    const testCount = filteredAssessments.length
+    const testCount = filteredAssessments.length // Strictly clinical tests
+    
     const journalSum = filteredEntries.reduce((acc, curr) => acc + curr.intensity, 0)
     const journalAvg = journalCount > 0 ? (journalSum / journalCount) : 0
+    
     const testSum = filteredAssessments.reduce((acc, curr) => acc + curr.score, 0)
     const testAvg100 = testCount > 0 ? (testSum / testCount) : 0
     const testAvg10 = testAvg100 / 10
@@ -255,202 +257,122 @@ export function ReportPage() {
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
       
-      {/* ================= MEDICAL GRADE PRINT REPORT ================= */}
-<div className="hidden print:block bg-white text-slate-900">
-  <style media="print">
-    {`
-      @page {
-        size: A4;
-        margin: 18mm;
-      }
+      {/* --- 10000/10 MEDICAL-GRADE PRINT TEMPLATE --- */}
+      <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900 font-sans">
+          <style type="text/css" media="print">
+             {`
+               @page { size: A4; margin: 15mm; }
+               body { -webkit-print-color-adjust: exact; background-color: white !important; }
+               .print-hidden { display: none !important; }
+               table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+               tr { page-break-inside: avoid; page-break-after: auto; }
+               thead { display: table-header-group; }
+               .medical-header { border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
+               .stat-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+               .badge { display: inline-block; padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+             `}
+          </style>
 
-      body {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-        background: white !important;
-        font-family: Inter, system-ui, sans-serif;
-      }
+          <div className="p-8">
+              {/* Header */}
+              <div className="medical-header flex justify-between items-end">
+                  <div>
+                      <h1 className="text-4xl font-black tracking-tighter text-slate-900">CogniSync</h1>
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mt-1">Clinical Progress Record</p>
+                  </div>
+                  <div className="text-right">
+                      <p className="text-xl font-bold text-slate-900">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p className="text-xs text-slate-500 mt-1">Ref ID: #{Math.floor(Date.now()/1000)}</p>
+                  </div>
+              </div>
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        table-layout: fixed;
-      }
+              {/* Executive Summary */}
+              <div className="grid grid-cols-3 gap-6 mb-12">
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Wellness Score</p>
+                      <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-black text-slate-900">{currentData.avgMood}</span>
+                          <span className="text-lg text-slate-400 font-bold">/10</span>
+                      </div>
+                      <span className={`badge mt-3 ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>{wellnessStatus.label}</span>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Clinical Avg</p>
+                      <span className="text-5xl font-black text-slate-900">{currentData.avgTestScore}%</span>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">Standardized</p>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Signals</p>
+                      <span className="text-5xl font-black text-slate-900">{currentData.totalEntries}</span>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">Entries Logged</p>
+                  </div>
+              </div>
 
-      thead {
-        display: table-header-group;
-      }
+              {/* Clinical Assessment Table */}
+              {currentData.filteredAssessments.length > 0 && (
+                <div className="mb-12">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-4 bg-purple-600 rounded-full"/> Clinical Assessment History
+                    </h3>
+                    <table className="text-xs w-full">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
+                            <tr>
+                                <th className="py-3 px-2 text-left">Date</th>
+                                <th className="py-3 px-2 text-left">Assessment</th>
+                                <th className="py-3 px-2 text-left">Category</th>
+                                <th className="py-3 px-2 text-right">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {currentData.filteredAssessments.map((a, i) => (
+                                <tr key={i}>
+                                    <td className="py-3 px-2 font-medium text-slate-500">{new Date(a.created_at).toLocaleDateString()}</td>
+                                    <td className="py-3 px-2 font-bold text-slate-900">{a.test_name}</td>
+                                    <td className="py-3 px-2 text-slate-600">{a.category}</td>
+                                    <td className="py-3 px-2 text-right font-black text-slate-900">{a.score}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+              )}
 
-      tr {
-        page-break-inside: avoid;
-      }
+              {/* Journal Table (NO SLICE LIMIT - SHOWS ALL) */}
+              {currentData.filteredEntries.length > 0 && (
+                <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-4 bg-blue-600 rounded-full"/> Emotional Logs
+                    </h3>
+                    <table className="text-xs w-full">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
+                            <tr>
+                                <th className="py-3 px-2 text-left">Timestamp</th>
+                                <th className="py-3 px-2 text-left">Emotion</th>
+                                <th className="py-3 px-2 text-right">Intensity</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-800">
+                            {currentData.filteredEntries.map((e, i) => (
+                                <tr key={i}>
+                                    <td className="py-3 px-2 text-slate-400">{new Date(e.date).toLocaleDateString()} • {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                    <td className="py-3 px-2 font-bold capitalize text-slate-900">{e.emotion}</td>
+                                    <td className="py-3 px-2 text-right font-bold">{e.intensity}/10</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+              )}
 
-      th {
-        font-size: 9px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        text-align: left;
-        padding: 10px 6px;
-        border-bottom: 2px solid #0f172a;
-        color: #334155;
-      }
-
-      td {
-        font-size: 11px;
-        padding: 8px 6px;
-        border-bottom: 1px solid #e2e8f0;
-        word-wrap: break-word;
-      }
-
-      .right {
-        text-align: right;
-        font-weight: 700;
-      }
-
-      .card {
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 16px;
-        background: #f8fafc;
-      }
-
-      .badge {
-        font-size: 9px;
-        font-weight: 800;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        display: inline-block;
-      }
-
-      .section {
-        margin-bottom: 32px;
-      }
-    `}
-  </style>
-
-  <div className="p-8">
-
-    {/* HEADER */}
-    <div className="flex justify-between items-end border-b-4 border-slate-900 pb-5 mb-8">
-      <div>
-        <h1 className="text-4xl font-black tracking-tight">CogniSync</h1>
-        <p className="text-[10px] tracking-[0.3em] uppercase font-bold text-slate-500">
-          Clinical Wellness Report
-        </p>
+              {/* Footer Disclaimer */}
+              <div className="mt-16 pt-6 border-t border-slate-200 text-center">
+                  <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">
+                      CONFIDENTIAL: This report is generated by CogniSync AI for informational tracking only. 
+                      It does not constitute a formal medical diagnosis.
+                  </p>
+              </div>
+          </div>
       </div>
-      <div className="text-right text-xs leading-5">
-        <div>{new Date().toLocaleDateString()}</div>
-        <div>Range: {activeTab === "today" ? "Today" : `Last ${historyPeriod} Days`}</div>
-        <div>Report ID: CS-{Date.now()}</div>
-      </div>
-    </div>
-
-    {/* EXECUTIVE SUMMARY */}
-    <div className="grid grid-cols-3 gap-6 mb-10">
-      <div className="card">
-        <p className="text-[9px] uppercase tracking-widest text-slate-500">Wellness Index</p>
-        <p className="text-4xl font-black">{currentData.avgMood}/10</p>
-        <span className={`badge ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>
-          {wellnessStatus.label}
-        </span>
-      </div>
-
-      <div className="card">
-        <p className="text-[9px] uppercase tracking-widest text-slate-500">Clinical Average</p>
-        <p className="text-4xl font-black">{currentData.avgTestScore}%</p>
-        <p className="text-[9px] text-slate-400 mt-1">
-          Across {currentData.testCount} assessments
-        </p>
-      </div>
-
-      <div className="card">
-        <p className="text-[9px] uppercase tracking-widest text-slate-500">Total Records</p>
-        <p className="text-4xl font-black">{currentData.totalEntries}</p>
-        <p className="text-[9px] text-slate-400 mt-1">
-          {currentData.journalCount} journals · {currentData.testCount} tests
-        </p>
-      </div>
-    </div>
-
-    {/* ================= CLINICAL ASSESSMENTS (AUTO-PAGINATED) ================= */}
-    <div className="section">
-      <h3 className="text-sm font-black uppercase tracking-widest mb-3">
-        Clinical Assessments (Chronological)
-      </h3>
-
-      <table>
-        <thead>
-          <tr>
-            <th style={{ width: "18%" }}>Date</th>
-            <th style={{ width: "44%" }}>Assessment</th>
-            <th style={{ width: "20%" }}>Category</th>
-            <th style={{ width: "18%" }} className="right">Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...currentData.filteredAssessments]
-            .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
-            .map((a,i)=>(
-            <tr key={i}>
-              <td>{new Date(a.created_at).toLocaleDateString()}</td>
-              <td className="font-semibold">{a.test_name}</td>
-              <td>{a.category}</td>
-              <td className="right">{a.score}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p className="mt-2 text-[9px] text-slate-500 text-right">
-        Total Clinical Assessments: {currentData.testCount}
-      </p>
-    </div>
-
-    {/* ================= JOURNAL LOGS (AUTO-PAGINATED) ================= */}
-    <div className="section">
-      <h3 className="text-sm font-black uppercase tracking-widest mb-3">
-        Emotional Journal Logs (Timeline)
-      </h3>
-
-      <table>
-        <thead>
-          <tr>
-            <th style={{ width: "45%" }}>Timestamp</th>
-            <th style={{ width: "35%" }}>Emotion</th>
-            <th style={{ width: "20%" }} className="right">Intensity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...currentData.filteredEntries]
-            .sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime())
-            .map((e,i)=>(
-            <tr key={i}>
-              <td>
-                {new Date(e.date).toLocaleDateString()}{" "}
-                {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-              </td>
-              <td className="capitalize font-semibold">{e.emotion}</td>
-              <td className="right">{e.intensity}/10</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <p className="mt-2 text-[9px] text-slate-500 text-right">
-        Total Journal Entries: {currentData.journalCount}
-      </p>
-    </div>
-
-    {/* DISCLAIMER */}
-    <div className="mt-12 pt-6 border-t text-center text-[9px] uppercase tracking-widest text-slate-400 leading-relaxed">
-      Confidential Medical Report — Generated by CogniSync AI.  
-      This document is for wellness tracking only and does not constitute medical advice,
-      diagnosis, or treatment. Consult a licensed healthcare professional for clinical decisions.
-    </div>
-
-  </div>
-</div>
-
 
       <div className="max-w-7xl mx-auto print:hidden">
         
@@ -661,35 +583,10 @@ export function ReportPage() {
                         </div>
                         <div className="flex-1 min-h-0 pt-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                                <CartesianGrid
-                                    strokeDasharray="4 4"
-                                    vertical={false}
-                                    stroke="hsl(var(--foreground))"
-                                    opacity={0.15}
-                                />
-                                <XAxis
-                                    dataKey="displayDate"
-                                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                                    stroke="hsl(var(--foreground))"
-                                    fontSize={12}
-                                    fontWeight={600}
-                                    tick={{ fill: "hsl(var(--foreground))" }}
-                                    tickMargin={12}
-                                    minTickGap={24}
-                                    axisLine={{ stroke: "hsl(var(--border))" }}
-                                    tickLine={{ stroke: "hsl(var(--border))" }}
-                                />
-                                <YAxis
-                                    domain={[0, 100]}
-                                    stroke="hsl(var(--foreground))"
-                                    fontSize={12}
-                                    fontWeight={600}
-                                    tick={{ fill: "hsl(var(--foreground))" }}
-                                    axisLine={{ stroke: "hsl(var(--border))" }}
-                                    tickLine={{ stroke: "hsl(var(--border))" }}
-                                />
-
+                                <LineChart data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" opacity={0.1} />
+                                    <XAxis dataKey="displayDate" tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})} stroke="#94a3b8" fontSize={12} tickMargin={10} minTickGap={30} interval="preserveStartEnd" axisLine={false} tickLine={false}/>
+                                    <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={12} axisLine={false} tickLine={false}/>
                                     <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)' }} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '4 4' }} />
                                     <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 8, strokeWidth: 0, fill: 'hsl(var(--foreground))' }} connectNulls={true} animationDuration={800}/>
                                 </LineChart>
@@ -707,35 +604,16 @@ export function ReportPage() {
                         </div>
                         <div className="flex-1 min-h-0 pt-4">
                             <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={currentData.chartDataMood} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                            <CartesianGrid
-                                strokeDasharray="4 4"
-                                vertical={false}
-                                stroke="hsl(var(--foreground))"
-                                opacity={0.15}
-                            />
-                            <XAxis
-                                dataKey="displayDate"
-                                tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                                stroke="hsl(var(--foreground))"
-                                fontSize={12}
-                                fontWeight={600}
-                                tick={{ fill: "hsl(var(--foreground))" }}
-                                tickMargin={12}
-                                minTickGap={24}
-                                axisLine={{ stroke: "hsl(var(--border))" }}
-                                tickLine={{ stroke: "hsl(var(--border))" }}
-                            />
-                            <YAxis
-                                domain={[0, 10]}
-                                stroke="hsl(var(--foreground))"
-                                fontSize={12}
-                                fontWeight={600}
-                                tick={{ fill: "hsl(var(--foreground))" }}
-                                axisLine={{ stroke: "hsl(var(--border))" }}
-                                tickLine={{ stroke: "hsl(var(--border))" }}
-                            />
-
+                                <AreaChart data={currentData.chartDataMood} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" opacity={0.1} />
+                                    <XAxis dataKey="displayDate" tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})} stroke="#94a3b8" fontSize={12} tickMargin={10} minTickGap={30} interval="preserveStartEnd" axisLine={false} tickLine={false}/>
+                                    <YAxis domain={[0, 10]} stroke="#94a3b8" fontSize={12} axisLine={false} tickLine={false}/>
                                     <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)' }} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '4 4' }} />
                                     <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorMood)" strokeWidth={3} connectNulls={true} animationDuration={800}/>
                                 </AreaChart>
@@ -806,7 +684,7 @@ export function ReportPage() {
                                 </div>
                             )}
 
-                            {/* FIX: Tests Taken Drill-Down - Shows ONLY Clinical Assessments */}
+                            {/* Tests Taken Drill-Down - Shows ONLY Clinical Assessments */}
                             {selectedMetric === 'tests' && (
                                 <div className="space-y-4">
                                     <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 p-1">
