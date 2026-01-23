@@ -38,22 +38,25 @@ import { cn } from "@/lib/utils";
 
 const PATCH_EVENT = "cognisync:settings:patch";
 
+// SORTED ORDER: Cool (Royal/Emerald/Slate) -> Warm/Deep (Violet/Rose/Amber)
+const THEME_ORDER = ["blue", "teal", "emerald", "slate", "coral", "amber"] as const;
+
 const ACCENT = {
-  blue: "#3A86FF", 
-  teal: "#06B6D4", 
-  coral: "#FF6B6B", 
-  slate: "#64748B", 
-  emerald: "#10B981", 
-  amber: "#F59E0B",
+  blue: "#3B82F6",    // Royal Blue (Trust/Default)
+  teal: "#10B981",    // Emerald (Healing/Nature)
+  emerald: "#64748B", // Slate (Minimal/Clean) - Replaces the duplicate Green
+  slate: "#7C3AED",   // Deep Purple (Premium/Depth) - Fixes the "Grey Circle -> Purple UI" mismatch
+  coral: "#F43F5E",   // Rose (Vitality/Heart)
+  amber: "#F59E0B",   // Amber (Energy/Light)
 } as const;
 
 const THEME_NAMES = {
-  blue: "Neon Azure",
-  teal: "Cyber Teal",
-  coral: "Coral Blaze",
-  slate: "Shadow Slate",
-  emerald: "Verdant Pulse",
-  amber: "Solar Ember",
+  blue: "Royal Blue",
+  teal: "Emerald",
+  emerald: "Slate",
+  slate: "Deep Purple",
+  coral: "Rose",
+  amber: "Amber",
 } as const;
 
 const FONT_SIZES = [14, 16, 18] as const;
@@ -582,56 +585,31 @@ export default function SettingsPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
-                                {Object.entries(ACCENT).map(([key, color]) => {
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
+                                {THEME_ORDER.map((key) => {
+                                  const color = ACCENT[key];
                                   const isActive = settings.colorTheme === key;
                                   return (
                                     <button 
                                       key={key} 
                                       onClick={() => handleInstantChange({ colorTheme: key as any })} 
-                                      className="group/color flex flex-col items-center gap-3 relative p-4 rounded-3xl transition-colors hover:bg-muted/30"
+                                      className="group/color flex flex-col items-center gap-3 relative p-4 rounded-3xl transition-colors hover:bg-muted/30 focus:outline-none"
                                     >
-                                      <div className="relative">
-                                        {/* Glowing Reflection for active state */}
+                                      <div className={`relative w-16 h-16 rounded-full shadow-sm transition-all duration-300 flex items-center justify-center ${isActive ? 'scale-110 ring-4 ring-offset-4 ring-offset-card shadow-xl' : 'hover:scale-105 hover:shadow-md'}`}
+                                           style={{ backgroundColor: color, boxShadow: isActive ? `0 10px 25px -5px ${color}50` : undefined }}>
                                         {isActive && (
-                                            <div className="absolute -inset-4 bg-primary/20 blur-xl rounded-full" />
+                                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                                            <Check className="w-6 h-6 text-white font-bold" strokeWidth={3} />
+                                          </motion.div>
                                         )}
-
-                                        <motion.div 
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.95 }}
-                                            className={cn(
-                                              "w-14 h-14 rounded-full shadow-xl flex items-center justify-center relative overflow-hidden border-4 transition-all duration-300",
-                                              isActive ? "border-background ring-2 ring-primary ring-offset-2 ring-offset-background" : "border-transparent opacity-80 hover:opacity-100"
-                                            )}
-                                            style={{ backgroundColor: color }}
-                                        >
-                                           <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent" />
-                                           <AnimatePresence>
-                                             {isActive && (
-                                               <motion.div 
-                                                 initial={{ scale: 0 }} 
-                                                 animate={{ scale: 1 }} 
-                                                 exit={{ scale: 0 }}
-                                                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                               >
-                                                 <Check className="text-white drop-shadow-md" size={24} strokeWidth={4} />
-                                               </motion.div>
-                                             )}
-                                           </AnimatePresence>
-                                        </motion.div>
                                       </div>
-                                      
-                                      <span className={cn(
-                                        "text-[10px] font-extrabold uppercase tracking-widest transition-all duration-300", 
-                                        isActive ? "text-foreground translate-y-0 opacity-100" : "text-muted-foreground opacity-50 translate-y-1 group-hover/color:opacity-80 group-hover/color:translate-y-0"
-                                      )}>
-                                        {THEME_NAMES[key as keyof typeof THEME_NAMES].split(' ')[1]}
+                                      <span className={`text-[10px] font-black tracking-widest uppercase transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground/60 group-hover/color:text-foreground/80'}`}>
+                                        {THEME_NAMES[key]}
                                       </span>
                                     </button>
                                   );
                                 })}
-                            </div>
+                            </div>  
                         </Card>
                       </motion.div>
                   </div>  
