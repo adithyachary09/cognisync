@@ -18,38 +18,38 @@ import { createBrowserClient } from '@supabase/ssr'
 
 // --- CONFIG ---
 const EMOTION_COLORS: Record<string, string> = {
-    Happy: "#eab308", Excited: "#22c55e", Calm: "#06b6d4",
-    Anxious: "#a855f7", Sad: "#3b82f6", Angry: "#ef4444",
-    Stressed: "#f43f5e", Lonely: "#8b5cf6", Confused: "#6366f1",
-    Neutral: "#94a3b8", Overwhelmed: "#f43f5e"
+  Happy: "#eab308", Excited: "#22c55e", Calm: "#06b6d4",
+  Anxious: "#a855f7", Sad: "#3b82f6", Angry: "#ef4444",
+  Stressed: "#f43f5e", Lonely: "#8b5cf6", Confused: "#6366f1",
+  Neutral: "#94a3b8", Overwhelmed: "#f43f5e"
 };
 
 // --- TYPES ---
 interface Assessment {
-    id: number | string
-    test_name: string
-    score: number
-    category: string
-    created_at: string
+  id: number | string
+  test_name: string
+  score: number
+  category: string
+  created_at: string
 }
 
-// --- HELPERS ---
+// --- HELPERS (LOGIC PRESERVED) ---
 const getSeverity = (score: number, type: 'journal' | 'assessment') => {
-    if (type === 'assessment') {
-        if (score >= 80) return { label: "High", color: "text-green-700 bg-green-50 border-green-200" }
-        if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200" }
-        return { label: "Low/Concern", color: "text-red-700 bg-red-50 border-red-200" }
-    } else {
-        if (score >= 7) return { label: "Positive", color: "text-green-700 bg-green-50 border-green-200" }
-        if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200" }
-        return { label: "Negative", color: "text-red-700 bg-red-50 border-red-200" }
-    }
+  if (type === 'assessment') {
+      if (score >= 80) return { label: "High", color: "text-green-700 bg-green-50 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" }
+      if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800" }
+      return { label: "Low/Concern", color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" }
+  } else {
+      if (score >= 7) return { label: "Positive", color: "text-green-700 bg-green-50 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" }
+      if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" }
+      return { label: "Negative", color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" }
+  }
 }
 
 const getWellnessStatus = (score: number) => {
-    if (score >= 7) return { label: "OPTIMAL", text: "text-green-700", border: "border-green-200", bg: "bg-green-50" }
-    if (score >= 4) return { label: "STABLE", text: "text-blue-700", border: "border-blue-200", bg: "bg-blue-50" }
-    return { label: "ATTENTION", text: "text-red-700", border: "border-red-200", bg: "bg-red-50" }
+  if (score >= 7) return { label: "OPTIMAL", text: "text-green-700", border: "border-green-200", bg: "bg-green-50" }
+  if (score >= 4) return { label: "STABLE", text: "text-blue-700", border: "border-blue-200", bg: "bg-blue-50" }
+  return { label: "ATTENTION", text: "text-red-700", border: "border-red-200", bg: "bg-red-50" }
 }
 
 export function ReportPage() {
@@ -87,7 +87,7 @@ export function ReportPage() {
     fetchAssessments()
   }, [supabase])
 
-  // --- CORE DATA PROCESSING ---
+  // --- CORE DATA PROCESSING (UNCHANGED) ---
   const getFilteredData = (mode: 'today' | 'history', days: number) => {
     const now = new Date()
     const start = new Date()
@@ -99,7 +99,7 @@ export function ReportPage() {
         start.setHours(0, 0, 0, 0)
     }
 
-    // 1. Filter Raw Data (For Tables & Stats)
+    // 1. Filter Raw Data
     const filteredEntries = entries.filter(e => {
         const d = new Date(e.date)
         return d.getTime() >= start.getTime() && d.getTime() <= now.getTime()
@@ -110,24 +110,20 @@ export function ReportPage() {
         return d.getTime() >= start.getTime() && d.getTime() <= now.getTime()
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    // 2. Generate Padded Chart Data (For Graphs)
-    // This creates an array of exactly 'days' length to force the X-Axis to scale correctly
+    // 2. Generate Padded Chart Data
     const generatePaddedData = (sourceData: any[], dateKey: string, valueKey: string) => {
         const paddedData = [];
-        // Iterate backwards from Today to Start Date
         for (let i = days - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(new Date().getDate() - i);
             d.setHours(0,0,0,0);
             
-            // Find data for this specific day
             const dayMatches = sourceData.filter(item => {
                 const itemDate = new Date(item[dateKey]);
                 itemDate.setHours(0,0,0,0);
                 return itemDate.getTime() === d.getTime();
             });
 
-            // If multiple entries exist for one day, average them to avoid duplicate ticks
             let val = null;
             if (dayMatches.length > 0) {
                 const sum = dayMatches.reduce((acc, curr) => acc + (curr[valueKey] || 0), 0);
@@ -135,9 +131,9 @@ export function ReportPage() {
             }
 
             paddedData.push({
-                displayDate: d.toISOString(), // ISO for sorting/components
+                displayDate: d.toISOString(),
                 label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                value: val // Can be null (gap) or number
+                value: val 
             });
         }
         return paddedData;
@@ -169,7 +165,6 @@ export function ReportPage() {
         name, value, fill: EMOTION_COLORS[name] || "#94a3b8"
     }))
 
-    // 7-day trend for PDF (uses the padded logic but specifically for 7 days)
     const pdfTrendData = generatePaddedData(filteredEntries, 'date', 'intensity').slice(-7);
 
     const recommendations = []
@@ -184,7 +179,7 @@ export function ReportPage() {
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
         filteredEntries, filteredAssessments,
-        chartDataMood, chartDataAssess, // EXPORTED FOR GRAPHS
+        chartDataMood, chartDataAssess,
         pdfTrendData,
         journalAvg: parseFloat(journalAvg.toFixed(1)),
         testAvg10: parseFloat(testAvg10.toFixed(1)),
@@ -198,6 +193,7 @@ export function ReportPage() {
 
   const wellnessStatus = getWellnessStatus(currentData.avgMood)
 
+  // --- HANDLERS (UNCHANGED) ---
   const handlePrintPDF = () => {
       setIsExporting(true);
       setTimeout(() => {
@@ -229,37 +225,17 @@ export function ReportPage() {
         ...currentData.filteredAssessments.map(a => {
             const d = new Date(a.created_at);
             const status = getSeverity(a.score, 'assessment')
-            return [
-                d.toLocaleDateString(),
-                d.toLocaleTimeString(),
-                "Assessment", 
-                `"${a.test_name}"`, 
-                `${a.score}%`, 
-                status.label, 
-                `"${a.category}"`
-            ]
+            return [d.toLocaleDateString(), d.toLocaleTimeString(), "Assessment", `"${a.test_name}"`, `${a.score}%`, status.label, `"${a.category}"`]
         }),
         ...currentData.filteredEntries.map(e => {
             const d = new Date(e.date);
             const status = getSeverity(e.intensity, 'journal')
             const safeText = e.text ? e.text.replace(/"/g, '""') : ""
-            return [
-                d.toLocaleDateString(),
-                d.toLocaleTimeString(),
-                "Journal", 
-                e.emotion, 
-                `${e.intensity}/10`, 
-                status.label, 
-                `"${safeText}"`
-            ]
+            return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, status.label, `"${safeText}"`]
         })
     ]
 
-    const csvContent = BOM + 
-        metaData.map(row => row.join(",")).join("\n") + "\n" +
-        headers.join(",") + "\n" +
-        rows.join("\n")
-
+    const csvContent = BOM + metaData.map(row => row.join(",")).join("\n") + "\n" + headers.join(",") + "\n" + rows.join("\n")
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -270,10 +246,12 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
+  // --- UI RENDER ---
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-10 bg-slate-50/50 dark:bg-black/10 print:bg-white print:p-0">
+    // ROOT BACKGROUND: Deep Slate/Black for Dark Mode, Crisp Slate-50 for Light
+    <div className="min-h-screen p-4 sm:p-6 md:p-10 bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-50 transition-colors duration-300 print:bg-white print:p-0">
       
-      {/* --- HIDDEN PRINT TEMPLATE --- */}
+      {/* --- HIDDEN PRINT TEMPLATE (KEEPS WHITE BG) --- */}
       <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900">
           <style type="text/css" media="print">
              {`
@@ -302,7 +280,6 @@ export function ReportPage() {
                   </div>
           </td></tr></thead><tbody><tr><td>
                   <div className="pb-8">
-                    {/* Executive Summary */}
                     <div className="grid grid-cols-3 gap-6 mb-8">
                         <div className={`p-6 border rounded-xl ${wellnessStatus.bg} ${wellnessStatus.border}`}>
                             <div className="flex justify-between items-start mb-2">
@@ -320,8 +297,6 @@ export function ReportPage() {
                             <p className="text-5xl font-black text-slate-900">{currentData.totalEntries}</p>
                         </div>
                     </div>
-
-                    
 
                     <div className="mb-10">
                       <h3 className="text-lg font-bold border-b border-slate-200 pb-2 mb-4 uppercase tracking-wider text-slate-700">Detailed Activity Log</h3>
@@ -392,26 +367,26 @@ export function ReportPage() {
       </div>
 
       <div className="max-w-7xl mx-auto print:hidden">
-        {/* --- PREMIUM HEADER & BUTTONS --- */}
+        {/* --- PREMIUM HEADER --- */}
         <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
-                 <FileText className="text-slate-800 dark:text-white h-8 w-8" />
+                 <FileText className="text-slate-800 dark:text-blue-400 h-8 w-8" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 dark:text-white">Progress Records</h1>
             </div>
             <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Comprehensive analysis of your emotional wellness journey.</p>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm w-full">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-full md:w-auto">
 
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handlePrintPDF} 
                 disabled={isExporting}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-12 font-bold"
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/20 transition-all rounded-xl px-6 h-12 font-bold"
              >
                 <Printer size={18}/> 
                 {isExporting ? "Generating..." : "Export to PDF"}
@@ -419,14 +394,13 @@ export function ReportPage() {
              
              <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
-
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleExportCSV} 
                 className="flex items-center justify-center gap-2 rounded-xl h-12 px-4 font-bold
-                            bg-green-50 text-green-700 hover:bg-green-100
-                            w-full sm:w-auto"
+                           bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700
+                           w-full sm:w-auto"
                 >
                 <FileSpreadsheet size={20}/> 
                 <span>Export Excel</span>
@@ -437,10 +411,10 @@ export function ReportPage() {
 
         {/* --- ENHANCED TABS --- */}
         <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="relative p-1 bg-slate-100 dark:bg-slate-800/50 rounded-2xl inline-flex shadow-inner">
+            <div className="relative p-1 bg-white dark:bg-slate-900 rounded-2xl inline-flex shadow-sm border border-slate-200 dark:border-slate-800">
                 {['today', 'history'].map((tab) => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-8 py-3 rounded-xl text-sm font-bold capitalize transition-all duration-300 z-10 ${activeTab === tab ? 'text-primary-foreground' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}>
-                        {activeTab === tab && <motion.div layoutId="activeTab" className="absolute inset-0 bg-primary rounded-xl shadow-lg" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
+                    <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-8 py-3 rounded-xl text-sm font-bold capitalize transition-all duration-300 z-10 ${activeTab === tab ? 'text-white' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>
+                        {activeTab === tab && <motion.div layoutId="activeTab" className="absolute inset-0 bg-slate-900 dark:bg-blue-600 rounded-xl shadow-lg" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
                         <span className="relative z-10 flex items-center gap-2">{tab === 'today' ? <Clock size={16}/> : <Calendar size={16}/>}{tab === 'today' ? "Today's Report" : "Historical Reports"}</span>
                     </button>
                 ))}
@@ -471,76 +445,140 @@ export function ReportPage() {
         {/* --- METRICS ROW --- */}
         <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard title="Total Data Points" value={currentData.totalEntries} icon={<BookOpen className="text-blue-500" size={24}/>} color="bg-blue-50 dark:bg-blue-900/10 border-blue-200" onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}/>
-                <MetricCard title="Wellness Score" value={`${currentData.avgMood}/10`} icon={<Activity className="text-emerald-500" size={24}/>} color="bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200" onClick={() => setSelectedMetric("mood")}/>
-                <MetricCard title="Tests Taken" value={currentData.testCount} icon={<CheckCircle2 className="text-purple-500" size={24}/>} color="bg-purple-50 dark:bg-purple-900/10 border-purple-200" onClick={() => setSelectedMetric("tests")}/>
-                <MetricCard title="Avg Clinical Score" value={`${currentData.avgTestScore}%`} icon={<Brain className="text-orange-500" size={24}/>} color="bg-orange-50 dark:bg-orange-900/10 border-orange-200" onClick={() => setSelectedMetric("score")}/>
+                <MetricCard 
+                    title="Total Data Points" 
+                    value={currentData.totalEntries} 
+                    icon={<BookOpen className="text-blue-500 dark:text-blue-400" size={24}/>} 
+                    // Improved Dark Mode Colors: Subtler backgrounds, brighter borders
+                    color="bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800/50" 
+                    onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
+                />
+                <MetricCard 
+                    title="Wellness Score" 
+                    value={`${currentData.avgMood}/10`} 
+                    icon={<Activity className="text-emerald-500 dark:text-emerald-400" size={24}/>} 
+                    color="bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/50" 
+                    onClick={() => setSelectedMetric("mood")}
+                />
+                <MetricCard 
+                    title="Tests Taken" 
+                    value={currentData.testCount} 
+                    icon={<CheckCircle2 className="text-purple-500 dark:text-purple-400" size={24}/>} 
+                    color="bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800/50" 
+                    onClick={() => setSelectedMetric("tests")}
+                />
+                <MetricCard 
+                    title="Avg Clinical Score" 
+                    value={`${currentData.avgTestScore}%`} 
+                    icon={<Brain className="text-orange-500 dark:text-orange-400" size={24}/>} 
+                    color="bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800/50" 
+                    onClick={() => setSelectedMetric("score")}
+                />
             </div>
 
             {/* --- CONTENT SWITCHER --- */}
             {activeTab === 'today' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <Card className="p-4 sm:p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm h-[320px] sm:h-[360px] md:h-[400px] flex flex-col">
-                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><BookOpen size={20} className="text-blue-500"/> Activity Log</h3>
-                        <div className="space-y-6 overflow-y-auto flex-1 pr-2">
-                            {currentData.totalEntries === 0 && <div className="h-full flex flex-col items-center justify-center text-slate-400"><Clock size={32} className="mb-2 opacity-50"/><p>No activity recorded yet today.</p></div>}
+                    {/* ACTIVITY LOG CARD */}
+                    <Card className="p-4 sm:p-6 shadow-sm border bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-xl border-slate-200 dark:border-slate-800 h-[320px] sm:h-[360px] md:h-[400px] flex flex-col transition-all">
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                            <BookOpen size={20} className="text-blue-500"/> Activity Log
+                        </h3>
+                        <div className="space-y-6 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                            {currentData.totalEntries === 0 && (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                                    <Clock size={32} className="mb-2 opacity-50"/>
+                                    <p>No activity recorded yet today.</p>
+                                </div>
+                            )}
                             {currentData.filteredEntries.length > 0 && (
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 ml-1 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur py-2">Journal & Check-ins</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/90 dark:bg-[#0f172a]/95 backdrop-blur py-2 z-10">Journal & Check-ins</h4>
                                     <div className="space-y-3">{currentData.filteredEntries.map((e, i) => (
-                                        <div key={i} className="p-3 rounded-xl border bg-white dark:bg-slate-800 flex justify-between items-center">
-                                            <div className="flex items-center gap-3"><div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full text-blue-600"><FileText size={14} /></div><div><p className="font-bold text-sm text-slate-800 dark:text-slate-100">{e.emotion}</p><p className="text-xs text-slate-500 line-clamp-1">{new Date(e.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p></div></div><Badge variant="secondary">{e.intensity}/10</Badge>
+                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full text-blue-600 dark:text-blue-400">
+                                                    <FileText size={14} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{e.emotion}</p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{new Date(e.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                                </div>
+                                            </div>
+                                            <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-300">{e.intensity}/10</Badge>
                                         </div>
                                     ))}</div>
                                 </div>
                             )}
                             {currentData.filteredAssessments.length > 0 && (
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 ml-1 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur py-2">Clinical Assessments</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/90 dark:bg-[#0f172a]/95 backdrop-blur py-2 z-10">Clinical Assessments</h4>
                                     <div className="space-y-3">{currentData.filteredAssessments.map((a, i) => (
-                                        <div key={i} className="p-3 rounded-xl border bg-white dark:bg-slate-800 flex justify-between items-center">
-                                            <div className="flex items-center gap-3"><div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-full text-purple-600"><Stethoscope size={14} /></div><div><p className="font-bold text-sm text-slate-800 dark:text-slate-100">{a.test_name}</p><p className="text-xs text-slate-500">{a.category}</p></div></div><Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200">{a.score}%</Badge>
+                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-full text-purple-600 dark:text-purple-400">
+                                                    <Stethoscope size={14} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{a.test_name}</p>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400">{a.category}</p>
+                                                </div>
+                                            </div>
+                                            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200">{a.score}%</Badge>
                                         </div>
                                     ))}</div>
                                 </div>
                             )}
                         </div>
                     </Card>
-                    <Card className="p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
-                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2"><Activity size={20} className="text-emerald-500"/> Emotional Spectrum</h3>
+
+                    {/* PIE CHART CARD */}
+                    <Card className="p-6 shadow-sm border bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+                        <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                            <Activity size={20} className="text-emerald-500"/> Emotional Spectrum
+                        </h3>
                         <div className="h-[300px] flex items-center justify-center">
                             {currentData.emotionData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={currentData.emotionData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        <Pie data={currentData.emotionData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
                                             {currentData.emotionData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                                         </Pie>
-                                        <Tooltip />
+                                        <Tooltip 
+                                            contentStyle={{ 
+                                                borderRadius: '12px', 
+                                                border: 'none', 
+                                                backgroundColor: '#1e293b', 
+                                                color: '#f8fafc',
+                                                boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' 
+                                            }}
+                                            itemStyle={{ color: '#f8fafc' }}
+                                        />
                                         <Legend verticalAlign="bottom" height={36}/>
                                     </PieChart>
                                 </ResponsiveContainer>
-                            ) : <div className="text-center text-slate-400"><p>Not enough data for visualization.</p></div>}
+                            ) : (
+                                <div className="text-center text-slate-400 dark:text-slate-600">
+                                    <p>Not enough data for visualization.</p>
+                                </div>
+                            )}
                         </div>
                     </Card>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* ASSESSMENT TREND (Line Chart - Fixed Window) */}
-                    <Card className="p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                    {/* ASSESSMENT TREND (Line Chart) */}
+                    <Card className="p-6 shadow-sm border bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-xl border-slate-200 dark:border-slate-800">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
                                 <Brain size={20} className="text-purple-500" /> Assessment History
                             </h3>
-                            <Badge variant="outline" className="text-purple-600 bg-purple-50">Timeline</Badge>
+                            <Badge variant="outline" className="text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">Timeline</Badge>
                         </div>
                         <div className="h-[220px] sm:h-[260px] md:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart 
-                                    key={`assess-${historyPeriod}`} 
-                                    data={currentData.chartDataAssess}
-                                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <LineChart key={`assess-${historyPeriod}`} data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.2} />
                                     <XAxis 
                                         dataKey="displayDate" 
                                         tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
@@ -552,18 +590,18 @@ export function ReportPage() {
                                     />
                                     <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={12} />
                                     <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.1)' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleDateString()}
                                     />
                                     <Line 
                                         type="monotone" 
-                                        dataKey="value" // Use "value" from padded data
+                                        dataKey="value" 
                                         stroke="#8b5cf6" 
                                         strokeWidth={3}
                                         dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }}
                                         activeDot={{ r: 8 }}
                                         name="Score"
-                                        connectNulls={true} // Bridges gaps cleanly
+                                        connectNulls={true}
                                         animationDuration={800}
                                     />
                                 </LineChart>
@@ -571,28 +609,24 @@ export function ReportPage() {
                         </div>
                     </Card>
 
-                    {/* MOOD TREND (Area Chart - Fixed Window) */}
-                    <Card className="p-6 shadow-sm border bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+                    {/* MOOD TREND (Area Chart) */}
+                    <Card className="p-6 shadow-sm border bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-xl border-slate-200 dark:border-slate-800">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold flex items-center gap-2">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
                                 <Activity size={20} className="text-emerald-500" /> Mood Stability
                             </h3>
-                            <Badge variant="outline" className="text-emerald-600 bg-emerald-50">Intensity</Badge>
+                            <Badge variant="outline" className="text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">Intensity</Badge>
                         </div>
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart 
-                                    key={`mood-${historyPeriod}`} 
-                                    data={currentData.chartDataMood}
-                                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                                >
+                                <AreaChart key={`mood-${historyPeriod}`} data={currentData.chartDataMood} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
                                             <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.2} />
                                     <XAxis 
                                         dataKey="displayDate" 
                                         tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
@@ -604,18 +638,18 @@ export function ReportPage() {
                                     />
                                     <YAxis domain={[0, 10]} stroke="#94a3b8" fontSize={12} />
                                     <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.1)' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#1e293b', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleString()}
                                     />
                                     <Area 
                                         type="monotone" 
-                                        dataKey="value" // Use "value" from padded data
+                                        dataKey="value" 
                                         stroke="#10b981" 
                                         fillOpacity={1} 
                                         fill="url(#colorMood)" 
                                         strokeWidth={3}
                                         name="Intensity"
-                                        connectNulls={true} // Bridges gaps cleanly
+                                        connectNulls={true}
                                         animationDuration={800}
                                     />
                                 </AreaChart>
@@ -630,34 +664,50 @@ export function ReportPage() {
         <AnimatePresence>
             {selectedMetric && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()}className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl p-4 sm:p-6 shadow-2xl border max-h-[85vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-2xl font-bold">{selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Explanation" : selectedMetric === 'tests' ? "Clinical History" : "Score Analysis"}</h3>
-                            <button onClick={() => setSelectedMetric(null)}><X className="text-slate-400 hover:text-slate-600"/></button>
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-white dark:bg-[#0f172a] w-full max-w-lg rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Explanation" : selectedMetric === 'tests' ? "Clinical History" : "Score Analysis"}</h3>
+                            <button onClick={() => setSelectedMetric(null)}><X className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"/></button>
                         </div>
                         <div className="space-y-4">
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-3">
-                                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl overflow-hidden border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
-                                        <div className="flex justify-between p-4 items-center"><span className="font-semibold flex items-center gap-2"><BookOpen size={16}/> Journal Entries</span><div className="flex items-center gap-2"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div></div>
-                                        {expandedDrillDown === 'journal' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 pt-3">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-slate-200 px-2 py-0.5 rounded">{e.intensity}/10</span></div>)}</div>}
+                                    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
+                                        <div className="flex justify-between p-4 items-center">
+                                            <span className="font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200"><BookOpen size={16}/> Journal Entries</span>
+                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                        </div>
+                                        {expandedDrillDown === 'journal' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">{e.intensity}/10</span></div>)}</div>}
                                     </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl overflow-hidden border cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
-                                        <div className="flex justify-between p-4 items-center"><span className="font-semibold flex items-center gap-2"><CheckCircle2 size={16}/> Clinical Tests</span><div className="flex items-center gap-2"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div></div>
-                                        {expandedDrillDown === 'tests' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 pt-3">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between"><span>{a.test_name}</span><span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{a.score}%</span></div>)}</div>}
+                                    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
+                                        <div className="flex justify-between p-4 items-center">
+                                            <span className="font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200"><CheckCircle2 size={16}/> Clinical Tests</span>
+                                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                        </div>
+                                        {expandedDrillDown === 'tests' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{a.test_name}</span><span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span></div>)}</div>}
                                     </div>
                                 </div>
                             )}
                             {selectedMetric === 'mood' && (
                                 <div className="space-y-4">
                                     <p className="text-sm text-slate-600 dark:text-slate-300">We calculate your Wellness Score by combining your daily journal logs (30%) and your clinical test results (70%).</p>
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg font-mono text-sm space-y-2"><p>({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p><p className="text-xl font-bold text-emerald-600">= {currentData.avgMood}/10</p></div>
+                                    <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg font-mono text-sm space-y-2 border border-slate-200 dark:border-slate-800">
+                                        <p className="text-slate-700 dark:text-slate-300">({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p>
+                                        <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">= {currentData.avgMood}/10</p>
+                                    </div>
                                 </div>
                             )}
                             {selectedMetric === 'tests' && (
-                                <div className="max-h-[300px] overflow-y-auto space-y-2">{currentData.filteredAssessments.length > 0 ? currentData.filteredAssessments.map((a, i) => <div key={i} className="flex justify-between items-center p-3 border rounded-lg text-sm"><span className="font-medium">{a.test_name}</span><span className="font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded">{a.score}%</span></div>) : <p className="text-center text-slate-400">No tests found.</p>}</div>
+                                <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                    {currentData.filteredAssessments.length > 0 ? currentData.filteredAssessments.map((a, i) => 
+                                        <div key={i} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-lg text-sm bg-slate-50 dark:bg-slate-900">
+                                            <span className="font-medium text-slate-700 dark:text-slate-200">{a.test_name}</span>
+                                            <span className="font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 px-2 py-1 rounded">{a.score}%</span>
+                                        </div>
+                                    ) : <p className="text-center text-slate-400">No tests found.</p>}
+                                </div>
                             )}
-                            {selectedMetric === 'score' && <div className="text-center py-8"><p className="text-4xl font-black text-orange-500 mb-2">{currentData.avgTestScore}%</p><p className="text-sm text-slate-500">Average across all taken assessments</p></div>}
+                            {selectedMetric === 'score' && <div className="text-center py-8"><p className="text-4xl font-black text-orange-500 dark:text-orange-400 mb-2">{currentData.avgTestScore}%</p><p className="text-sm text-slate-500 dark:text-slate-400">Average across all taken assessments</p></div>}
                         </div>
                     </motion.div>
                 </div>
@@ -669,6 +719,24 @@ export function ReportPage() {
 }
 
 function MetricCard({ title, value, icon, color, onClick }: any) {
-    return <motion.div whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }} onClick={onClick} className={`p-4 sm:p-6 rounded-2xl border ${color} cursor-pointer bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all`}>
-<div className="flex justify-between items-start mb-4"><div><p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">{title}</p><h3 className="text-3xl font-black text-slate-800 dark:text-white">{value}</h3></div><div className="p-2 bg-white dark:bg-white/10 rounded-full shadow-sm">{icon}</div></div><div className="flex items-center gap-1 text-xs font-bold text-slate-400">Tap for details <ChevronRight size={12}/></div></motion.div>
+    return (
+        <motion.div 
+            whileHover={{ y: -4, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.3)" }} 
+            onClick={onClick} 
+            className={`p-4 sm:p-6 rounded-2xl border ${color} cursor-pointer bg-white/60 dark:bg-[#0f172a]/40 backdrop-blur-xl transition-all shadow-sm`}
+        >
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">{title}</p>
+                    <h3 className="text-3xl font-black text-slate-800 dark:text-white">{value}</h3>
+                </div>
+                <div className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700">
+                    {icon}
+                </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs font-bold text-slate-400 dark:text-slate-500">
+                Tap for details <ChevronRight size={12}/>
+            </div>
+        </motion.div>
+    )
 }
