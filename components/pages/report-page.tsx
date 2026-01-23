@@ -256,7 +256,7 @@ export function ReportPage() {
       </div>
       
       {/* ================= MEDICAL GRADE PRINT REPORT ================= */}
-<div className="hidden print:block absolute inset-0 bg-white z-[9999] text-slate-900">
+<div className="hidden print:block bg-white text-slate-900">
   <style media="print">
     {`
       @page {
@@ -264,23 +264,11 @@ export function ReportPage() {
         margin: 18mm;
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
       body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
-        font-family: Inter, system-ui, sans-serif;
         background: white !important;
-      }
-
-      .page {
-        page-break-after: always;
-      }
-
-      .no-break {
-        page-break-inside: avoid;
+        font-family: Inter, system-ui, sans-serif;
       }
 
       table {
@@ -291,6 +279,10 @@ export function ReportPage() {
 
       thead {
         display: table-header-group;
+      }
+
+      tr {
+        page-break-inside: avoid;
       }
 
       th {
@@ -307,7 +299,6 @@ export function ReportPage() {
         font-size: 11px;
         padding: 8px 6px;
         border-bottom: 1px solid #e2e8f0;
-        vertical-align: top;
         word-wrap: break-word;
       }
 
@@ -330,11 +321,14 @@ export function ReportPage() {
         border-radius: 9999px;
         display: inline-block;
       }
+
+      .section {
+        margin-bottom: 32px;
+      }
     `}
   </style>
 
-  {/* ================= PAGE 1 ================= */}
-  <div className="page">
+  <div className="p-8">
 
     {/* HEADER */}
     <div className="flex justify-between items-end border-b-4 border-slate-900 pb-5 mb-8">
@@ -351,8 +345,8 @@ export function ReportPage() {
       </div>
     </div>
 
-    {/* EXEC SUMMARY */}
-    <div className="grid grid-cols-3 gap-6 mb-10 no-break">
+    {/* EXECUTIVE SUMMARY */}
+    <div className="grid grid-cols-3 gap-6 mb-10">
       <div className="card">
         <p className="text-[9px] uppercase tracking-widest text-slate-500">Wellness Index</p>
         <p className="text-4xl font-black">{currentData.avgMood}/10</p>
@@ -378,80 +372,80 @@ export function ReportPage() {
       </div>
     </div>
 
-    {/* ASSESSMENTS */}
-    <h3 className="text-sm font-black uppercase tracking-widest mb-3">
-      Clinical Assessments (Chronological)
-    </h3>
+    {/* ================= CLINICAL ASSESSMENTS (AUTO-PAGINATED) ================= */}
+    <div className="section">
+      <h3 className="text-sm font-black uppercase tracking-widest mb-3">
+        Clinical Assessments (Chronological)
+      </h3>
 
-    <table>
-      <thead>
-        <tr>
-          <th style={{ width: "18%" }}>Date</th>
-          <th style={{ width: "44%" }}>Assessment</th>
-          <th style={{ width: "20%" }}>Category</th>
-          <th style={{ width: "18%" }} className="right">Score</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...currentData.filteredAssessments]
-          .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
-          .map((a,i)=>(
-          <tr key={i}>
-            <td>{new Date(a.created_at).toLocaleDateString()}</td>
-            <td className="font-semibold">{a.test_name}</td>
-            <td>{a.category}</td>
-            <td className="right">{a.score}%</td>
+      <table>
+        <thead>
+          <tr>
+            <th style={{ width: "18%" }}>Date</th>
+            <th style={{ width: "44%" }}>Assessment</th>
+            <th style={{ width: "20%" }}>Category</th>
+            <th style={{ width: "18%" }} className="right">Score</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {[...currentData.filteredAssessments]
+            .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
+            .map((a,i)=>(
+            <tr key={i}>
+              <td>{new Date(a.created_at).toLocaleDateString()}</td>
+              <td className="font-semibold">{a.test_name}</td>
+              <td>{a.category}</td>
+              <td className="right">{a.score}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-    <p className="mt-2 text-[9px] text-slate-500 text-right">
-      Total Clinical Assessments: {currentData.testCount}
-    </p>
-  </div>
+      <p className="mt-2 text-[9px] text-slate-500 text-right">
+        Total Clinical Assessments: {currentData.testCount}
+      </p>
+    </div>
 
-  {/* ================= PAGE 2 ================= */}
-  <div className="page">
+    {/* ================= JOURNAL LOGS (AUTO-PAGINATED) ================= */}
+    <div className="section">
+      <h3 className="text-sm font-black uppercase tracking-widest mb-3">
+        Emotional Journal Logs (Timeline)
+      </h3>
 
-    <h3 className="text-sm font-black uppercase tracking-widest mb-3">
-      Emotional Journal Logs (Timeline)
-    </h3>
-
-    <table>
-      <thead>
-        <tr>
-          <th style={{ width: "45%" }}>Timestamp</th>
-          <th style={{ width: "35%" }}>Emotion</th>
-          <th style={{ width: "20%" }} className="right">Intensity</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...currentData.filteredEntries]
-          .sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime())
-          .map((e,i)=>(
-          <tr key={i}>
-            <td>
-              {new Date(e.date).toLocaleDateString()}{" "}
-              {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-            </td>
-            <td className="capitalize font-semibold">{e.emotion}</td>
-            <td className="right">{e.intensity}/10</td>
+      <table>
+        <thead>
+          <tr>
+            <th style={{ width: "45%" }}>Timestamp</th>
+            <th style={{ width: "35%" }}>Emotion</th>
+            <th style={{ width: "20%" }} className="right">Intensity</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {[...currentData.filteredEntries]
+            .sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime())
+            .map((e,i)=>(
+            <tr key={i}>
+              <td>
+                {new Date(e.date).toLocaleDateString()}{" "}
+                {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+              </td>
+              <td className="capitalize font-semibold">{e.emotion}</td>
+              <td className="right">{e.intensity}/10</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-    <p className="mt-2 text-[9px] text-slate-500 text-right">
-      Total Journal Entries: {currentData.journalCount}
-    </p>
+      <p className="mt-2 text-[9px] text-slate-500 text-right">
+        Total Journal Entries: {currentData.journalCount}
+      </p>
+    </div>
 
     {/* DISCLAIMER */}
-    <div className="mt-10 pt-6 border-t text-center text-[9px] uppercase tracking-widest text-slate-400 leading-relaxed">
+    <div className="mt-12 pt-6 border-t text-center text-[9px] uppercase tracking-widest text-slate-400 leading-relaxed">
       Confidential Medical Report — Generated by CogniSync AI.  
-      This document is intended for wellness monitoring only and does not constitute
-      medical advice, diagnosis, or treatment. Always consult a licensed healthcare
-      professional for clinical decisions.
+      This document is for wellness tracking only and does not constitute medical advice,
+      diagnosis, or treatment. Consult a licensed healthcare professional for clinical decisions.
     </div>
 
   </div>
@@ -667,10 +661,35 @@ export function ReportPage() {
                         </div>
                         <div className="flex-1 min-h-0 pt-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.2} />
-                                    <XAxis dataKey="displayDate" tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})} stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} minTickGap={30} interval="preserveStartEnd" axisLine={false} tickLine={false}/>
-                                    <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                                <LineChart data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                <CartesianGrid
+                                    strokeDasharray="4 4"
+                                    vertical={false}
+                                    stroke="hsl(var(--foreground))"
+                                    opacity={0.15}
+                                />
+                                <XAxis
+                                    dataKey="displayDate"
+                                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                    stroke="hsl(var(--foreground))"
+                                    fontSize={12}
+                                    fontWeight={600}
+                                    tick={{ fill: "hsl(var(--foreground))" }}
+                                    tickMargin={12}
+                                    minTickGap={24}
+                                    axisLine={{ stroke: "hsl(var(--border))" }}
+                                    tickLine={{ stroke: "hsl(var(--border))" }}
+                                />
+                                <YAxis
+                                    domain={[0, 100]}
+                                    stroke="hsl(var(--foreground))"
+                                    fontSize={12}
+                                    fontWeight={600}
+                                    tick={{ fill: "hsl(var(--foreground))" }}
+                                    axisLine={{ stroke: "hsl(var(--border))" }}
+                                    tickLine={{ stroke: "hsl(var(--border))" }}
+                                />
+
                                     <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)' }} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '4 4' }} />
                                     <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 8, strokeWidth: 0, fill: 'hsl(var(--foreground))' }} connectNulls={true} animationDuration={800}/>
                                 </LineChart>
@@ -688,16 +707,35 @@ export function ReportPage() {
                         </div>
                         <div className="flex-1 min-h-0 pt-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={currentData.chartDataMood} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted-foreground))" opacity={0.2} />
-                                    <XAxis dataKey="displayDate" tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})} stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} minTickGap={30} interval="preserveStartEnd" axisLine={false} tickLine={false}/>
-                                    <YAxis domain={[0, 10]} stroke="hsl(var(--muted-foreground))" fontSize={12} axisLine={false} tickLine={false}/>
+                            <AreaChart data={currentData.chartDataMood} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                            <CartesianGrid
+                                strokeDasharray="4 4"
+                                vertical={false}
+                                stroke="hsl(var(--foreground))"
+                                opacity={0.15}
+                            />
+                            <XAxis
+                                dataKey="displayDate"
+                                tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                stroke="hsl(var(--foreground))"
+                                fontSize={12}
+                                fontWeight={600}
+                                tick={{ fill: "hsl(var(--foreground))" }}
+                                tickMargin={12}
+                                minTickGap={24}
+                                axisLine={{ stroke: "hsl(var(--border))" }}
+                                tickLine={{ stroke: "hsl(var(--border))" }}
+                            />
+                            <YAxis
+                                domain={[0, 10]}
+                                stroke="hsl(var(--foreground))"
+                                fontSize={12}
+                                fontWeight={600}
+                                tick={{ fill: "hsl(var(--foreground))" }}
+                                axisLine={{ stroke: "hsl(var(--border))" }}
+                                tickLine={{ stroke: "hsl(var(--border))" }}
+                            />
+
                                     <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)' }} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 2, strokeDasharray: '4 4' }} />
                                     <Area type="monotone" dataKey="value" stroke="#10b981" fillOpacity={1} fill="url(#colorMood)" strokeWidth={3} connectNulls={true} animationDuration={800}/>
                                 </AreaChart>
