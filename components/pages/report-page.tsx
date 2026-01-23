@@ -261,9 +261,9 @@ export function ReportPage() {
                     <LayoutGrid className="text-primary h-8 w-8" />
                 </div>
                 <div>
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Analytics</h1>
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Progress Records</h1>
                     <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1">
-                        <Activity size={12} className="text-primary animate-pulse" /> Clinical Overview
+                        <Activity size={12} className="text-primary animate-pulse" /> Comprehensive analysis of your Emotional wellness journey.
                     </div>
                 </div>
             </div>
@@ -519,19 +519,47 @@ export function ReportPage() {
                         <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-4">
-                                    <div className="bg-muted/50 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
-                                        <div className="flex justify-between p-5 items-center">
-                                            <span className="font-semibold flex items-center gap-2 text-foreground"><BookOpen size={16}/> Journal Entries</span>
-                                            <div className="flex items-center gap-2 text-muted-foreground"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                    <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer transition-all" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
+                                        <div className="flex justify-between p-5 items-center hover:bg-muted/20">
+                                            <span className="font-semibold flex items-center gap-3 text-foreground"><BookOpen size={18} className="text-primary"/> Journal Entries</span>
+                                            <div className="flex items-center gap-3 text-muted-foreground"><span className="font-bold text-foreground text-lg">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
                                         </div>
-                                        {expandedDrillDown === 'journal' && <div className="px-5 pb-5 space-y-2 border-t border-border/50 pt-4 bg-card/30">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between text-muted-foreground p-2 rounded-xl hover:bg-muted/30 transition-colors"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-muted px-2 py-0.5 rounded-full font-bold">{e.intensity}/10</span></div>)}</div>}
+                                        {expandedDrillDown === 'journal' && (
+                                            <div className="px-4 pb-4 space-y-2 border-t border-border/50 pt-4 bg-card/20 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                {currentData.filteredEntries.map((e, i) => (
+                                                    <div key={i} className="text-sm flex justify-between items-center text-muted-foreground p-3 rounded-xl bg-background/40 hover:bg-muted/30 transition-colors border border-transparent hover:border-border/30">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-foreground capitalize">{e.emotion}</span>
+                                                            <span className="text-[10px] opacity-70">{new Date(e.date).toLocaleDateString()} at {new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 rounded-full px-3">{e.intensity}/10</Badge>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="bg-muted/50 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
-                                        <div className="flex justify-between p-5 items-center">
-                                            <span className="font-semibold flex items-center gap-2 text-foreground"><CheckCircle2 size={16}/> Clinical Tests</span>
-                                            <div className="flex items-center gap-2 text-muted-foreground"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
+                                    <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer transition-all" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
+                                        <div className="flex justify-between p-5 items-center hover:bg-muted/20">
+                                            <span className="font-semibold flex items-center gap-3 text-foreground"><CheckCircle2 size={18} className="text-purple-500"/> Clinical Tests</span>
+                                            <div className="flex items-center gap-3 text-muted-foreground"><span className="font-bold text-foreground text-lg">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
                                         </div>
-                                        {expandedDrillDown === 'tests' && <div className="px-5 pb-5 space-y-2 border-t border-border/50 pt-4 bg-card/30">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between text-muted-foreground p-2 rounded-xl hover:bg-muted/30 transition-colors"><span>{a.test_name}</span><span className="text-xs bg-purple-500/10 text-purple-500 px-3 py-0.5 rounded-full font-bold">{a.score}%</span></div>)}</div>}
+                                        {expandedDrillDown === 'tests' && (
+                                            <div className="px-4 pb-4 space-y-2 border-t border-border/50 pt-4 bg-card/20 max-h-[300px] overflow-y-auto custom-scrollbar">
+                                                {currentData.filteredAssessments.length > 0 ? (
+                                                    currentData.filteredAssessments.map((a, i) => (
+                                                        <div key={i} className="text-sm flex justify-between items-center text-muted-foreground p-3 rounded-xl bg-background/40 hover:bg-muted/30 transition-colors border border-transparent hover:border-border/30">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-foreground">{a.test_name}</span>
+                                                                <span className="text-[10px] opacity-70">{new Date(a.created_at).toLocaleDateString()}</span>
+                                                            </div>
+                                                            <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20 px-3 py-1 rounded-full">{a.score}%</Badge>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="text-center py-4 text-xs text-muted-foreground italic">No assessments found in this range.</div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
