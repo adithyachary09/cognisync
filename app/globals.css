@@ -7,93 +7,99 @@
 
 @layer base {
   :root {
-    /* DEFAULT (Fallback - usually matches "Teal" or "Emerald") */
-    --background: #F0FDF4; /* Mint/White Mix */
-    --foreground: #022c22;
+    /* DEFAULT (Royal Blue - Trust/Medical Standard) */
+    --background: #EFF6FF; /* Blue-50 */
+    --foreground: #1E3A8A; /* Blue-900 */
     --card: #ffffff;
-    --card-foreground: #022c22;
-    --primary: #10B981;    /* Emerald */
-    --border: #D1FAE5;
+    --card-foreground: #1E3A8A;
+    --primary: #3B82F6;    /* Blue-500 */
+    --border: #DBEAFE;     /* Blue-200 */
     --input: #E0E7FF;
     --radius: 0.625rem;
   }
 
   /* ---------------------------------------------------
-     THEME 1: AMBER MIRAGE (data-theme="amber")
+     THEME: ROYAL BLUE (key: "blue")
+     Usage: Default, Trust, Professional
      --------------------------------------------------- */
-  [data-theme="amber"] {
-    --background: #FFFBEB; /* Cream/Amber-50 */
-    --foreground: #451a03; /* Amber-950 */
+  [data-theme="blue"] {
+    --background: #EFF6FF; /* Blue-50 */
+    --foreground: #1E3A8A; /* Blue-900 */
     --card: #ffffff;
-    --card-foreground: #451a03;
-    --primary: #d97706;    /* Amber-600 */
-    --border: #fcd34d;     /* Amber-300 */
-    --input: #fff8dc;
+    --card-foreground: #1E3A8A;
+    --primary: #3B82F6;    /* Blue-500 */
+    --border: #DBEAFE;     /* Blue-200 */
+    --input: #E0E7FF;
   }
 
   /* ---------------------------------------------------
-     THEME 2: CRIMSON SILK (data-theme="coral")
+     THEME: EMERALD (key: "teal")
+     Usage: Healing, Nature, Growth (Visual: Green)
+     --------------------------------------------------- */
+  [data-theme="teal"] {
+    --background: #ECFDF5; /* Emerald-50 */
+    --foreground: #064E3B; /* Emerald-900 */
+    --card: #ffffff;
+    --card-foreground: #064E3B;
+    --primary: #10B981;    /* Emerald-500 */
+    --border: #A7F3D0;     /* Emerald-200 */
+    --input: #D1FAE5;
+  }
+
+  /* ---------------------------------------------------
+     THEME: SLATE (key: "emerald")
+     Usage: Minimal, Clean, Focus (Visual: Grey)
+     --------------------------------------------------- */
+  [data-theme="emerald"] {
+    --background: #F8FAFC; /* Slate-50 */
+    --foreground: #0F172A; /* Slate-900 */
+    --card: #ffffff;
+    --card-foreground: #0F172A;
+    --primary: #64748B;    /* Slate-500 */
+    --border: #E2E8F0;     /* Slate-200 */
+    --input: #F1F5F9;
+  }
+
+  /* ---------------------------------------------------
+     THEME: DEEP PURPLE (key: "slate")
+     Usage: Premium, Depth, Mystery (Visual: Violet)
+     --------------------------------------------------- */
+  [data-theme="slate"] {
+    --background: #F5F3FF; /* Violet-50 */
+    --foreground: #4C1D95; /* Violet-900 */
+    --card: #ffffff;
+    --card-foreground: #4C1D95;
+    --primary: #7C3AED;    /* Violet-600 */
+    --border: #DDD6FE;     /* Violet-200 */
+    --input: #EDE9FE;
+  }
+
+  /* ---------------------------------------------------
+     THEME: ROSE (key: "coral")
+     Usage: Vitality, Passion, Alert (Visual: Red/Pink)
      --------------------------------------------------- */
   [data-theme="coral"] {
     --background: #FFF1F2; /* Rose-50 */
     --foreground: #881337; /* Rose-900 */
     --card: #ffffff;
     --card-foreground: #881337;
-    --primary: #e11d48;    /* Rose-600 */
-    --border: #fda4af;     /* Rose-300 */
-    --input: #ffe4e6;
+    --primary: #F43F5E;    /* Rose-500 */
+    --border: #FECDD3;     /* Rose-200 */
+    --input: #FFE4E6;
   }
 
   /* ---------------------------------------------------
-     THEME 3: ROYAL AMETHYST (data-theme="slate")
+     THEME: AMBER (key: "amber")
+     Usage: Energy, Warmth, Light (Visual: Gold)
      --------------------------------------------------- */
-  [data-theme="slate"] {
-    --background: #F5F3FF; /* Violet-50 */
-    --foreground: #4c1d95; /* Violet-900 */
+  [data-theme="amber"] {
+    --background: #FFFBEB; /* Amber-50 */
+    --foreground: #451A03; /* Amber-950 */
     --card: #ffffff;
-    --card-foreground: #4c1d95;
-    --primary: #7c3aed;    /* Violet-600 */
-    --border: #c4b5fd;     /* Violet-300 */
-    --input: #ede9fe;
-  }
-
-  /* ---------------------------------------------------
-     THEME 4: ROSE GOLD (data-theme="blaze")
-     --------------------------------------------------- */
-  [data-theme="blaze"] {
-    --background: #FDF2F8; /* Pink-50 */
-    --foreground: #831843; /* Pink-900 */
-    --card: #ffffff;
-    --card-foreground: #831843;
-    --primary: #db2777;    /* Pink-600 */
-    --border: #f9a8d4;     /* Pink-300 */
-    --input: #fce7f3;
-  }
-
-  /* ---------------------------------------------------
-     THEME 5: SAPPHIRE BLUE (data-theme="blue")
-     --------------------------------------------------- */
-  [data-theme="blue"] {
-    --background: #EFF6FF; /* Blue-50 */
-    --foreground: #1e3a8a; /* Blue-900 */
-    --card: #ffffff;
-    --card-foreground: #1e3a8a;
-    --primary: #2563eb;    /* Blue-600 */
-    --border: #93c5fd;     /* Blue-300 */
-    --input: #dbeafe;
-  }
-
-  /* ---------------------------------------------------
-     THEME 6: EMERALD MINT (data-theme="teal")
-     --------------------------------------------------- */
-  [data-theme="teal"] {
-    --background: #ECFDF5; /* Emerald-50 */
-    --foreground: #064e3b; /* Emerald-900 */
-    --card: #ffffff;
-    --card-foreground: #064e3b;
-    --primary: #059669;    /* Emerald-600 */
-    --border: #6ee7b7;     /* Emerald-300 */
-    --input: #d1fae5;
+    --card-foreground: #451A03;
+    --primary: #F59E0B;    /* Amber-500 */
+    --border: #FDE68A;     /* Amber-200 */
+    --input: #FFF8DC;
   }
 
   /* ---------------------------------------------------
@@ -101,11 +107,11 @@
      --------------------------------------------------- */
   .dark {
     --background: #020617; /* Slate-950 */
-    --foreground: #f8fafc; /* Slate-50 */
-    --card: #0f172a;       /* Slate-900 */
-    --card-foreground: #f8fafc;
-    --border: #1e293b;     /* Slate-800 */
-    --input: #1e293b;
+    --foreground: #F8FAFC; /* Slate-50 */
+    --card: #0F172A;       /* Slate-900 */
+    --card-foreground: #F8FAFC;
+    --border: #1E293B;     /* Slate-800 */
+    --input: #1E293B;
   }
 
   /* GLOBAL TRANSITIONS */

@@ -610,24 +610,38 @@ export default function SettingsPage() {
                                       )}
 
                                       <div className="relative">
-                                          {/* The Color Circle */}
+                                          {/* The Color Circle (Dynamic Orb) */}
                                           <motion.div 
-                                            className={`relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center`}
+                                            className="relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center overflow-hidden"
                                             style={{ backgroundColor: theme.color }}
                                             animate={{ 
-                                              boxShadow: isActive ? `0 10px 30px -5px ${theme.color}60` : `0 4px 6px -1px ${theme.color}20`,
-                                              scale: isActive ? 1.1 : 1
+                                              boxShadow: isActive ? `0 0 35px -5px ${theme.color}90` : `0 8px 20px -5px ${theme.color}40`,
+                                              scale: isActive ? 1.15 : 1
                                             }}
                                             transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                           >
+                                            {/* 1. 3D Depth Overlay (Static) */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/20 pointer-events-none" />
+
+                                            {/* 2. Inner Pulsing Glow (Dynamic) */}
+                                            <motion.div 
+                                              className="absolute inset-0"
+                                              style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, transparent 70%)" }}
+                                              animate={{ opacity: [0.1, 0.5, 0.1], scale: [0.8, 1.2, 0.8] }}
+                                              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                            />
+
+                                            {/* 3. Specular Highlight (Glass Effect) */}
+                                            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.5)_0%,transparent_50%)] pointer-events-none" />
+
                                             {isActive && (
                                               <motion.div 
                                                 initial={{ scale: 0, rotate: -45 }} 
                                                 animate={{ scale: 1, rotate: 0 }} 
                                                 transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                                className="bg-white/20 p-2 rounded-full backdrop-blur-sm"
+                                                className="relative z-10 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/30 shadow-inner"
                                               >
-                                                <Check className="w-6 h-6 text-white font-bold" strokeWidth={3} />
+                                                <Check className="w-5 h-5 text-white font-bold drop-shadow-md" strokeWidth={4} />
                                               </motion.div>
                                             )}
                                           </motion.div>
