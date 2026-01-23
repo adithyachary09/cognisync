@@ -255,122 +255,133 @@ export function ReportPage() {
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
       
-      {/* --- 10000/10 MEDICAL-GRADE PRINT TEMPLATE --- */}
-      <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900 font-sans">
-          <style type="text/css" media="print">
-             {`
-               @page { size: A4; margin: 15mm; }
-               body { -webkit-print-color-adjust: exact; background-color: white !important; }
-               .print-hidden { display: none !important; }
-               table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
-               tr { page-break-inside: avoid; page-break-after: auto; }
-               thead { display: table-header-group; }
-               .medical-header { border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
-               .stat-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
-               .badge { display: inline-block; padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; text-transform: uppercase; }
-             `}
-          </style>
+      {/* --- DYNAMIC MEDICAL-GRADE PRINT TEMPLATE (FIXED) --- */}
+<div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900 font-sans">
+  <style type="text/css" media="print">
+    {`
+      @page { size: A4; margin: 15mm; }
+      body { -webkit-print-color-adjust: exact; background: white !important; }
+      table { width: 100%; border-collapse: collapse; }
+      thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .page-break { page-break-before: always; }
+      .stat-box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #f8fafc; }
+      .badge { font-size: 9px; font-weight: bold; padding: 4px 8px; border-radius: 9999px; }
+    `}
+  </style>
 
-          <div className="p-8">
-              {/* Header */}
-              <div className="medical-header flex justify-between items-end">
-                  <div>
-                      <h1 className="text-4xl font-black tracking-tighter text-slate-900">CogniSync</h1>
-                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mt-1">Clinical Progress Record</p>
-                  </div>
-                  <div className="text-right">
-                      <p className="text-xl font-bold text-slate-900">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                      <p className="text-xs text-slate-500 mt-1">Ref ID: #{Math.floor(Date.now()/1000)}</p>
-                  </div>
-              </div>
+  <div className="p-8 space-y-12">
 
-              {/* Executive Summary */}
-              <div className="grid grid-cols-3 gap-6 mb-12">
-                  <div className="stat-box">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Wellness Score</p>
-                      <div className="flex items-baseline gap-2">
-                          <span className="text-5xl font-black text-slate-900">{currentData.avgMood}</span>
-                          <span className="text-lg text-slate-400 font-bold">/10</span>
-                      </div>
-                      <span className={`badge mt-3 ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>{wellnessStatus.label}</span>
-                  </div>
-                  <div className="stat-box">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Clinical Avg</p>
-                      <span className="text-5xl font-black text-slate-900">{currentData.avgTestScore}%</span>
-                      <p className="text-[10px] font-bold text-slate-400 mt-2">Standardized</p>
-                  </div>
-                  <div className="stat-box">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Signals</p>
-                      <span className="text-5xl font-black text-slate-900">{currentData.totalEntries}</span>
-                      <p className="text-[10px] font-bold text-slate-400 mt-2">Entries Logged</p>
-                  </div>
-              </div>
-
-              {/* Clinical Assessment Table */}
-              {currentData.filteredAssessments.length > 0 && (
-                <div className="mb-12">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
-                        <div className="w-1.5 h-4 bg-purple-600 rounded-full"/> Clinical Assessment History
-                    </h3>
-                    <table className="text-xs w-full">
-                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
-                            <tr>
-                                <th className="py-3 px-2 text-left">Date</th>
-                                <th className="py-3 px-2 text-left">Assessment</th>
-                                <th className="py-3 px-2 text-left">Category</th>
-                                <th className="py-3 px-2 text-right">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {currentData.filteredAssessments.map((a, i) => (
-                                <tr key={i}>
-                                    <td className="py-3 px-2 font-medium text-slate-500">{new Date(a.created_at).toLocaleDateString()}</td>
-                                    <td className="py-3 px-2 font-bold text-slate-900">{a.test_name}</td>
-                                    <td className="py-3 px-2 text-slate-600">{a.category}</td>
-                                    <td className="py-3 px-2 text-right font-black text-slate-900">{a.score}%</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-              )}
-
-              {/* Journal Table - FIXED: REMOVED SLICE LIMIT TO SHOW ALL ENTRIES */}
-              {currentData.filteredEntries.length > 0 && (
-                <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
-                        <div className="w-1.5 h-4 bg-blue-600 rounded-full"/> Emotional Logs
-                    </h3>
-                    <table className="text-xs w-full">
-                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
-                            <tr>
-                                <th className="py-3 px-2 text-left">Timestamp</th>
-                                <th className="py-3 px-2 text-left">Emotion</th>
-                                <th className="py-3 px-2 text-right">Intensity</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-slate-800">
-                            {currentData.filteredEntries.map((e, i) => (
-                                <tr key={i}>
-                                    <td className="py-3 px-2 text-slate-400">{new Date(e.date).toLocaleDateString()} • {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
-                                    <td className="py-3 px-2 font-bold capitalize text-slate-900">{e.emotion}</td>
-                                    <td className="py-3 px-2 text-right font-bold">{e.intensity}/10</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-              )}
-
-              {/* Footer Disclaimer */}
-              <div className="mt-16 pt-6 border-t border-slate-200 text-center">
-                  <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">
-                      CONFIDENTIAL: This report is generated by CogniSync AI for informational tracking only. 
-                      It does not constitute a formal medical diagnosis.
-                  </p>
-              </div>
-          </div>
+    {/* HEADER */}
+    <div className="flex justify-between border-b-4 border-slate-900 pb-6">
+      <div>
+        <h1 className="text-4xl font-black">CogniSync</h1>
+        <p className="text-xs font-bold tracking-widest uppercase text-slate-500">
+          Clinical Wellness Report
+        </p>
       </div>
+      <div className="text-right text-xs">
+        <p>{new Date().toLocaleDateString()}</p>
+        <p>Range: {activeTab === "today" ? "Today" : `Last ${historyPeriod} days`}</p>
+        <p>Report ID: CS-{Date.now()}</p>
+      </div>
+    </div>
+
+    {/* EXECUTIVE SUMMARY */}
+    <div className="grid grid-cols-3 gap-6">
+      <div className="stat-box">
+        <p className="text-[10px] uppercase tracking-widest">Wellness Index</p>
+        <p className="text-4xl font-black">{currentData.avgMood}/10</p>
+        <span className={`badge ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>
+          {wellnessStatus.label}
+        </span>
+      </div>
+
+      <div className="stat-box">
+        <p className="text-[10px] uppercase tracking-widest">Clinical Avg</p>
+        <p className="text-4xl font-black">{currentData.avgTestScore}%</p>
+      </div>
+
+      <div className="stat-box">
+        <p className="text-[10px] uppercase tracking-widest">Total Records</p>
+        <p className="text-4xl font-black">{currentData.totalEntries}</p>
+      </div>
+    </div>
+
+    {/* ASSESSMENTS TABLE */}
+    {currentData.filteredAssessments.length > 0 && (
+      <div>
+        <h3 className="text-sm font-black uppercase tracking-widest mb-3">
+          Clinical Assessments (Chronological)
+        </h3>
+        <table className="text-xs">
+          <thead className="border-y">
+            <tr>
+              <th className="text-left py-2">Date</th>
+              <th className="text-left py-2">Assessment</th>
+              <th className="text-left py-2">Category</th>
+              <th className="text-right py-2">Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...currentData.filteredAssessments]
+              .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
+              .map((a,i)=>(
+              <tr key={i} className="border-b">
+                <td>{new Date(a.created_at).toLocaleDateString()}</td>
+                <td className="font-bold">{a.test_name}</td>
+                <td>{a.category}</td>
+                <td className="text-right font-bold">{a.score}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {/* PAGE BREAK */}
+    <div className="page-break" />
+
+    {/* JOURNAL LOGS */}
+    {currentData.filteredEntries.length > 0 && (
+      <div>
+        <h3 className="text-sm font-black uppercase tracking-widest mb-3">
+          Emotional Journal Logs (Timeline)
+        </h3>
+        <table className="text-xs">
+          <thead className="border-y">
+            <tr>
+              <th className="text-left py-2">Timestamp</th>
+              <th className="text-left py-2">Emotion</th>
+              <th className="text-right py-2">Intensity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...currentData.filteredEntries]
+              .sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime())
+              .map((e,i)=>(
+              <tr key={i} className="border-b">
+                <td>
+                  {new Date(e.date).toLocaleDateString()}{" "}
+                  {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                </td>
+                <td className="font-bold capitalize">{e.emotion}</td>
+                <td className="text-right">{e.intensity}/10</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {/* DISCLAIMER */}
+    <div className="pt-8 border-t text-center text-[9px] uppercase tracking-widest text-slate-400">
+      This report is auto-generated by CogniSync AI for personal wellness tracking.
+      It is not a medical diagnosis. Consult a licensed professional for clinical decisions.
+    </div>
+  </div>
+</div>
+
 
       <div className="max-w-7xl mx-auto print:hidden">
         
