@@ -255,87 +255,96 @@ export function ReportPage() {
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
       
-      {/* --- DYNAMIC MEDICAL-GRADE PRINT TEMPLATE (FIXED) --- */}
+      {/* --- ENTERPRISE MEDICAL-GRADE PRINT TEMPLATE --- */}
 <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900 font-sans">
   <style type="text/css" media="print">
     {`
-      @page { size: A4; margin: 15mm; }
+      @page { size: A4; margin: 16mm; }
       body { -webkit-print-color-adjust: exact; background: white !important; }
-      table { width: 100%; border-collapse: collapse; }
-      thead { display: table-header-group; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { padding: 8px 6px; font-size: 11px; }
+      th { text-transform: uppercase; letter-spacing: 0.08em; font-size: 9px; color: #475569; }
       tr { page-break-inside: avoid; }
+      thead { display: table-header-group; }
       .page-break { page-break-before: always; }
-      .stat-box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: #f8fafc; }
-      .badge { font-size: 9px; font-weight: bold; padding: 4px 8px; border-radius: 9999px; }
+      .card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #f8fafc; }
+      .badge { font-size: 9px; font-weight: 700; padding: 4px 8px; border-radius: 9999px; }
     `}
   </style>
 
-  <div className="p-8 space-y-12">
+  <div className="p-8 space-y-10">
 
     {/* HEADER */}
-    <div className="flex justify-between border-b-4 border-slate-900 pb-6">
+    <div className="flex justify-between items-end border-b-4 border-slate-900 pb-5">
       <div>
-        <h1 className="text-4xl font-black">CogniSync</h1>
-        <p className="text-xs font-bold tracking-widest uppercase text-slate-500">
+        <h1 className="text-4xl font-black tracking-tight">CogniSync</h1>
+        <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-slate-500">
           Clinical Wellness Report
         </p>
       </div>
-      <div className="text-right text-xs">
-        <p>{new Date().toLocaleDateString()}</p>
-        <p>Range: {activeTab === "today" ? "Today" : `Last ${historyPeriod} days`}</p>
-        <p>Report ID: CS-{Date.now()}</p>
+      <div className="text-right text-xs leading-relaxed">
+        <div>{new Date().toLocaleDateString()}</div>
+        <div>Range: {activeTab === "today" ? "Today" : `Last ${historyPeriod} Days`}</div>
+        <div>Report ID: CS-{Math.floor(Date.now() / 1000)}</div>
       </div>
     </div>
 
     {/* EXECUTIVE SUMMARY */}
     <div className="grid grid-cols-3 gap-6">
-      <div className="stat-box">
-        <p className="text-[10px] uppercase tracking-widest">Wellness Index</p>
+      <div className="card">
+        <p className="text-[9px] uppercase tracking-widest text-slate-500">Wellness Index</p>
         <p className="text-4xl font-black">{currentData.avgMood}/10</p>
         <span className={`badge ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>
           {wellnessStatus.label}
         </span>
       </div>
 
-      <div className="stat-box">
-        <p className="text-[10px] uppercase tracking-widest">Clinical Avg</p>
+      <div className="card">
+        <p className="text-[9px] uppercase tracking-widest text-slate-500">Clinical Average</p>
         <p className="text-4xl font-black">{currentData.avgTestScore}%</p>
+        <p className="text-[9px] text-slate-400 mt-1">Across {currentData.testCount} assessments</p>
       </div>
 
-      <div className="stat-box">
-        <p className="text-[10px] uppercase tracking-widest">Total Records</p>
+      <div className="card">
+        <p className="text-[9px] uppercase tracking-widest text-slate-500">Total Records</p>
         <p className="text-4xl font-black">{currentData.totalEntries}</p>
+        <p className="text-[9px] text-slate-400 mt-1">
+          {currentData.journalCount} journals · {currentData.testCount} tests
+        </p>
       </div>
     </div>
 
-    {/* ASSESSMENTS TABLE */}
+    {/* CLINICAL ASSESSMENTS */}
     {currentData.filteredAssessments.length > 0 && (
       <div>
         <h3 className="text-sm font-black uppercase tracking-widest mb-3">
           Clinical Assessments (Chronological)
         </h3>
-        <table className="text-xs">
+        <table>
           <thead className="border-y">
             <tr>
-              <th className="text-left py-2">Date</th>
-              <th className="text-left py-2">Assessment</th>
-              <th className="text-left py-2">Category</th>
-              <th className="text-right py-2">Score</th>
+              <th style={{ width: "18%" }}>Date</th>
+              <th style={{ width: "44%" }}>Assessment</th>
+              <th style={{ width: "20%" }}>Category</th>
+              <th style={{ width: "18%", textAlign: "right" }}>Score</th>
             </tr>
           </thead>
           <tbody>
             {[...currentData.filteredAssessments]
               .sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime())
               .map((a,i)=>(
-              <tr key={i} className="border-b">
+              <tr key={i} className="border-b border-slate-200">
                 <td>{new Date(a.created_at).toLocaleDateString()}</td>
-                <td className="font-bold">{a.test_name}</td>
+                <td className="font-semibold">{a.test_name}</td>
                 <td>{a.category}</td>
-                <td className="text-right font-bold">{a.score}%</td>
+                <td style={{ textAlign: "right", fontWeight: 700 }}>{a.score}%</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="mt-2 text-[9px] text-slate-400 text-right">
+          Total Assessments: {currentData.testCount}
+        </p>
       </div>
     )}
 
@@ -348,37 +357,43 @@ export function ReportPage() {
         <h3 className="text-sm font-black uppercase tracking-widest mb-3">
           Emotional Journal Logs (Timeline)
         </h3>
-        <table className="text-xs">
+        <table>
           <thead className="border-y">
             <tr>
-              <th className="text-left py-2">Timestamp</th>
-              <th className="text-left py-2">Emotion</th>
-              <th className="text-right py-2">Intensity</th>
+              <th style={{ width: "40%" }}>Timestamp</th>
+              <th style={{ width: "40%" }}>Emotion</th>
+              <th style={{ width: "20%", textAlign: "right" }}>Intensity</th>
             </tr>
           </thead>
           <tbody>
             {[...currentData.filteredEntries]
               .sort((a,b)=>new Date(a.date).getTime()-new Date(b.date).getTime())
               .map((e,i)=>(
-              <tr key={i} className="border-b">
+              <tr key={i} className="border-b border-slate-200">
                 <td>
                   {new Date(e.date).toLocaleDateString()}{" "}
                   {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                 </td>
-                <td className="font-bold capitalize">{e.emotion}</td>
-                <td className="text-right">{e.intensity}/10</td>
+                <td className="capitalize font-semibold">{e.emotion}</td>
+                <td style={{ textAlign: "right" }}>{e.intensity}/10</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="mt-2 text-[9px] text-slate-400 text-right">
+          Total Journal Entries: {currentData.journalCount}
+        </p>
       </div>
     )}
 
     {/* DISCLAIMER */}
-    <div className="pt-8 border-t text-center text-[9px] uppercase tracking-widest text-slate-400">
-      This report is auto-generated by CogniSync AI for personal wellness tracking.
-      It is not a medical diagnosis. Consult a licensed professional for clinical decisions.
+    <div className="pt-6 border-t text-center text-[9px] uppercase tracking-widest text-slate-400 leading-relaxed">
+      Confidential Report — Generated by CogniSync AI.  
+      This document is intended for personal wellness tracking only and does not constitute
+      a medical diagnosis, treatment plan, or professional healthcare advice.
+      Consult a licensed medical or mental health professional for clinical decisions.
     </div>
+
   </div>
 </div>
 
