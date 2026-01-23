@@ -48,9 +48,9 @@ const getSeverity = (score: number, type: 'journal' | 'assessment') => {
 }
 
 const getWellnessStatus = (score: number) => {
-  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-600", border: "border-emerald-600", bg: "bg-emerald-50" }
-  if (score >= 4) return { label: "STABLE", text: "text-blue-600", border: "border-blue-600", bg: "bg-blue-50" }
-  return { label: "ATTENTION", text: "text-rose-600", border: "border-rose-600", bg: "bg-rose-50" }
+  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-500", border: "border-emerald-500/20", bg: "bg-emerald-500/10" }
+  if (score >= 4) return { label: "STABLE", text: "text-blue-500", border: "border-blue-500/20", bg: "bg-blue-500/10" }
+  return { label: "ATTENTION", text: "text-rose-500", border: "border-rose-500/20", bg: "bg-rose-500/10" }
 }
 
 export function ReportPage() {
@@ -94,7 +94,6 @@ export function ReportPage() {
   const getFilteredData = (mode: 'today' | 'history', days: number) => {
     const now = new Date()
     const start = new Date()
-    
     if (mode === 'today') {
         start.setHours(0, 0, 0, 0)
         now.setHours(23, 59, 59, 999)
@@ -115,25 +114,21 @@ export function ReportPage() {
 
     const generatePaddedData = (sourceData: any[], dateKey: string, valueKey: string) => {
         const paddedData = [];
-        const loopCount = mode === 'today' ? 1 : days;
-        
+        const loopCount = mode === 'today' ? 1 : days; 
         for (let i = loopCount - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(new Date().getDate() - i);
             d.setHours(0,0,0,0);
-            
             const dayMatches = sourceData.filter(item => {
                 const itemDate = new Date(item[dateKey]);
                 itemDate.setHours(0,0,0,0);
                 return itemDate.getTime() === d.getTime();
             });
-
             let val = null;
             if (dayMatches.length > 0) {
                 const sum = dayMatches.reduce((acc, curr) => acc + (curr[valueKey] || 0), 0);
                 val = Math.round(sum / dayMatches.length);
             }
-
             paddedData.push({
                 displayDate: d.toISOString(),
                 label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -147,11 +142,9 @@ export function ReportPage() {
     const chartDataAssess = generatePaddedData(filteredAssessments, 'created_at', 'score');
 
     const journalCount = filteredEntries.length
-    const testCount = filteredAssessments.length // Strictly clinical tests
-    
+    const testCount = filteredAssessments.length
     const journalSum = filteredEntries.reduce((acc, curr) => acc + curr.intensity, 0)
     const journalAvg = journalCount > 0 ? (journalSum / journalCount) : 0
-    
     const testSum = filteredAssessments.reduce((acc, curr) => acc + curr.score, 0)
     const testAvg100 = testCount > 0 ? (testSum / testCount) : 0
     const testAvg10 = testAvg100 / 10
@@ -179,7 +172,6 @@ export function ReportPage() {
     if (testCount > 0 && testAvg100 < 60) recommendations.push("Consider retaking clinical assessments in 7 days.")
     if (recommendations.length === 0) recommendations.push("Maintain current healthy routine.")
 
-    // Total Data Points = Sum of everything for Engagement Volume
     const totalSignals = journalCount + testCount;
 
     return {
@@ -227,9 +219,7 @@ export function ReportPage() {
         [""],
         ["DETAILED LOGS"]
     ]
-
     const headers = ["Date", "Time", "Activity Type", "Name/Emotion", "Score (Raw)", "Interpretation", "Notes/Details"]
-
     const rows = [
         ...currentData.filteredAssessments.map(a => {
             const d = new Date(a.created_at);
@@ -243,7 +233,6 @@ export function ReportPage() {
             return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, status.label, `"${safeText}"`]
         })
     ]
-
     const csvContent = BOM + metaData.map(row => row.join(",")).join("\n") + "\n" + headers.join(",") + "\n" + rows.join("\n")
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -255,11 +244,10 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
-  // --- UI RENDER ---
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 font-sans selection:bg-primary/20 relative overflow-x-hidden text-foreground">
       
-      {/* 1. DYNAMIC BACKGROUND LAYER */}
+      {/* BACKGROUND LAYER */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
@@ -347,7 +335,7 @@ export function ReportPage() {
                 </div>
               )}
 
-              {/* Journal Table */}
+              {/* Journal Table - FIXED: REMOVED SLICE LIMIT TO SHOW ALL ENTRIES */}
               {currentData.filteredEntries.length > 0 && (
                 <div>
                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
@@ -361,12 +349,12 @@ export function ReportPage() {
                                 <th className="py-3 px-2 text-right">Intensity</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {currentData.filteredEntries.slice(0, 15).map((e, i) => (
+                        <tbody className="divide-y divide-slate-100 text-slate-800">
+                            {currentData.filteredEntries.map((e, i) => (
                                 <tr key={i}>
-                                    <td className="py-3 px-2 font-medium text-slate-500">{new Date(e.date).toLocaleString()}</td>
-                                    <td className="py-3 px-2 font-bold text-slate-900 capitalize">{e.emotion}</td>
-                                    <td className="py-3 px-2 text-right font-bold text-slate-700">{e.intensity}/10</td>
+                                    <td className="py-3 px-2 text-slate-400">{new Date(e.date).toLocaleDateString()} • {new Date(e.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                    <td className="py-3 px-2 font-bold capitalize text-slate-900">{e.emotion}</td>
+                                    <td className="py-3 px-2 text-right font-bold">{e.intensity}/10</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -647,8 +635,7 @@ export function ReportPage() {
                             </div>
                         </div>
                         <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                            {/* Unified view for Entries and Tests Taken history */}
-                            {(selectedMetric === 'entries' || selectedMetric === 'tests') && (
+                            {selectedMetric === 'entries' && (
                                 <div className="space-y-4">
                                     <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 cursor-pointer transition-all" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
                                         <div className="flex justify-between p-5 items-center hover:bg-muted/20">
@@ -694,7 +681,42 @@ export function ReportPage() {
                                     </div>
                                 </div>
                             )}
-                            {/* Detailed List for Assessment History Metric */}
+
+                            {/* FIX: Tests Taken Drill-Down - Shows ONLY Clinical Assessments */}
+                            {selectedMetric === 'tests' && (
+                                <div className="space-y-4">
+                                    <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 p-1">
+                                        <div className="px-4 py-4 border-b border-border/50 flex justify-between items-center">
+                                            <span className="text-xs font-bold text-foreground uppercase tracking-widest">Completed Assessments</span>
+                                            <Badge variant="outline">{currentData.testCount} Total</Badge>
+                                        </div>
+                                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar p-3 space-y-2">
+                                            {currentData.filteredAssessments.length > 0 ? (
+                                                currentData.filteredAssessments.map((a, i) => (
+                                                    <div key={i} className="text-sm flex justify-between items-center p-3 rounded-xl bg-background/40 border border-transparent hover:bg-muted/30 transition-colors">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="font-bold text-foreground text-base">{a.test_name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] opacity-70 bg-muted px-2 py-0.5 rounded-full">{a.category}</span>
+                                                                <span className="text-[10px] opacity-50">{new Date(a.created_at).toLocaleDateString()}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20 px-3 py-1 rounded-full text-sm font-bold">{a.score}%</Badge>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-12 text-muted-foreground">
+                                                    <FileText size={40} className="mx-auto mb-3 opacity-20"/>
+                                                    <p>No clinical tests recorded in this period.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {selectedMetric === 'score' && (
                                 <div className="space-y-4">
                                     <div className="bg-muted/30 rounded-[1.5rem] overflow-hidden border border-border/50 p-6 flex flex-col items-center">
