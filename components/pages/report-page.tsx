@@ -34,7 +34,7 @@ interface Assessment {
   created_at: string
 }
 
-// --- HELPERS (LOGIC PRESERVED FROM WORKING CODE) ---
+// --- HELPERS ---
 const getSeverity = (score: number, type: 'journal' | 'assessment') => {
   if (type === 'assessment') {
       if (score >= 80) return { label: "High", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" }
@@ -48,9 +48,9 @@ const getSeverity = (score: number, type: 'journal' | 'assessment') => {
 }
 
 const getWellnessStatus = (score: number) => {
-  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-500", border: "border-emerald-500/20", bg: "bg-emerald-500/10" }
-  if (score >= 4) return { label: "STABLE", text: "text-blue-500", border: "border-blue-500/20", bg: "bg-blue-500/10" }
-  return { label: "ATTENTION", text: "text-rose-500", border: "border-rose-500/20", bg: "bg-rose-500/10" }
+  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-600", border: "border-emerald-600", bg: "bg-emerald-50" }
+  if (score >= 4) return { label: "STABLE", text: "text-blue-600", border: "border-blue-600", bg: "bg-blue-50" }
+  return { label: "ATTENTION", text: "text-rose-600", border: "border-rose-600", bg: "bg-rose-50" }
 }
 
 export function ReportPage() {
@@ -94,6 +94,7 @@ export function ReportPage() {
   const getFilteredData = (mode: 'today' | 'history', days: number) => {
     const now = new Date()
     const start = new Date()
+    
     if (mode === 'today') {
         start.setHours(0, 0, 0, 0)
         now.setHours(23, 59, 59, 999)
@@ -114,21 +115,25 @@ export function ReportPage() {
 
     const generatePaddedData = (sourceData: any[], dateKey: string, valueKey: string) => {
         const paddedData = [];
-        const loopCount = mode === 'today' ? 1 : days; 
+        const loopCount = mode === 'today' ? 1 : days;
+        
         for (let i = loopCount - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(new Date().getDate() - i);
             d.setHours(0,0,0,0);
+            
             const dayMatches = sourceData.filter(item => {
                 const itemDate = new Date(item[dateKey]);
                 itemDate.setHours(0,0,0,0);
                 return itemDate.getTime() === d.getTime();
             });
+
             let val = null;
             if (dayMatches.length > 0) {
                 const sum = dayMatches.reduce((acc, curr) => acc + (curr[valueKey] || 0), 0);
                 val = Math.round(sum / dayMatches.length);
             }
+
             paddedData.push({
                 displayDate: d.toISOString(),
                 label: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -142,9 +147,11 @@ export function ReportPage() {
     const chartDataAssess = generatePaddedData(filteredAssessments, 'created_at', 'score');
 
     const journalCount = filteredEntries.length
-    const testCount = filteredAssessments.length
+    const testCount = filteredAssessments.length // Strictly clinical tests
+    
     const journalSum = filteredEntries.reduce((acc, curr) => acc + curr.intensity, 0)
     const journalAvg = journalCount > 0 ? (journalSum / journalCount) : 0
+    
     const testSum = filteredAssessments.reduce((acc, curr) => acc + curr.score, 0)
     const testAvg100 = testCount > 0 ? (testSum / testCount) : 0
     const testAvg10 = testAvg100 / 10
@@ -172,9 +179,13 @@ export function ReportPage() {
     if (testCount > 0 && testAvg100 < 60) recommendations.push("Consider retaking clinical assessments in 7 days.")
     if (recommendations.length === 0) recommendations.push("Maintain current healthy routine.")
 
+    // Total Data Points = Sum of everything for Engagement Volume
+    const totalSignals = journalCount + testCount;
+
     return {
-        totalEntries: journalCount + testCount,
-        journalCount, testCount,
+        totalEntries: totalSignals, 
+        journalCount, 
+        testCount, 
         avgMood: parseFloat(wellnessScore.toFixed(1)),
         avgTestScore: Math.round(testAvg100),
         filteredEntries, filteredAssessments,
@@ -216,7 +227,9 @@ export function ReportPage() {
         [""],
         ["DETAILED LOGS"]
     ]
+
     const headers = ["Date", "Time", "Activity Type", "Name/Emotion", "Score (Raw)", "Interpretation", "Notes/Details"]
+
     const rows = [
         ...currentData.filteredAssessments.map(a => {
             const d = new Date(a.created_at);
@@ -230,6 +243,7 @@ export function ReportPage() {
             return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, status.label, `"${safeText}"`]
         })
     ]
+
     const csvContent = BOM + metaData.map(row => row.join(",")).join("\n") + "\n" + headers.join(",") + "\n" + rows.join("\n")
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -241,59 +255,175 @@ export function ReportPage() {
     document.body.removeChild(link)
   }
 
+  // --- UI RENDER ---
   return (
     <div className="min-h-screen p-4 sm:p-6 md:p-8 font-sans selection:bg-primary/20 relative overflow-x-hidden text-foreground">
       
-      {/* BACKGROUND LAYER */}
+      {/* 1. DYNAMIC BACKGROUND LAYER */}
       <div className="fixed inset-0 -z-10 bg-background transition-colors duration-500">
          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-transparent"></div>
          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
          <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-primary/20 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-accent/30 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob animation-delay-2000"></div>
       </div>
+      
+      {/* --- 10000/10 MEDICAL-GRADE PRINT TEMPLATE --- */}
+      <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900 font-sans">
+          <style type="text/css" media="print">
+             {`
+               @page { size: A4; margin: 15mm; }
+               body { -webkit-print-color-adjust: exact; background-color: white !important; }
+               .print-hidden { display: none !important; }
+               table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+               tr { page-break-inside: avoid; page-break-after: auto; }
+               thead { display: table-header-group; }
+               .medical-header { border-bottom: 3px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; }
+               .stat-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+               .badge { display: inline-block; padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; text-transform: uppercase; }
+             `}
+          </style>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto print:hidden">
-        
-        {/* HEADER SECTION */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
-            <div className="flex items-center gap-4 w-full md:w-auto">
-                <div className="p-3 bg-card/60 backdrop-blur-md rounded-2xl shadow-sm border border-border/50">
-                    <LayoutGrid className="text-primary h-8 w-8" />
+          <div className="p-8">
+              {/* Header */}
+              <div className="medical-header flex justify-between items-end">
+                  <div>
+                      <h1 className="text-4xl font-black tracking-tighter text-slate-900">CogniSync</h1>
+                      <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mt-1">Clinical Progress Record</p>
+                  </div>
+                  <div className="text-right">
+                      <p className="text-xl font-bold text-slate-900">{new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p className="text-xs text-slate-500 mt-1">Ref ID: #{Math.floor(Date.now()/1000)}</p>
+                  </div>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="grid grid-cols-3 gap-6 mb-12">
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Wellness Score</p>
+                      <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-black text-slate-900">{currentData.avgMood}</span>
+                          <span className="text-lg text-slate-400 font-bold">/10</span>
+                      </div>
+                      <span className={`badge mt-3 ${wellnessStatus.bg} ${wellnessStatus.text} border ${wellnessStatus.border}`}>{wellnessStatus.label}</span>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Clinical Avg</p>
+                      <span className="text-5xl font-black text-slate-900">{currentData.avgTestScore}%</span>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">Standardized</p>
+                  </div>
+                  <div className="stat-box">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Signals</p>
+                      <span className="text-5xl font-black text-slate-900">{currentData.totalEntries}</span>
+                      <p className="text-[10px] font-bold text-slate-400 mt-2">Entries Logged</p>
+                  </div>
+              </div>
+
+              {/* Clinical Assessment Table */}
+              {currentData.filteredAssessments.length > 0 && (
+                <div className="mb-12">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-4 bg-purple-600 rounded-full"/> Clinical Assessment History
+                    </h3>
+                    <table className="text-xs w-full">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
+                            <tr>
+                                <th className="py-3 px-2 text-left">Date</th>
+                                <th className="py-3 px-2 text-left">Assessment</th>
+                                <th className="py-3 px-2 text-left">Category</th>
+                                <th className="py-3 px-2 text-right">Score</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {currentData.filteredAssessments.map((a, i) => (
+                                <tr key={i}>
+                                    <td className="py-3 px-2 font-medium text-slate-500">{new Date(a.created_at).toLocaleDateString()}</td>
+                                    <td className="py-3 px-2 font-bold text-slate-900">{a.test_name}</td>
+                                    <td className="py-3 px-2 text-slate-600">{a.category}</td>
+                                    <td className="py-3 px-2 text-right font-black text-slate-900">{a.score}%</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
+              )}
+
+              {/* Journal Table */}
+              {currentData.filteredEntries.length > 0 && (
                 <div>
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Progress Records</h1>
-                    <div className="flex items-center gap-2 text-muted-foreground text-xs font-bold uppercase tracking-widest mt-1">
-                        <Activity size={12} className="text-primary animate-pulse" /> Comprehensive analysis of your Emotional wellness journey.
-                    </div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-4 bg-blue-600 rounded-full"/> Emotional Logs
+                    </h3>
+                    <table className="text-xs w-full">
+                        <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-y border-slate-200">
+                            <tr>
+                                <th className="py-3 px-2 text-left">Timestamp</th>
+                                <th className="py-3 px-2 text-left">Emotion</th>
+                                <th className="py-3 px-2 text-right">Intensity</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {currentData.filteredEntries.slice(0, 15).map((e, i) => (
+                                <tr key={i}>
+                                    <td className="py-3 px-2 font-medium text-slate-500">{new Date(e.date).toLocaleString()}</td>
+                                    <td className="py-3 px-2 font-bold text-slate-900 capitalize">{e.emotion}</td>
+                                    <td className="py-3 px-2 text-right font-bold text-slate-700">{e.intensity}/10</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
+              )}
+
+              {/* Footer Disclaimer */}
+              <div className="mt-16 pt-6 border-t border-slate-200 text-center">
+                  <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">
+                      CONFIDENTIAL: This report is generated by CogniSync AI for informational tracking only. 
+                      It does not constitute a formal medical diagnosis.
+                  </p>
+              </div>
+          </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto print:hidden">
+        
+        {/* --- PREMIUM HEADER --- */}
+        <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-card/60 backdrop-blur-md rounded-xl shadow-sm border border-border/50">
+                 <FileText className="text-primary h-8 w-8" />
+              </div>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">Progress Records</h1>
             </div>
-            
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                 <motion.button 
-                    whileHover={{ scale: 1.05, boxShadow: "0 20px 40px -15px rgba(var(--primary), 0.4)" }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handlePrintPDF} 
-                    disabled={isExporting}
-                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 text-primary-foreground shadow-xl rounded-full px-8 h-12 font-bold transition-all border border-white/10 relative overflow-hidden group"
-                 >
-                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-md"/>
-                    <Printer size={18} className="relative z-10"/> 
-                    <span className="relative z-10">{isExporting ? "Generating..." : "Export to PDF"}</span>
-                 </motion.button>
-                 
-                 <motion.button 
-                    whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleExportCSV} 
-                    className="flex items-center justify-center gap-2 rounded-full h-12 px-6 font-bold bg-transparent text-foreground border-2 border-border/60 hover:border-border dark:text-white dark:border-slate-600 dark:hover:border-slate-300 dark:hover:bg-slate-800/50 w-full sm:w-auto transition-all"
-                 >
-                    <FileSpreadsheet size={20}/> 
-                    <span>Export CSV</span>
-                 </motion.button>
-            </div>
+            <p className="text-lg text-muted-foreground max-w-2xl pl-1">Comprehensive analysis of your emotional wellness journey.</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+             <motion.button 
+                whileHover={{ scale: 1.05, boxShadow: "0 20px 40px -15px rgba(var(--primary), 0.4)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handlePrintPDF} 
+                disabled={isExporting}
+                className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-600 text-primary-foreground shadow-xl rounded-full px-8 h-12 font-bold transition-all border border-white/10 relative overflow-hidden group"
+             >
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-md"/>
+                <Printer size={18} className="relative z-10"/> 
+                <span className="relative z-10">{isExporting ? "Generating..." : "Export to PDF"}</span>
+             </motion.button>
+             
+             <motion.button 
+                whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleExportCSV} 
+                className="flex items-center justify-center gap-2 rounded-full h-12 px-6 font-bold bg-transparent text-foreground border-2 border-border/60 hover:border-border dark:text-white dark:border-slate-600 dark:hover:border-slate-300 dark:hover:bg-slate-800/50 w-full sm:w-auto transition-all"
+             >
+                <FileSpreadsheet size={20}/> 
+                <span>Export CSV</span>
+             </motion.button>
+          </div>
         </div>
 
-        {/* TABS SECTION */}
+        {/* --- DYNAMIC TABS --- */}
         <div className="mb-10 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="relative p-1.5 bg-card/40 backdrop-blur-xl rounded-full inline-flex shadow-inner border border-border/50">
                 {['today', 'history'].map((tab) => (
@@ -336,7 +466,7 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* METRICS GRID SECTION */}
+        {/* --- METRICS ROW --- */}
         <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
                 <EnhancedMetricCard 
@@ -377,7 +507,7 @@ export function ReportPage() {
                 />
             </div>
 
-            {/* CONTENT SWITCHER SECTION */}
+            {/* CONTENT SWITCHER */}
             {activeTab === 'today' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
                     <Card className="p-8 shadow-sm border bg-card/40 backdrop-blur-xl border-border/50 h-[320px] sm:h-[360px] md:h-[400px] flex flex-col transition-all rounded-[2.5rem]">
