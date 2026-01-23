@@ -26,12 +26,23 @@ interface Message { id: string; role: "user" | "assistant"; content: string; tim
 interface ChatSession { id: string; title: string; date: string; messages: Message[]; }
 
 const THEME_STYLES = {
-  blue: { gradient: "from-blue-600 via-indigo-500 to-cyan-400", text: "text-blue-500", bg: "bg-blue-500/10" },
-  teal: { gradient: "from-teal-500 via-cyan-500 to-emerald-400", text: "text-teal-500", bg: "bg-teal-500/10" },
-  coral: { gradient: "from-rose-500 via-red-500 to-orange-400", text: "text-rose-500", bg: "bg-rose-500/10" },
-  slate: { gradient: "from-slate-600 via-gray-500 to-zinc-400", text: "text-slate-500", bg: "bg-slate-500/10" },
-  emerald: { gradient: "from-emerald-500 via-green-500 to-lime-400", text: "text-emerald-500", bg: "bg-emerald-500/10" },
-  amber: { gradient: "from-amber-500 via-orange-500 to-yellow-400", text: "text-amber-500", bg: "bg-amber-500/10" },
+  // 1. Royal Blue (Default)
+  blue: { gradient: "from-blue-600 via-blue-500 to-indigo-400", text: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" },
+  
+  // 2. Emerald Green (Key: 'teal' -> Visual: Green)
+  teal: { gradient: "from-emerald-500 via-green-500 to-teal-400", text: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+  
+  // 3. Slate Grey (Key: 'emerald' -> Visual: Grey/Slate) <-- FIXED THIS FOR YOU
+  emerald: { gradient: "from-slate-600 via-gray-500 to-zinc-400", text: "text-slate-600 dark:text-slate-400", bg: "bg-slate-500/10" },
+  
+  // 4. Deep Purple (Key: 'slate' -> Visual: Violet/Purple)
+  slate: { gradient: "from-violet-600 via-purple-500 to-indigo-400", text: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10" },
+  
+  // 5. Rose (Key: 'coral')
+  coral: { gradient: "from-rose-500 via-pink-600 to-red-400", text: "text-rose-600 dark:text-rose-400", bg: "bg-rose-500/10" },
+  
+  // 6. Amber (Key: 'amber')
+  amber: { gradient: "from-amber-500 via-orange-500 to-yellow-400", text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
 };
 
 const SUGGESTIONS = [

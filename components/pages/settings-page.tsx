@@ -305,7 +305,7 @@ export default function SettingsPage() {
     const defaults = { 
       darkMode: false, 
       fontSize: 16 as const, 
-      colorTheme: 'emerald' as const 
+      colorTheme: 'blue' as const // Fixed: Resets to Royal Blue (Azure)
     };
     
     // 2. Update Context
