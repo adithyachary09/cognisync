@@ -334,14 +334,15 @@ export function ReportPage() {
                 <span className="relative z-10">{isExporting ? "Generating..." : "Export to PDF"}</span>
              </motion.button>
              
-             {/* Clean Outline Pill for Excel */}
+             
+             {/* Excel Button Outline (Dark Mode Fixed) */}
              <motion.button 
                 whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.05)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleExportCSV} 
                 className="flex items-center justify-center gap-2 rounded-full h-12 px-6 font-bold
-                           bg-transparent text-slate-700 dark:text-slate-200 border-2 border-slate-200 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500
-                           w-full sm:w-auto transition-colors"
+                           bg-transparent text-slate-700 dark:text-white border-2 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-300 dark:hover:bg-slate-800/50
+                           w-full sm:w-auto transition-all"
                 >
                 <FileSpreadsheet size={20}/> 
                 <span>Export Excel</span>
@@ -399,53 +400,50 @@ export function ReportPage() {
 
         {/* --- METRICS ROW (Enhanced Visuals + Filtered Data) --- */}
         {/* --- ANIMATED METRICS ROW --- */}
+        {/* --- METRICS ROW (Stabilized Grid & Alignment) --- */}
         <div className="space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <EnhancedMetricCard 
                     title="Total Data Points" 
                     value={currentData.totalEntries} 
-                    icon={<BookOpen className="text-blue-600 dark:text-blue-400" size={24}/>} 
-                    trend={<Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border-0"><TrendingUp size={12} className="mr-1"/> Collected</Badge>}
+                    icon={<BookOpen className="text-blue-500" size={24}/>} 
+                    trend={<Badge variant="secondary" className="bg-blue-500/10 text-blue-500 border-blue-500/20 h-6 px-2"><TrendingUp size={12} className="mr-1"/> Collected</Badge>}
                     context={activeTab === 'today' ? "Today" : `Last ${historyPeriod} Days`}
-                    gradient="from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800/50"
-                    glow="group-hover:shadow-blue-500/20"
+                    glow="shadow-blue-500/5 hover:shadow-blue-500/10 border-blue-500/10"
                     onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
                 />
                 <EnhancedMetricCard 
                     title="Wellness Score" 
                     value={`${currentData.avgMood}/10`} 
-                    icon={<Activity className="text-emerald-600 dark:text-emerald-400" size={24}/>} 
-                    trend={<Badge variant="secondary" className={`${wellnessStatus.bg} ${wellnessStatus.text} ${wellnessStatus.border} border-0`}><Info size={12} className="mr-1"/> Status</Badge>}
+                    icon={<Activity className="text-emerald-500" size={24}/>} 
+                    trend={<Badge variant="secondary" className={`${wellnessStatus.bg} ${wellnessStatus.text} ${wellnessStatus.border} h-6 px-2`}><Info size={12} className="mr-1"/> Status</Badge>}
                     context={wellnessStatus.label}
-                    gradient="from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-200 dark:border-emerald-800/50"
-                    glow="group-hover:shadow-emerald-500/20"
+                    glow="shadow-emerald-500/5 hover:shadow-emerald-500/10 border-emerald-500/10"
                     onClick={() => setSelectedMetric("mood")}
                 />
                 <EnhancedMetricCard 
                     title="Tests Taken" 
                     value={currentData.testCount} 
-                    icon={<CheckCircle2 className="text-purple-600 dark:text-purple-400" size={24}/>} 
-                    trend={<Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 border-0"><Brain size={12} className="mr-1"/> Clinical</Badge>}
+                    icon={<CheckCircle2 className="text-purple-500" size={24}/>} 
+                    trend={<Badge variant="secondary" className="bg-purple-500/10 text-purple-500 border-purple-500/20 h-6 px-2"><Brain size={12} className="mr-1"/> Clinical</Badge>}
                     context="Assessments"
-                    gradient="from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 border-purple-200 dark:border-purple-800/50"
-                    glow="group-hover:shadow-purple-500/20"
+                    glow="shadow-purple-500/5 hover:shadow-purple-500/10 border-purple-500/10"
                     onClick={() => setSelectedMetric("tests")}
                 />
                 <EnhancedMetricCard 
                     title="Avg Clinical Score" 
                     value={`${currentData.avgTestScore}%`} 
-                    icon={<Zap className="text-orange-600 dark:text-orange-400" size={24}/>} 
-                    trend={<Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 border-0"><AlertCircle size={12} className="mr-1"/> Average</Badge>}
+                    icon={<Zap className="text-orange-500" size={24}/>} 
+                    trend={<Badge variant="secondary" className="bg-orange-500/10 text-orange-500 border-orange-500/20 h-6 px-2"><AlertCircle size={12} className="mr-1"/> Average</Badge>}
                     context="Performance"
-                    gradient="from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border-orange-200 dark:border-orange-800/50"
-                    glow="group-hover:shadow-orange-500/20"
+                    glow="shadow-orange-500/5 hover:shadow-orange-500/10 border-orange-500/10"
                     onClick={() => setSelectedMetric("score")}
                 />
             </div>
 
-            {/* --- CONTENT SWITCHER --- */}
-            {activeTab === 'today' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* --- CONTENT SWITCHER (Height Synchronized) --- */}
+            {activeTab === 'today' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
                     {/* ACTIVITY LOG CARD */}
                     <Card className="p-6 shadow-sm border bg-card/40 backdrop-blur-xl border-border/50 h-[320px] sm:h-[360px] md:h-[400px] flex flex-col transition-all rounded-[2.5rem]">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-foreground">
@@ -687,35 +685,36 @@ export function ReportPage() {
 
 // --- NEW ENHANCED METRIC CARD (Visual Upgrade + Context) ---
 // --- ANIMATED ENHANCED CARD ---
-function EnhancedMetricCard({ title, value, icon, context, trend, gradient, glow, onClick }: any) {
+// --- NEW ENHANCED METRIC CARD (Visual Upgrade + Context) ---
+function EnhancedMetricCard({ title, value, icon, context, trend, glow, onClick }: any) {
     return (
         <motion.div 
-            whileHover={{ y: -8, scale: 1.02 }} 
+            whileHover={{ y: -4, scale: 1.01 }} 
             whileTap={{ scale: 0.98 }}
             onClick={onClick} 
-            className={`group relative p-6 rounded-[2.5rem] border cursor-pointer overflow-hidden transition-all duration-500 shadow-lg hover:shadow-2xl bg-gradient-to-br ${gradient} ${glow} bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl`}
+            className={`group relative p-6 rounded-[2.5rem] border backdrop-blur-xl cursor-pointer overflow-hidden transition-all shadow-sm hover:shadow-xl bg-card/40 border-border/50 ${glow} flex flex-col justify-between min-h-[180px]`}
         >
-            {/* Context Header */}
-            <div className="flex justify-between items-start mb-6 relative z-10">
+            {/* Header */}
+            <div className="flex justify-between items-start relative z-10 w-full">
                 <div className="flex flex-col gap-2">
-                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</p>
-                    {trend && <div className="origin-left transform group-hover:scale-105 transition-transform">{trend}</div>}
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{title}</p>
+                    {trend && <div className="mt-1 origin-left transform group-hover:scale-105 transition-transform">{trend}</div>}
                 </div>
-                <div className="p-3 bg-white/80 dark:bg-slate-800/80 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 backdrop-blur-sm group-hover:rotate-12 transition-transform duration-500">
+                <div className="p-3 bg-card rounded-2xl shadow-sm border border-border/50 backdrop-blur-md group-hover:rotate-6 transition-transform duration-300">
                     {icon}
                 </div>
             </div>
 
             {/* Value & Subtext */}
-            <div className="relative z-10">
-                <h3 className="text-4xl font-black text-slate-800 dark:text-white tracking-tighter mb-1 group-hover:translate-x-1 transition-transform">{value}</h3>
-                <p className="text-xs font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                    {context} <ChevronRight size={12} className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300 text-slate-800 dark:text-white"/>
+            <div className="relative z-10 mt-6">
+                <h3 className="text-4xl font-black text-foreground tracking-tighter mb-1">{value}</h3>
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    {context} <ChevronRight size={12} className="opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all duration-300"/>
                 </p>
             </div>
             
             {/* Decorative Soft Gradient Blob on Hover */}
-            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-white/20 dark:bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
         </motion.div>
     )
 }
