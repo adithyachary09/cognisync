@@ -41,8 +41,8 @@ const SUGGESTIONS = [
   { label: "Creative spark", icon: Sparkles, prompt: "I need a creative idea for a new project. Surprise me." },
 ];
 
-export function ChatbotPage() {
-  const { settings, updateSettings } = useTheme();
+ export function ChatbotPage() {
+  const { settings } = useTheme();
   const { user } = useUser();
   const { showNotification } = useNotification();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -67,7 +67,9 @@ export function ChatbotPage() {
   const [editTitle, setEditTitle] = useState("");
 
   const theme = THEME_STYLES[(settings.colorTheme as keyof typeof THEME_STYLES) || "blue"];
-  const isDark = settings.darkMode;
+  
+  // Local Dark Mode State (Isolated from global theme)
+  const [isDark, setIsDark] = useState(settings.darkMode);
 
   // --- INITIALIZATION & REFRESH LOGIC ---
   useEffect(() => {
@@ -250,7 +252,8 @@ export function ChatbotPage() {
   );
 
   return (
-    <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? "fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none bg-background" : "relative h-screen md:h-[calc(100vh-2rem)] rounded-none md:rounded-[2.5rem] m-0 md:m-4"} ${isDark ? "bg-[#09090b] text-white border-white/10" : "bg-slate-50 text-slate-900 border-slate-200"} border overflow-hidden`}>
+    // FIX: Added 'dark' class conditionally to the wrapper so child 'dark:' classes work locally
+    <div className={`flex flex-col transition-all duration-500 ${isFullscreen ? "fixed inset-0 z-[9999] w-screen h-screen m-0 rounded-none bg-background" : "relative h-screen md:h-[calc(100vh-2rem)] rounded-none md:rounded-[2.5rem] m-0 md:m-4"} ${isDark ? "dark bg-[#09090b] text-white border-white/10" : "bg-slate-50 text-slate-900 border-slate-200"} border overflow-hidden`}>
       
       {/* BACKGROUND ANIMATION */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
@@ -366,7 +369,8 @@ export function ChatbotPage() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <IconButton icon={isDark ? Sun : Moon} onClick={() => updateSettings({ darkMode: !isDark })} label="Theme" />
+          {/* FIX: Toggles local isDark state instead of global settings */}
+          <IconButton icon={isDark ? Sun : Moon} onClick={() => setIsDark(!isDark)} label="Theme" />
           <IconButton icon={isFullscreen ? Minimize2 : Maximize2} onClick={() => setIsFullscreen(!isFullscreen)} label="Fullscreen" />
         </div>
       </header>
