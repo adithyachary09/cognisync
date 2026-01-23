@@ -268,7 +268,9 @@ const SUGGESTIONS = [
      {/* HEADER */}
       <header className={`relative z-10 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b ${isDark ? "bg-slate-900/40 border-white/5" : "bg-white/40 border-slate-200"} backdrop-blur-xl`}>
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
+          {/* FIX: Explicit background and border colors based on local isDark state */}
+          <div className={`p-2.5 rounded-xl shadow-sm border ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
+             {/* FIX: Explicit icon color based on local isDark state */}
              <Bot className={`${isDark ? "text-white" : "text-slate-800"} h-6 w-6`} />
           </div>
           {/* FIX: Explicit text color based on local isDark state to guarantee visibility */}
