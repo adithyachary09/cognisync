@@ -12,7 +12,7 @@ import {
 import { 
   Calendar, BookOpen, CheckCircle2, Clock, 
   FileText, Activity, Brain, ChevronRight, X, ChevronDown, ChevronUp, Stethoscope, FileSpreadsheet, Printer, 
-  TrendingUp, AlertCircle, Info
+  TrendingUp, Info, AlertCircle, Layers
 } from "lucide-react"
 import { useJournal } from "@/components/pages/journal-context"
 import { createBrowserClient } from '@supabase/ssr'
@@ -37,20 +37,20 @@ interface Assessment {
 // --- HELPERS (LOGIC PRESERVED) ---
 const getSeverity = (score: number, type: 'journal' | 'assessment') => {
   if (type === 'assessment') {
-      if (score >= 80) return { label: "High", color: "text-green-700 bg-green-50 border-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/30" }
-      if (score >= 50) return { label: "Moderate", color: "text-yellow-700 bg-yellow-50 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-300 dark:border-yellow-500/30" }
-      return { label: "Low/Concern", color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30" }
+      if (score >= 80) return { label: "High", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" }
+      if (score >= 50) return { label: "Moderate", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" }
+      return { label: "Low/Concern", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" }
   } else {
-      if (score >= 7) return { label: "Positive", color: "text-green-700 bg-green-50 border-green-200 dark:bg-green-500/20 dark:text-green-300 dark:border-green-500/30" }
-      if (score >= 4) return { label: "Neutral", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30" }
-      return { label: "Negative", color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/30" }
+      if (score >= 7) return { label: "Positive", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" }
+      if (score >= 4) return { label: "Neutral", color: "text-blue-400 bg-blue-500/10 border-blue-500/20" }
+      return { label: "Negative", color: "text-rose-400 bg-rose-500/10 border-rose-500/20" }
   }
 }
 
 const getWellnessStatus = (score: number) => {
-  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800", bg: "bg-emerald-50 dark:bg-emerald-900/30" }
-  if (score >= 4) return { label: "STABLE", text: "text-blue-700 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800", bg: "bg-blue-50 dark:bg-blue-900/30" }
-  return { label: "ATTENTION", text: "text-rose-700 dark:text-rose-400", border: "border-rose-200 dark:border-rose-800", bg: "bg-rose-50 dark:bg-rose-900/30" }
+  if (score >= 7) return { label: "OPTIMAL", text: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-500/10" }
+  if (score >= 4) return { label: "STABLE", text: "text-blue-400", border: "border-blue-500/20", bg: "bg-blue-500/10" }
+  return { label: "ATTENTION", text: "text-rose-400", border: "border-rose-500/20", bg: "bg-rose-500/10" }
 }
 
 export function ReportPage() {
@@ -194,7 +194,7 @@ export function ReportPage() {
 
   const wellnessStatus = getWellnessStatus(currentData.avgMood)
 
-  // --- HANDLERS ---
+  // --- RESTORED ORIGINAL EXPORT HANDLERS ---
   const handlePrintPDF = () => {
       setIsExporting(true);
       setTimeout(() => {
@@ -226,17 +226,37 @@ export function ReportPage() {
         ...currentData.filteredAssessments.map(a => {
             const d = new Date(a.created_at);
             const status = getSeverity(a.score, 'assessment')
-            return [d.toLocaleDateString(), d.toLocaleTimeString(), "Assessment", `"${a.test_name}"`, `${a.score}%`, status.label, `"${a.category}"`]
+            return [
+                d.toLocaleDateString(),
+                d.toLocaleTimeString(),
+                "Assessment", 
+                `"${a.test_name}"`, 
+                `${a.score}%`, 
+                status.label, 
+                `"${a.category}"`
+            ]
         }),
         ...currentData.filteredEntries.map(e => {
             const d = new Date(e.date);
             const status = getSeverity(e.intensity, 'journal')
             const safeText = e.text ? e.text.replace(/"/g, '""') : ""
-            return [d.toLocaleDateString(), d.toLocaleTimeString(), "Journal", e.emotion, `${e.intensity}/10`, status.label, `"${safeText}"`]
+            return [
+                d.toLocaleDateString(),
+                d.toLocaleTimeString(),
+                "Journal", 
+                e.emotion, 
+                `${e.intensity}/10`, 
+                status.label, 
+                `"${safeText}"`
+            ]
         })
     ]
 
-    const csvContent = BOM + metaData.map(row => row.join(",")).join("\n") + "\n" + headers.join(",") + "\n" + rows.join("\n")
+    const csvContent = BOM + 
+        metaData.map(row => row.join(",")).join("\n") + "\n" +
+        headers.join(",") + "\n" +
+        rows.join("\n")
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -249,11 +269,10 @@ export function ReportPage() {
 
   // --- UI RENDER ---
   return (
-    // FIX 1: Root container now uses theme-aware text colors and assumes the BACKGROUND is provided by the global layout/theme provider.
-    // If no global theme is present, it defaults to a clean slate or dark background.
+    // VISUAL FIX 1: Deep Void Background (Matches Insights) & Unified Text Theme
     <div className="min-h-screen p-4 sm:p-6 md:p-10 transition-colors duration-300 print:bg-white print:p-0 text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-[#020617]">
       
-      {/* --- HIDDEN PRINT TEMPLATE (UNCHANGED) --- */}
+      {/* --- HIDDEN PRINT TEMPLATE (PRESERVED) --- */}
       <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999] text-slate-900">
           <style type="text/css" media="print">
              {`
@@ -266,7 +285,6 @@ export function ReportPage() {
                tfoot { display: table-footer-group; }
              `}
           </style>
-          {/* ... (Print template preserved) ... */}
           <table className="w-full"><thead><tr><td>
                   <div className="pb-8">
                     <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-2">
@@ -299,7 +317,7 @@ export function ReportPage() {
                             <p className="text-5xl font-black text-slate-900">{currentData.totalEntries}</p>
                         </div>
                     </div>
-                    {/* ... Rest of print template ... */}
+                    {/* ... (Print Tables Preserved) ... */}
                   </div>
           </td></tr></tbody><tfoot><tr><td><div className="h-16"></div></td></tr></tfoot></table>
       </div>
@@ -309,7 +327,7 @@ export function ReportPage() {
         <div className="mb-6 md:mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="p-3 bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200 dark:border-white/10">
                  <FileText className="text-slate-800 dark:text-blue-400 h-8 w-8" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Progress Records</h1>
@@ -317,26 +335,26 @@ export function ReportPage() {
             <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl pl-1">Comprehensive analysis of your emotional wellness journey.</p>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white/60 dark:bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm w-full md:w-auto">
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handlePrintPDF} 
                 disabled={isExporting}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:shadow-lg hover:shadow-blue-500/20 transition-all rounded-xl px-6 h-12 font-bold"
+                className="flex items-center justify-center gap-2 bg-slate-900 dark:bg-blue-600 text-white shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-12 font-bold"
              >
                 <Printer size={18}/> 
                 {isExporting ? "Generating..." : "Export to PDF"}
              </motion.button>
              
-             <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+             <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-white/10 mx-1"></div>
 
              <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleExportCSV} 
                 className="flex items-center justify-center gap-2 rounded-xl h-12 px-4 font-bold
-                           bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700
+                           bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10
                            w-full sm:w-auto"
                 >
                 <FileSpreadsheet size={20}/> 
@@ -345,9 +363,9 @@ export function ReportPage() {
           </div>
         </div>
 
-        {/* --- ENHANCED TABS --- */}
+        {/* --- ENHANCED TABS (GLASSMORMISM) --- */}
         <div className="mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="relative p-1 bg-white/70 dark:bg-slate-900/50 rounded-2xl inline-flex shadow-sm border border-slate-200 dark:border-slate-800 backdrop-blur-md">
+            <div className="relative p-1 bg-white/70 dark:bg-white/5 rounded-2xl inline-flex shadow-sm border border-slate-200 dark:border-white/10 backdrop-blur-md">
                 {['today', 'history'].map((tab) => (
                     <button key={tab} onClick={() => setActiveTab(tab)} className={`relative px-8 py-3 rounded-xl text-sm font-bold capitalize transition-all duration-300 z-10 ${activeTab === tab ? 'text-white shadow-lg' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}>
                         {activeTab === tab && <motion.div layoutId="activeTab" className="absolute inset-0 bg-slate-900 dark:bg-blue-600 rounded-xl" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
@@ -368,7 +386,7 @@ export function ReportPage() {
                             className={`px-4 py-2 rounded-full text-xs font-bold border transition-all ${
                                 historyPeriod === d 
                                 ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900" 
-                                : "bg-white/50 text-slate-600 border-slate-200 hover:border-slate-400 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-700 backdrop-blur-sm"
+                                : "bg-white/50 text-slate-600 border-slate-200 hover:border-slate-400 dark:bg-white/5 dark:text-slate-400 dark:border-white/10 backdrop-blur-sm"
                             }`}
                         >
                             Last {d} Days
@@ -378,62 +396,51 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* --- FIX 2: ENHANCED DYNAMIC METRIC CARDS --- */}
-        {/* Now using gradients and context labels to act as "live" dashboard elements */}
+        {/* --- LOGIC FIX: TOP 4 METRIC BOXES --- */}
+        {/* VISUAL FIX 2: True Glassmorphism (Neutral Cards that accept Theme) */}
         <div className="space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <EnhancedMetricCard 
+                <GlassMetricCard 
                     title="Total Data Points" 
                     value={currentData.totalEntries} 
-                    context="Entries Logged"
-                    icon={<BookOpen className="text-blue-600 dark:text-blue-400" size={20}/>} 
-                    trend={<Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-[10px] px-1.5 h-5 flex gap-1"><TrendingUp size={10}/> Tracked</Badge>}
-                    gradient="from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border-blue-100 dark:border-blue-800/30"
-                    glow="group-hover:shadow-blue-500/10 dark:group-hover:shadow-blue-500/20"
+                    // LOGIC FIX: Dynamic context label
+                    context={activeTab === 'today' ? "Today's Volume" : `Last ${historyPeriod} Days`}
+                    icon={<Layers className="text-blue-500 dark:text-blue-400" size={20}/>} 
                     onClick={() => { setSelectedMetric("entries"); setExpandedDrillDown(null); }}
                 />
                 
-                <EnhancedMetricCard 
+                <GlassMetricCard 
                     title="Wellness Score" 
                     value={`${currentData.avgMood}/10`} 
                     context={wellnessStatus.label}
-                    icon={<Activity className="text-emerald-600 dark:text-emerald-400" size={20}/>} 
-                    trend={<Badge variant="secondary" className={`text-[10px] px-1.5 h-5 flex gap-1 ${wellnessStatus.bg} ${wellnessStatus.text} border-0`}><Info size={10}/> Status</Badge>}
-                    gradient="from-emerald-50 to-teal-50 dark:from-emerald-900/10 dark:to-teal-900/10 border-emerald-100 dark:border-emerald-800/30"
-                    glow="group-hover:shadow-emerald-500/10 dark:group-hover:shadow-emerald-500/20"
+                    icon={<Activity className="text-emerald-500 dark:text-emerald-400" size={20}/>} 
                     onClick={() => setSelectedMetric("mood")}
                 />
                 
-                <EnhancedMetricCard 
+                <GlassMetricCard 
                     title="Tests Taken" 
                     value={currentData.testCount} 
                     context="Assessments"
-                    icon={<CheckCircle2 className="text-purple-600 dark:text-purple-400" size={20}/>} 
-                    trend={<Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 text-[10px] px-1.5 h-5 flex gap-1"><Brain size={10}/> Clinical</Badge>}
-                    gradient="from-purple-50 to-fuchsia-50 dark:from-purple-900/10 dark:to-fuchsia-900/10 border-purple-100 dark:border-purple-800/30"
-                    glow="group-hover:shadow-purple-500/10 dark:group-hover:shadow-purple-500/20"
+                    icon={<CheckCircle2 className="text-purple-500 dark:text-purple-400" size={20}/>} 
                     onClick={() => setSelectedMetric("tests")}
                 />
                 
-                <EnhancedMetricCard 
+                <GlassMetricCard 
                     title="Avg Clinical Score" 
                     value={`${currentData.avgTestScore}%`} 
                     context="Performance"
-                    icon={<Brain className="text-orange-600 dark:text-orange-400" size={20}/>} 
-                    trend={<Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 text-[10px] px-1.5 h-5 flex gap-1"><AlertCircle size={10}/> Avg</Badge>}
-                    gradient="from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 border-orange-100 dark:border-orange-800/30"
-                    glow="group-hover:shadow-orange-500/10 dark:group-hover:shadow-orange-500/20"
+                    icon={<Brain className="text-orange-500 dark:text-orange-400" size={20}/>} 
                     onClick={() => setSelectedMetric("score")}
                 />
             </div>
 
-            {/* --- CONTENT SWITCHER (TRANSPARENCY ENFORCED) --- */}
+            {/* --- CONTENT SWITCHER --- */}
             {activeTab === 'today' ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* ACTIVITY LOG CARD */}
-                    <Card className="p-4 sm:p-6 shadow-sm border bg-white/40 dark:bg-[#0f172a]/40 backdrop-blur-xl border-slate-200 dark:border-slate-800 h-[320px] sm:h-[360px] md:h-[400px] flex flex-col transition-all">
+                    <Card className="p-4 sm:p-6 shadow-sm border bg-white/40 dark:bg-white/5 backdrop-blur-xl border-slate-200 dark:border-white/10 h-[320px] sm:h-[360px] md:h-[400px] flex flex-col transition-all">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                            <BookOpen size={20} className="text-blue-500"/> Activity Log
+                            <BookOpen size={20} className="text-blue-500 dark:text-blue-400"/> Activity Log
                         </h3>
                         <div className="space-y-6 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                             {currentData.totalEntries === 0 && (
@@ -444,38 +451,38 @@ export function ReportPage() {
                             )}
                             {currentData.filteredEntries.length > 0 && (
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur py-2 z-10">Journal & Check-ins</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/80 dark:bg-[#020617]/80 backdrop-blur py-2 z-10">Journal & Check-ins</h4>
                                     <div className="space-y-3">{currentData.filteredEntries.map((e, i) => (
-                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex justify-between items-center shadow-sm hover:bg-white/80 dark:hover:bg-slate-900/80 transition-colors">
+                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white/60 dark:bg-white/5 flex justify-between items-center shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-colors">
                                             <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-full text-blue-600 dark:text-blue-400">
+                                                <div className="p-2 bg-blue-50 dark:bg-blue-500/20 rounded-full text-blue-600 dark:text-blue-400">
                                                     <FileText size={14} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{e.emotion}</p>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{e.emotion}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{new Date(e.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                                                 </div>
                                             </div>
-                                            <Badge variant="secondary" className="dark:bg-slate-800 dark:text-slate-300">{e.intensity}/10</Badge>
+                                            <Badge variant="secondary" className="dark:bg-white/10 dark:text-slate-300">{e.intensity}/10</Badge>
                                         </div>
                                     ))}</div>
                                 </div>
                             )}
                             {currentData.filteredAssessments.length > 0 && (
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur py-2 z-10">Clinical Assessments</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 ml-1 sticky top-0 bg-white/80 dark:bg-[#020617]/80 backdrop-blur py-2 z-10">Clinical Assessments</h4>
                                     <div className="space-y-3">{currentData.filteredAssessments.map((a, i) => (
-                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 flex justify-between items-center shadow-sm hover:bg-white/80 dark:hover:bg-slate-900/80 transition-colors">
+                                        <div key={i} className="p-3 rounded-xl border border-slate-100 dark:border-white/5 bg-white/60 dark:bg-white/5 flex justify-between items-center shadow-sm hover:bg-white/80 dark:hover:bg-white/10 transition-colors">
                                             <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-full text-purple-600 dark:text-purple-400">
+                                                <div className="p-2 bg-purple-50 dark:bg-purple-500/20 rounded-full text-purple-600 dark:text-purple-400">
                                                     <Stethoscope size={14} />
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{a.test_name}</p>
+                                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{a.test_name}</p>
                                                     <p className="text-xs text-slate-500 dark:text-slate-400">{a.category}</p>
                                                 </div>
                                             </div>
-                                            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200">{a.score}%</Badge>
+                                            <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 hover:bg-purple-200">{a.score}%</Badge>
                                         </div>
                                     ))}</div>
                                 </div>
@@ -484,9 +491,9 @@ export function ReportPage() {
                     </Card>
 
                     {/* PIE CHART CARD */}
-                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-[#0f172a]/40 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-white/5 backdrop-blur-xl border-slate-200 dark:border-white/10">
                         <h3 className="text-lg font-bold mb-6 flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                            <Activity size={20} className="text-emerald-500"/> Emotional Spectrum
+                            <Activity size={20} className="text-emerald-500 dark:text-emerald-400"/> Emotional Spectrum
                         </h3>
                         <div className="h-[300px] flex items-center justify-center">
                             {currentData.emotionData.length > 0 ? (
@@ -499,10 +506,10 @@ export function ReportPage() {
                                             contentStyle={{ 
                                                 borderRadius: '12px', 
                                                 border: 'none', 
-                                                backgroundColor: 'rgba(30, 41, 59, 0.9)', // Semi-transparent tooltip
+                                                backgroundColor: 'rgba(2, 6, 23, 0.9)', 
                                                 backdropFilter: 'blur(10px)',
                                                 color: '#f8fafc',
-                                                boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' 
+                                                boxShadow: '0 4px 20px -5px rgba(0,0,0,0.5)' 
                                             }}
                                             itemStyle={{ color: '#f8fafc' }}
                                         />
@@ -520,17 +527,17 @@ export function ReportPage() {
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* ASSESSMENT TREND (Line Chart) */}
-                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-[#0f172a]/40 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-white/5 backdrop-blur-xl border-slate-200 dark:border-white/10">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                                <Brain size={20} className="text-purple-500" /> Assessment History
+                                <Brain size={20} className="text-purple-500 dark:text-purple-400" /> Assessment History
                             </h3>
-                            <Badge variant="outline" className="text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800">Timeline</Badge>
+                            <Badge variant="outline" className="text-purple-600 bg-purple-50 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20">Timeline</Badge>
                         </div>
                         <div className="h-[220px] sm:h-[260px] md:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart key={`assess-${historyPeriod}`} data={currentData.chartDataAssess} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.2} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.1} />
                                     <XAxis 
                                         dataKey="displayDate" 
                                         tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
@@ -542,7 +549,7 @@ export function ReportPage() {
                                     />
                                     <YAxis domain={[0, 100]} stroke="#94a3b8" fontSize={12} />
                                     <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: 'rgba(30, 41, 59, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.5)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleDateString()}
                                     />
                                     <Line 
@@ -562,12 +569,12 @@ export function ReportPage() {
                     </Card>
 
                     {/* MOOD TREND (Area Chart) */}
-                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-[#0f172a]/40 backdrop-blur-xl border-slate-200 dark:border-slate-800">
+                    <Card className="p-6 shadow-sm border bg-white/40 dark:bg-white/5 backdrop-blur-xl border-slate-200 dark:border-white/10">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                                <Activity size={20} className="text-emerald-500" /> Mood Stability
+                                <Activity size={20} className="text-emerald-500 dark:text-emerald-400" /> Mood Stability
                             </h3>
-                            <Badge variant="outline" className="text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800">Intensity</Badge>
+                            <Badge variant="outline" className="text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20">Intensity</Badge>
                         </div>
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -578,7 +585,7 @@ export function ReportPage() {
                                             <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                                         </linearGradient>
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.2} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#64748b" opacity={0.1} />
                                     <XAxis 
                                         dataKey="displayDate" 
                                         tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {month:'short', day:'numeric'})}
@@ -590,7 +597,7 @@ export function ReportPage() {
                                     />
                                     <YAxis domain={[0, 10]} stroke="#94a3b8" fontSize={12} />
                                     <Tooltip 
-                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: 'rgba(30, 41, 59, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.3)' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: 'rgba(2, 6, 23, 0.9)', backdropFilter: 'blur(8px)', color: '#f8fafc', boxShadow: '0 4px 20px -5px rgba(0,0,0,0.5)' }}
                                         labelFormatter={(label) => new Date(label).toLocaleString()}
                                     />
                                     <Area 
@@ -612,39 +619,39 @@ export function ReportPage() {
             )}
         </div>
 
-        {/* --- METRIC DETAILS MODAL --- */}
+        {/* --- METRIC DETAILS MODAL (GLASS) --- */}
         <AnimatePresence>
             {selectedMetric && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
-                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-white dark:bg-[#0f172a] w-full max-w-lg rounded-2xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[85vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm print:hidden" onClick={() => setSelectedMetric(null)}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} onClick={e => e.stopPropagation()} className="bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-white/10 w-full max-w-lg rounded-2xl p-4 sm:p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-white/10 pb-4">
                             <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedMetric === 'entries' ? "Data Breakdown" : selectedMetric === 'mood' ? "Wellness Explanation" : selectedMetric === 'tests' ? "Clinical History" : "Score Analysis"}</h3>
                             <button onClick={() => setSelectedMetric(null)}><X className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"/></button>
                         </div>
                         <div className="space-y-4">
-                            {/* ... (Modal content preserved exact) ... */}
+                            {/* ... (Modal Logic Preserved) ... */}
                             {selectedMetric === 'entries' && (
                                 <div className="space-y-3">
-                                    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
+                                    <div className="bg-slate-50 dark:bg-white/5 rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'journal' ? null : 'journal')}>
                                         <div className="flex justify-between p-4 items-center">
                                             <span className="font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200"><BookOpen size={16}/> Journal Entries</span>
                                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><span className="font-bold">{currentData.journalCount}</span>{expandedDrillDown === 'journal' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
                                         </div>
-                                        {expandedDrillDown === 'journal' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">{e.intensity}/10</span></div>)}</div>}
+                                        {expandedDrillDown === 'journal' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-white/5 pt-3">{currentData.filteredEntries.slice(0, 5).map((e, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{new Date(e.date).toLocaleDateString()} - {e.emotion}</span><span className="text-xs bg-slate-200 dark:bg-white/10 px-2 py-0.5 rounded">{e.intensity}/10</span></div>)}</div>}
                                     </div>
-                                    <div className="bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
+                                    <div className="bg-slate-50 dark:bg-white/5 rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 cursor-pointer" onClick={() => setExpandedDrillDown(expandedDrillDown === 'tests' ? null : 'tests')}>
                                         <div className="flex justify-between p-4 items-center">
                                             <span className="font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200"><CheckCircle2 size={16}/> Clinical Tests</span>
                                             <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400"><span className="font-bold">{currentData.testCount}</span>{expandedDrillDown === 'tests' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</div>
                                         </div>
-                                        {expandedDrillDown === 'tests' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{a.test_name}</span><span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span></div>)}</div>}
+                                        {expandedDrillDown === 'tests' && <div className="px-4 pb-4 space-y-2 border-t border-slate-200 dark:border-white/5 pt-3">{currentData.filteredAssessments.slice(0, 5).map((a, i) => <div key={i} className="text-sm flex justify-between text-slate-600 dark:text-slate-400"><span>{a.test_name}</span><span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 px-2 py-0.5 rounded">{a.score}%</span></div>)}</div>}
                                     </div>
                                 </div>
                             )}
                             {selectedMetric === 'mood' && (
                                 <div className="space-y-4">
                                     <p className="text-sm text-slate-600 dark:text-slate-300">We calculate your Wellness Score by combining your daily journal logs (30%) and your clinical test results (70%).</p>
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg font-mono text-sm space-y-2 border border-slate-200 dark:border-slate-800">
+                                    <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-lg font-mono text-sm space-y-2 border border-slate-200 dark:border-white/5">
                                         <p className="text-slate-700 dark:text-slate-300">({currentData.journalAvg} × 0.3) + ({currentData.testAvg10} × 0.7)</p>
                                         <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">= {currentData.avgMood}/10</p>
                                     </div>
@@ -653,9 +660,9 @@ export function ReportPage() {
                             {selectedMetric === 'tests' && (
                                 <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                                     {currentData.filteredAssessments.length > 0 ? currentData.filteredAssessments.map((a, i) => 
-                                        <div key={i} className="flex justify-between items-center p-3 border border-slate-100 dark:border-slate-800 rounded-lg text-sm bg-slate-50 dark:bg-slate-900">
+                                        <div key={i} className="flex justify-between items-center p-3 border border-slate-100 dark:border-white/5 rounded-lg text-sm bg-slate-50 dark:bg-white/5">
                                             <span className="font-medium text-slate-700 dark:text-slate-200">{a.test_name}</span>
-                                            <span className="font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-300 px-2 py-1 rounded">{a.score}%</span>
+                                            <span className="font-bold text-purple-600 bg-purple-50 dark:bg-purple-500/20 dark:text-purple-300 px-2 py-1 rounded">{a.score}%</span>
                                         </div>
                                     ) : <p className="text-center text-slate-400">No tests found.</p>}
                                 </div>
@@ -671,21 +678,18 @@ export function ReportPage() {
   )
 }
 
-// --- NEW COMPONENT: ENHANCED METRIC CARD ---
-function EnhancedMetricCard({ title, value, icon, context, trend, gradient, glow, onClick }: any) {
+// --- NEW COMPONENT: UNIFIED GLASS CARD (Visual Fix 2 + 3) ---
+function GlassMetricCard({ title, value, icon, context, onClick }: any) {
     return (
         <motion.div 
             whileHover={{ y: -4, scale: 1.01 }} 
             onClick={onClick} 
-            className={`group relative p-5 sm:p-6 rounded-2xl border backdrop-blur-xl cursor-pointer overflow-hidden transition-all shadow-sm hover:shadow-xl bg-gradient-to-br ${gradient} ${glow} bg-white/40 dark:bg-[#0f172a]/40`}
+            className="group relative p-5 sm:p-6 rounded-2xl border backdrop-blur-xl cursor-pointer overflow-hidden transition-all shadow-sm hover:shadow-2xl bg-white/40 dark:bg-white/5 border-slate-200 dark:border-white/5"
         >
             {/* Context Header */}
             <div className="flex justify-between items-start mb-4 relative z-10">
-                <div className="flex flex-col gap-1">
-                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</p>
-                    {trend && <div className="mt-1">{trend}</div>}
-                </div>
-                <div className="p-2 bg-white/80 dark:bg-slate-800/80 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 backdrop-blur-sm">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{title}</p>
+                <div className="p-2 bg-white/80 dark:bg-white/10 rounded-xl shadow-sm border border-slate-100 dark:border-white/5 backdrop-blur-sm transition-colors group-hover:bg-white dark:group-hover:bg-white/20">
                     {icon}
                 </div>
             </div>
@@ -698,8 +702,8 @@ function EnhancedMetricCard({ title, value, icon, context, trend, gradient, glow
                 </p>
             </div>
             
-            {/* Decorative Gradient Blob */}
-            <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-gradient-to-br from-white/20 to-transparent dark:from-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+            {/* Active Glow Gradient (Subtle) */}
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-white/20 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
         </motion.div>
     )
 }
