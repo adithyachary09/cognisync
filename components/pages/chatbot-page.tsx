@@ -384,7 +384,7 @@ const SUGGESTIONS = [
             <NeuralCore />
             <motion.h3 
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} 
-                // FIX: Explicit gradient classes ensures visibility regardless of global dark mode class
+                // FIX: Use explicit conditional gradient based on local 'isDark' state, as 'dark:' modifier won't trigger globally
                 className={`text-3xl font-bold mt-8 bg-clip-text text-transparent bg-gradient-to-r ${isDark ? "from-white to-slate-400" : "from-slate-900 to-slate-500"}`}
             >
                 CogniSync AI
@@ -480,7 +480,7 @@ const SUGGESTIONS = [
           </motion.button>
         </div>
         <div className="text-center mt-1 sm:mt-2">
-            <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">CogniSync AI © 2025</span>
+            <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">CogniSync AI © 2026</span>
         </div>
       </div>
     </div>
