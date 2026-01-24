@@ -148,11 +148,16 @@ export default function SettingsPage() {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
     if (!trimmed) return;
+    
     setIsSavingName(true);
+    
+    // Simulate processing delay
     setTimeout(() => {
+      // 1. Update Local Context State
       updateSettings({ username: trimmed });
-      
-      // FIX: Force immediate sidebar update by dispatching the event manually
+
+      // 2. Force Immediate System-Wide Update (Fixes Sidebar/Header sync)
+      // This ensures components listening for the patch event update instantly without reload
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
         detail: { ...settings, username: trimmed } 
       }));
@@ -453,8 +458,8 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              {/* UI FIX: Darker, premium glass capsule for Dark Mode */}
-              <div className="bg-white/80 dark:bg-[#09090b]/80 p-1.5 rounded-full border border-white/20 dark:border-white/5 backdrop-blur-2xl shadow-2xl shadow-black/10 inline-flex min-w-max mx-auto ring-1 ring-black/5">
+              {/* ENHANCED FIX: "Pure Glass" HUD style. Removed the solid grey background. */}
+              <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-full border border-black/5 dark:border-white/10 backdrop-blur-xl shadow-lg inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
@@ -797,21 +802,21 @@ export default function SettingsPage() {
                            
                            <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
-                           <div className="flex items-center gap-6 justify-center md:justify-start">
-                             {/* UI FIX: Darker background in dark mode for premium feel */}
-                             <div className="h-10 px-5 rounded-2xl bg-white/60 dark:bg-zinc-800/80 border border-white/20 dark:border-white/5 text-foreground/80 text-[11px] font-bold inline-flex items-center gap-3 shadow-sm backdrop-blur-md">
-                                <Sparkles size={14} className="text-amber-400 fill-amber-400" /> Member since {memberSinceYear}
+                           <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start mt-2">
+                             {/* Premium Member Badge: Gold/Amber themed glass with subtle glow */}
+                             <div className="h-11 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-[0_0_15px_-3px_rgba(245,158,11,0.1)] backdrop-blur-md">
+                                <Sparkles size={14} className="text-amber-500 fill-amber-500 animate-pulse" /> 
+                                <span>Member since {memberSinceYear}</span>
                              </div>
+
+                             {/* Enhanced Remove Button: Destructive Red Glass */}
                              {settings.avatar && (
                                 <button 
-                                   onClick={() => {
-                                if (user) localStorage.removeItem(`cognisync:avatar:${user.id}`);
-                                updateSettings({ avatar: "/placeholder-user.png" });
-                                showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
-                              }} 
-                                   className="text-[11px] font-bold text-rose-500/80 hover:text-rose-600 hover:bg-rose-500/10 px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 group"
+                                   onClick={handleRemoveAvatar} 
+                                   className="h-11 px-6 rounded-full border border-red-500/10 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 transition-all flex items-center gap-2 group active:scale-95"
                                 >
-                                   <Trash2 size={14} className="group-hover:rotate-12 transition-transform" /> Remove Photo
+                                   <Trash2 size={14} className="group-hover:rotate-12 transition-transform opacity-70 group-hover:opacity-100" /> 
+                                   <span>Remove Photo</span>
                                 </button>
                              )}
                            </div>
