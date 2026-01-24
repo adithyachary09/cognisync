@@ -425,10 +425,12 @@ export default function SettingsPage() {
       <div className="relative mx-auto max-w-5xl z-10 pb-20">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex flex-col gap-2 pt-4 md:pt-0">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
-               <SettingsIcon className="text-slate-900 dark:text-white h-6 w-6 md:h-8 md:w-8" />
+            {/* Adaptive Icon Container */}
+            <div className="p-3 bg-card/50 backdrop-blur-md rounded-2xl shadow-sm border border-border">
+               <SettingsIcon className="text-foreground h-6 w-6 md:h-8 md:w-8" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">Settings</h1>
+            {/* Adaptive Title Text */}
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Settings</h1>
           </div>
         </motion.div>
 
@@ -521,7 +523,8 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
                       {/* Typography Scale - Premium Glass */}
                       <motion.div variants={itemVariant} className="h-full">
-                        <Card className="group h-full p-8 border border-white/20 shadow-xl bg-gradient-to-br from-white/80 to-white/40 dark:from-slate-900/80 dark:to-slate-900/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
+                        {/* Adaptive Card: Uses 'from-card' and 'border-border' to blend with active theme */}
+                        <Card className="group h-full p-8 border border-border/50 shadow-xl bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
                             {/* Gradient Noise/Texture */}
                             <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
                             
@@ -580,7 +583,8 @@ export default function SettingsPage() {
 
                       {/* Accent Color - Premium Glass */}
                       <motion.div variants={itemVariant} className="h-full">
-                        <Card className="group h-full p-8 border border-white/20 shadow-xl bg-gradient-to-bl from-white/80 to-white/40 dark:from-slate-900/80 dark:to-slate-900/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
+                        {/* Adaptive Card: Uses 'from-card' and 'border-border' to blend with active theme */}
+                        <Card className="group h-full p-8 border border-border/50 shadow-xl bg-gradient-to-bl from-card/80 to-card/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
                             <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
 
                             <div className="flex items-center gap-5 mb-10 relative z-10">
@@ -617,62 +621,53 @@ export default function SettingsPage() {
                                         />
                                       )}
 
-                                     <div className="relative group/orb">
-                                          {/* The Living Gemstone */}
+                                      <div className="relative">
+                                          {/* The Color Circle (Dynamic Orb) */}
                                           <motion.div 
-                                            className="relative w-16 h-16 rounded-full flex items-center justify-center overflow-hidden"
+                                            className="relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center overflow-hidden"
                                             style={{ backgroundColor: theme.color }}
                                             animate={{ 
-                                              boxShadow: isActive 
-                                                ? `0 0 30px -5px ${theme.color}80, inset 0 -5px 15px rgba(0,0,0,0.2)` 
-                                                : `0 5px 15px -5px ${theme.color}40, inset 0 -2px 5px rgba(0,0,0,0.1)`,
-                                              scale: isActive ? 1.15 : 1,
-                                              y: isActive ? -5 : 0
+                                              boxShadow: isActive ? `0 0 35px -5px ${theme.color}90` : `0 8px 20px -5px ${theme.color}40`,
+                                              scale: isActive ? 1.15 : 1
                                             }}
-                                            whileHover={{ scale: 1.1, y: -2 }}
                                             transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                           >
-                                            {/* 1. Deep Shadow Overlay (Bottom Right) */}
-                                            <div className="absolute inset-0 bg-gradient-to-tl from-black/40 via-transparent to-transparent pointer-events-none" />
+                                            {/* 1. 3D Depth Overlay (Static) */}
+                                            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/20 pointer-events-none" />
 
-                                            {/* 2. Specular Highlight (Top Left - Hard Shine) */}
-                                            <div className="absolute top-2 left-3 w-6 h-3 bg-white/40 rounded-full blur-[2px] rotate-[-45deg] pointer-events-none" />
-                                            <div className="absolute top-3 left-3 w-2 h-2 bg-white/80 rounded-full blur-[1px] pointer-events-none" />
-
-                                            {/* 3. Internal Caustic Glow (Breathing) */}
+                                            {/* 2. Inner Pulsing Glow (Dynamic) */}
                                             <motion.div 
-                                              className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent"
-                                              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.2, 0.8] }}
-                                              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                                              className="absolute inset-0"
+                                              style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, transparent 70%)" }}
+                                              animate={{ opacity: [0.1, 0.5, 0.1], scale: [0.8, 1.2, 0.8] }}
+                                              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                                             />
 
-                                            {/* 4. Active State Icon (Glass Box) */}
-                                            <AnimatePresence>
-                                              {isActive && (
-                                                <motion.div 
-                                                  initial={{ scale: 0, opacity: 0 }} 
-                                                  animate={{ scale: 1, opacity: 1 }} 
-                                                  exit={{ scale: 0, opacity: 0 }}
-                                                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                                  className="relative z-10 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-inner"
-                                                >
-                                                  <Check className="w-4 h-4 text-white font-black drop-shadow-md" strokeWidth={4} />
-                                                </motion.div>
-                                              )}
-                                            </AnimatePresence>
+                                            {/* 3. Specular Highlight (Glass Effect) */}
+                                            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.5)_0%,transparent_50%)] pointer-events-none" />
+
+                                            {isActive && (
+                                              <motion.div 
+                                                initial={{ scale: 0, rotate: -45 }} 
+                                                animate={{ scale: 1, rotate: 0 }} 
+                                                transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                                                className="relative z-10 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/30 shadow-inner"
+                                              >
+                                                <Check className="w-5 h-5 text-white font-bold drop-shadow-md" strokeWidth={4} />
+                                              </motion.div>
+                                            )}
                                           </motion.div>
                                           
-                                          {/* Active Ring Indicator */}
+                                          {/* Selection Ring Indicator */}
                                           {isActive && (
                                             <motion.div
                                                 layoutId="outline"
-                                                className="absolute -inset-2 rounded-full border-2 border-primary/30"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                animate={{ opacity: 1, scale: 1 }}
+                                                className="absolute -inset-2 rounded-full border-2 border-primary/20"
+                                                initial={false}
                                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                             />
                                           )}
-                                      </div> 
+                                      </div>
 
                                       <span className={`text-[10px] font-black tracking-widest uppercase transition-colors duration-300 ${isActive ? 'text-foreground translate-y-0' : 'text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1'}`}>
                                         {theme.label}
