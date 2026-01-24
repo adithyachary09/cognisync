@@ -71,7 +71,15 @@ export default function SettingsPage() {
   const [showFactoryResetDialog, setShowFactoryResetDialog] = useState(false);
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
-  const [pendingUsername, setPendingUsername] = useState(settings.username ?? "");
+  // Initialize with settings, will be overwritten by DB fetch
+  const [pendingUsername, setPendingUsername] = useState(settings.username || "");
+  
+  // FIX: Sync local input state when settings update (e.g. after DB fetch)
+  // This ensures the input shows the correct name immediately after page load
+  useEffect(() => {
+     if (settings.username) setPendingUsername(settings.username);
+  }, [settings.username]);
+
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [activeTab, setActiveTab] = useState("appearance");
   const [copied, setCopied] = useState(false);
@@ -754,7 +762,6 @@ export default function SettingsPage() {
               {/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-8 m-0 relative z-30">
                   <motion.div variants={itemVariant}>
-                    {/* FIX: Removed overflow-hidden so popup can escape. Added distinct bg layer. */}
                     <div className="relative p-8 rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30">
                       
                       {/* Clipping Layer for Background Blobs */}
@@ -763,17 +770,19 @@ export default function SettingsPage() {
                       </div>
 
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
-                        {/* LEFT COLUMN: AVATAR & SECURE BADGE */}
-                        <div className="relative group">
+                        {/* LEFT COLUMN: AVATAR & SECURE BADGE (High Z-Index to overlap Email Card) */}
+                        <div className="relative group z-50">
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
-                                 {settings.avatar ? (
-                                    <img src={settings.avatar} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-muted-foreground/20 bg-muted">
-                                       {settings.username?.slice(0,2).toUpperCase()}
-                                    </div>
-                                 )}
+                                 
+                                 {/* LOGIC FIX: Always render Image (User's or Placeholder) */}
+                                 <img 
+                                    src={settings.avatar && settings.avatar !== "" ? settings.avatar : "/placeholder-user.png"} 
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    alt="Profile"
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
+                                 />
+
                                  <button 
                                     onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
@@ -796,7 +805,7 @@ export default function SettingsPage() {
                               <security.icon size={12} strokeWidth={3} /> {security.label}
                            </button>
                            
-                           {/* Secure Info Popup (Z-Index Fix) */}
+                           {/* Secure Info Popup */}
                            <AnimatePresence>
                               {showSecurityInfo && (
                                 <>
