@@ -92,7 +92,7 @@ export default function SettingsPage() {
     (user as any)?.app_metadata?.providers?.includes('google') ||
     (user as any)?.identities?.some((id: any) => id.provider === 'google');
     
-  // LOGIC FIX: Member since based on First Entry -> Created At -> Current Year
+  // LOGIC: Member since based on First Entry -> Created At -> Current Year
   const getMemberSince = () => {
     if (entries && entries.length > 0) {
       const sorted = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -103,6 +103,12 @@ export default function SettingsPage() {
   const memberSinceYear = getMemberSince();
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
+
+  useEffect(() => {
+    // Ensure avatar defaults to placeholder-user.png if not set
+    const storedAvatar = localStorage.getItem(`cognisync:avatar:${user?.id}`);
+    if (!storedAvatar) updateSettings({ avatar: "/placeholder-user.png" });
+  }, [user]);
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
@@ -157,7 +163,6 @@ export default function SettingsPage() {
       updateSettings({ username: trimmed });
 
       // 2. Force Immediate System-Wide Update (Fixes Sidebar/Header sync)
-      // This ensures components listening for the patch event update instantly without reload
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
         detail: { ...settings, username: trimmed } 
       }));
@@ -166,8 +171,6 @@ export default function SettingsPage() {
       showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
     }, 800);
   };
-
-  // LOGIC: Default avatar to 'placeholder-user.png'
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
@@ -458,8 +461,8 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              {/* FIXED: High-contrast glass borders for Dark Mode + Ring for depth */}
-              <div className="bg-white/80 dark:bg-black/60 p-1.5 rounded-full border border-slate-200/50 dark:border-white/15 ring-1 dark:ring-white/5 backdrop-blur-2xl shadow-xl dark:shadow-black/50 inline-flex min-w-max mx-auto">
+              {/* FIX: Outline Only, Dynamic Glass, No Fill */}
+              <div className="bg-transparent p-1 rounded-full border-2 border-primary/20 dark:border-white/10 backdrop-blur-md shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)] inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
@@ -704,19 +707,19 @@ export default function SettingsPage() {
               </TabsContent> 
 
               {/* ======================= TAB: ACCOUNT ======================= */}
-              <TabsContent value="account" className="space-y-8 m-0">
+              <TabsContent value="account" className="space-y-8 m-0 relative z-30">
                   <motion.div variants={itemVariant}>
-                    {/* Adaptive Card: Removed overflow-hidden from main container so popup isn't clipped */}
-                    <Card className="relative p-8 border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30 rounded-[3rem]">
+                    {/* FIX: Removed overflow-hidden so popup can escape. Added distinct bg layer. */}
+                    <div className="relative p-8 rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30">
                       
-                      {/* Ambient Background Layer (Clipped) */}
-                      <div className="absolute inset-0 overflow-hidden rounded-[3rem] pointer-events-none">
+                      {/* Clipping Layer for Background Blobs */}
+                      <div className="absolute inset-0 rounded-[3rem] overflow-hidden pointer-events-none">
                          <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
                       </div>
-                      
+
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
+                        {/* LEFT COLUMN: AVATAR & SECURE BADGE */}
                         <div className="relative group">
-                           {/* Avatar Container */}
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
                                  {settings.avatar ? (
@@ -726,7 +729,6 @@ export default function SettingsPage() {
                                        {settings.username?.slice(0,2).toUpperCase()}
                                     </div>
                                  )}
-                                 
                                  <button 
                                     onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
@@ -738,39 +740,39 @@ export default function SettingsPage() {
                            </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           {/* Premium Security Badge */}
+                           {/* Secure Badge Button */}
                            <button 
                              onClick={() => setShowSecurityInfo(!showSecurityInfo)}
                              className={cn(
-                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-white dark:border-slate-950 flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-20 hover:-translate-y-1 hover:shadow-2xl", 
+                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-card dark:border-black flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-20 hover:-translate-y-1 hover:shadow-2xl", 
                                 security.color
                              )}
                            >
                               <security.icon size={12} strokeWidth={3} /> {security.label}
                            </button>
                            
+                           {/* Secure Info Popup (Z-Index Fix) */}
                            <AnimatePresence>
                               {showSecurityInfo && (
                                 <>
-                                  {/* CLICK OUTSIDE HANDLER */}
-                                  <div className="fixed inset-0 z-40" onClick={() => setShowSecurityInfo(false)} />
+                                  {/* Transparent Overlay for Click-Outside */}
+                                  <div className="fixed inset-0 z-[90]" onClick={() => setShowSecurityInfo(false)} />
                                   
-                                  {/* FIX: Positioned higher (z-50) and adjusted to not overlap */}
                                   <motion.div 
                                      initial={{ opacity: 0, y: 10, scale: 0.95 }} 
-                                     animate={{ opacity: 1, y: 15, scale: 1 }} 
+                                     animate={{ opacity: 1, y: 20, scale: 1 }} 
                                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                     className="absolute top-[85%] left-1/2 -translate-x-1/2 w-72 p-6 bg-zinc-900/95 text-white backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-white/10 z-[100] text-center"
+                                     className="absolute top-full left-1/2 -translate-x-1/2 w-72 p-6 bg-zinc-950/95 text-white backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 z-[100] text-center"
                                   >
-                                    {/* Triangle Pointer */}
-                                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-popover/95 rotate-45 border-l border-t border-border/80" />
-                                    
-                                    <div className="flex flex-col items-center gap-2">
-                                      <div className={cn("p-2 rounded-full mb-1", security.color.replace('text-white', 'bg-opacity-10 text-current'))}>
+                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-zinc-950/95 rotate-45 border-l border-t border-white/10" />
+                                    <div className="flex flex-col items-center gap-3 relative z-10">
+                                      <div className={cn("p-2 rounded-full", security.color.replace('text-white', 'bg-white/10 text-current'))}>
                                         <security.icon size={20} />
                                       </div>
-                                      <p className="text-xs font-black uppercase tracking-widest text-foreground">Security Protocol</p>
-                                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">{security.desc}</p>
+                                      <div>
+                                         <p className="text-xs font-black uppercase tracking-widest text-white mb-1">Security Protocol</p>
+                                         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">{security.desc}</p>
+                                      </div>
                                     </div>
                                   </motion.div>
                                 </>
@@ -778,15 +780,17 @@ export default function SettingsPage() {
                            </AnimatePresence>
                         </div>
 
+                        {/* RIGHT COLUMN: IDENTITY INPUTS */}
                         <div className="flex-1 space-y-8 text-center md:text-left w-full max-w-2xl">
                            <div className="flex flex-col md:items-start items-center gap-4">
                               <label className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/50 pl-1">Public Identity</label>
                               <div className="flex items-center gap-4 w-full">
                                  <div className="relative flex-1 group/input">
+                                    {/* Enhanced Input with Better Borders */}
                                     <Input 
                                        value={pendingUsername} 
                                        onChange={(e) => setPendingUsername(e.target.value)} 
-                                       className="h-16 bg-muted/50 border-2 border-transparent focus:border-primary/20 hover:bg-muted/80 shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6 text-foreground placeholder:text-muted-foreground/30" 
+                                       className="h-16 bg-muted/40 border-2 border-border/50 focus:border-primary/50 focus:bg-background shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6 text-foreground placeholder:text-muted-foreground/30" 
                                     />
                                     {!isNameDirty && <span className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={24} /></span>}
                                  </div>
@@ -802,15 +806,15 @@ export default function SettingsPage() {
                            
                            <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
-                           <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start mt-2">
-                             {/* Premium Member Badge: Gold/Amber themed glass with subtle glow */}
-                             <div className="h-11 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-[0_0_15px_-3px_rgba(245,158,11,0.1)] backdrop-blur-md">
+                           <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
+                             {/* Enhanced Member Badge */}
+                             <div className="h-11 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-[0_4px_20px_-5px_rgba(245,158,11,0.1)]">
                                 <Sparkles size={14} className="text-amber-500 fill-amber-500 animate-pulse" /> 
                                 <span>Member since {memberSinceYear}</span>
                              </div>
 
-                             {/* Enhanced Remove Button: Destructive Red Glass */}
-                             {settings.avatar && (
+                             {/* Enhanced Remove Button */}
+                             {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
                                 <button 
                                    onClick={handleRemoveAvatar} 
                                    className="h-11 px-6 rounded-full border border-red-500/10 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 transition-all flex items-center gap-2 group active:scale-95"
@@ -822,7 +826,7 @@ export default function SettingsPage() {
                            </div>
                         </div>
                       </div>
-                    </Card>
+                    </div>
                   </motion.div>
 
                   <div className={cn("grid gap-6 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
