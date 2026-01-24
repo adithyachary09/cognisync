@@ -151,10 +151,18 @@ export default function SettingsPage() {
     setIsSavingName(true);
     setTimeout(() => {
       updateSettings({ username: trimmed });
+      
+      // FIX: Force immediate sidebar update by dispatching the event manually
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+        detail: { ...settings, username: trimmed } 
+      }));
+
       setIsSavingName(false);
       showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
     }, 800);
   };
+
+  // LOGIC: Default avatar to 'placeholder-user.png'
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
@@ -445,8 +453,8 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              {/* Enhanced Glass Capsule: Deep blur, semi-transparent adaptive background to let theme colors shine through */}
-              <div className="bg-white/60 dark:bg-black/40 p-1.5 rounded-full border border-white/20 dark:border-white/10 backdrop-blur-2xl shadow-2xl shadow-black/5 inline-flex min-w-max mx-auto">
+              {/* UI FIX: Darker, premium glass capsule for Dark Mode */}
+              <div className="bg-white/80 dark:bg-[#09090b]/80 p-1.5 rounded-full border border-white/20 dark:border-white/5 backdrop-blur-2xl shadow-2xl shadow-black/10 inline-flex min-w-max mx-auto ring-1 ring-black/5">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
@@ -739,14 +747,15 @@ export default function SettingsPage() {
                            <AnimatePresence>
                               {showSecurityInfo && (
                                 <>
-                                  {/* CLICK OUTSIDE HANDLER (Transparent Overlay) */}
+                                  {/* CLICK OUTSIDE HANDLER */}
                                   <div className="fixed inset-0 z-40" onClick={() => setShowSecurityInfo(false)} />
                                   
+                                  {/* FIX: Positioned higher (z-50) and adjusted to not overlap */}
                                   <motion.div 
-                                     initial={{ opacity: 0, y: 15, scale: 0.9 }} 
-                                     animate={{ opacity: 1, y: 10, scale: 1 }} 
-                                     exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                                     className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-72 p-6 bg-popover/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] border border-border/80 z-50 text-center"
+                                     initial={{ opacity: 0, y: 10, scale: 0.95 }} 
+                                     animate={{ opacity: 1, y: 15, scale: 1 }} 
+                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                     className="absolute top-[85%] left-1/2 -translate-x-1/2 w-72 p-6 bg-zinc-900/95 text-white backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-white/10 z-[100] text-center"
                                   >
                                     {/* Triangle Pointer */}
                                     <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-popover/95 rotate-45 border-l border-t border-border/80" />
@@ -789,12 +798,17 @@ export default function SettingsPage() {
                            <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
                            <div className="flex items-center gap-6 justify-center md:justify-start">
-                             <div className="h-10 px-5 rounded-2xl bg-white/60 dark:bg-white/5 border border-white/20 dark:border-white/10 text-muted-foreground text-[11px] font-bold inline-flex items-center gap-3 shadow-sm backdrop-blur-sm">
+                             {/* UI FIX: Darker background in dark mode for premium feel */}
+                             <div className="h-10 px-5 rounded-2xl bg-white/60 dark:bg-zinc-800/80 border border-white/20 dark:border-white/5 text-foreground/80 text-[11px] font-bold inline-flex items-center gap-3 shadow-sm backdrop-blur-md">
                                 <Sparkles size={14} className="text-amber-400 fill-amber-400" /> Member since {memberSinceYear}
                              </div>
                              {settings.avatar && (
                                 <button 
-                                   onClick={handleRemoveAvatar} 
+                                   onClick={() => {
+                                if (user) localStorage.removeItem(`cognisync:avatar:${user.id}`);
+                                updateSettings({ avatar: "/placeholder-user.png" });
+                                showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
+                              }} 
                                    className="text-[11px] font-bold text-rose-500/80 hover:text-rose-600 hover:bg-rose-500/10 px-5 py-2.5 rounded-2xl transition-all flex items-center gap-2 group"
                                 >
                                    <Trash2 size={14} className="group-hover:rotate-12 transition-transform" /> Remove Photo
@@ -844,7 +858,8 @@ export default function SettingsPage() {
 
                          <div className="relative z-10">
                              {emailStatus === 'verified' ? (
-                                <div className="flex items-center justify-between pt-8 border-t border-dashed border-slate-200 dark:border-white/10">
+                                /* FIX: Removed dashed line, added container box */
+                                <div className="mt-6 p-2 rounded-[1.5rem] bg-background/50 border border-white/5 backdrop-blur-md flex items-center justify-between pl-5">
                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
                                       <span className="relative flex h-3 w-3">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -852,7 +867,7 @@ export default function SettingsPage() {
                                       </span>
                                       Account Protected
                                    </span>
-                                   <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-5 py-2.5 rounded-xl transition-all">Unlink Address</button>
+                                   <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 px-5 py-3 rounded-2xl transition-all">Unlink</button>
                                 </div>
                              ) : (
                                 <div className="space-y-5">
@@ -893,15 +908,15 @@ export default function SettingsPage() {
                                 <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>
                               </div>
                               
-                              {/* OAuth User Session Control (Small) */}
-                              <div className="p-2 rounded-[2.5rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 mt-auto shadow-lg backdrop-blur-md">
+                              {/* OAuth User Session Control (Small - Enhanced) */}
+                              <motion.div whileHover={{ scale: 1.01 }} className="p-2 rounded-[2.5rem] bg-gradient-to-br from-rose-500/5 via-background to-background border border-rose-500/10 mt-auto shadow-xl backdrop-blur-md group/session">
                                 <div className="flex flex-col items-center justify-between p-6 gap-6">
                                    <div className="flex gap-5 w-full items-center">
-                                      <div className="w-12 h-12 bg-white dark:bg-rose-950/30 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm border border-rose-200/50 dark:border-rose-900/50"><LogOut size={22} strokeWidth={2.5} /></div>
+                                      <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/20 rounded-2xl flex items-center justify-center text-rose-600 shadow-sm border border-rose-100 dark:border-rose-900/30 group-hover/session:scale-110 transition-transform"><LogOut size={22} strokeWidth={2.5} /></div>
                                       <div><h4 className="font-black text-base text-foreground tracking-tight">Session Control</h4><p className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider mt-0.5">Termination Protocol</p></div>
                                    </div>
                                    <div 
-                                      className="relative w-full h-14 bg-white/80 dark:bg-black/40 rounded-2xl border border-rose-200 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none group touch-none"
+                                      className="relative w-full h-14 bg-card/50 rounded-2xl border border-rose-200/50 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none group touch-none hover:border-rose-500/30 transition-colors"
                                       onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
                                    >
                                       <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 to-red-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }} />
@@ -912,7 +927,7 @@ export default function SettingsPage() {
                                       </div>
                                    </div>
                                 </div>
-                              </div>
+                              </motion.div>
                             </>
                           ) : (
                              <div className="p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[3rem] border border-border/50 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
