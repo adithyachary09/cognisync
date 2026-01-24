@@ -6,6 +6,7 @@ import { User as SupabaseUser } from "@supabase/supabase-js";
 
 // 1. Export Interfaces
 export interface User {
+  user_metadata: any;
   id: string;
   name?: string;
   email: string;
@@ -35,37 +36,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  // Helper: Merges Auth Data with Database AND Local Storage
+  // Helper: Merges Auth Data with Database (Source of Truth)
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
     // Start with basic info from Auth
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
+      user_metadata: sbUser.user_metadata || {}, // Fixed: Added missing property
       name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
       avatarUrl: "", // Default empty
     };
 
-    // A. FETCH NAME FROM DATABASE (Since 'name' column exists)
+    // FETCH LATEST PROFILE FROM DATABASE
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('name')
+        .select('name, avatar_url') // Fetch both fields
         .eq('id', sbUser.id)
         .single();
 
-      if (data && !error && data.name) {
-        finalUser.name = data.name;
+      if (data && !error) {
+        if (data.name) finalUser.name = data.name;
+        if (data.avatar_url) finalUser.avatarUrl = data.avatar_url;
       }
     } catch (err) {
-      console.error("Background name fetch failed:", err);
+      console.error("Background profile fetch failed:", err);
     }
 
-    // B. FETCH AVATAR FROM LOCAL STORAGE (Matching Settings Page logic)
-    if (typeof window !== 'undefined') {
-        const localAvatar = localStorage.getItem(`cognisync:avatar:${sbUser.id}`);
-        if (localAvatar) {
-            finalUser.avatarUrl = localAvatar;
-        }
+    // Fallback: If DB avatar is empty, use placeholder
+    if (!finalUser.avatarUrl) {
+        finalUser.avatarUrl = "/placeholder-user.png";
     }
 
     return finalUser;
@@ -121,16 +121,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    // Listen for Settings changes to update Avatar instantly
-    const handleStorageChange = () => {
-        if (user) refreshProfile();
+    // Listen for Settings changes to update Context instantly
+    const handlePatch = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (user && customEvent.detail) {
+            handleUserUpdate({
+                ...user,
+                name: customEvent.detail.username || user.name,
+                avatarUrl: customEvent.detail.avatar || user.avatarUrl
+            });
+        }
     };
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('cognisync:settings:patch', handlePatch);
 
     return () => { 
         mounted = false; 
         subscription.unsubscribe();
-        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('cognisync:settings:patch', handlePatch);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

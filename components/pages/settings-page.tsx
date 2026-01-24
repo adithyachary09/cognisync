@@ -77,7 +77,9 @@ export default function SettingsPage() {
   // FIX: Sync local input state when settings update (e.g. after DB fetch)
   // This ensures the input shows the correct name immediately after page load
   useEffect(() => {
-     if (settings.username) setPendingUsername(settings.username);
+     if (settings.username && settings.username !== "User") {
+        setPendingUsername(settings.username);
+     }
   }, [settings.username]);
 
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
@@ -155,9 +157,13 @@ export default function SettingsPage() {
 
         // Update local context with DB data (fallback to settings/placeholder)
         if (data) {
-            if (data.name) setPendingUsername(data.name);
+            // FIX: Cast user to 'any' to safely access user_metadata without TypeScript errors
+            const finalName = data.name || (user as any)?.user_metadata?.full_name || settings.username;
+            
+            if (finalName) setPendingUsername(finalName);
+            
             updateSettings({ 
-                username: data.name || settings.username,
+                username: finalName,
                 avatar: data.avatar_url || "/placeholder-user.png" 
             });
         } else {
@@ -775,16 +781,16 @@ export default function SettingsPage() {
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
                                  
-                                 {/* LOGIC FIX: Always render Image (User's or Placeholder) */}
+                                 {/* LOGIC FIX: Always render Image tag, relying on src fallback */}
                                  <img 
-                                    src={settings.avatar && settings.avatar !== "" ? settings.avatar : "/placeholder-user.png"} 
+                                    src={settings.avatar && settings.avatar.length > 10 ? settings.avatar : "/placeholder-user.png"} 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                                     alt="Profile"
-                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }}
                                  />
 
                                  <button 
-                                    onClick={() => fileInputRef.current?.click()} 
+                                    onClick={() => fileInputRef.current?.click()}
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
                                  >
                                     <Camera className="text-white drop-shadow-md" size={28} />
