@@ -437,7 +437,8 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              <div className="bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl shadow-lg inline-flex min-w-max mx-auto">
+              {/* Enhanced Glass Capsule: Deep blur, semi-transparent adaptive background to let theme colors shine through */}
+              <div className="bg-white/60 dark:bg-black/40 p-1.5 rounded-full border border-white/20 dark:border-white/10 backdrop-blur-2xl shadow-2xl shadow-black/5 inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
@@ -684,19 +685,23 @@ export default function SettingsPage() {
               {/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-8 m-0">
                   <motion.div variants={itemVariant}>
-                    <Card className="relative p-8 border border-white/20 shadow-2xl overflow-hidden backdrop-blur-3xl bg-gradient-to-br from-white/90 via-white/60 to-white/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-slate-900/30 rounded-[3rem]">
-                      {/* Ambient Glow */}
-                      <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+                    {/* Adaptive Card: Removed overflow-hidden from main container so popup isn't clipped */}
+                    <Card className="relative p-8 border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30 rounded-[3rem]">
+                      
+                      {/* Ambient Background Layer (Clipped) */}
+                      <div className="absolute inset-0 overflow-hidden rounded-[3rem] pointer-events-none">
+                         <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
+                      </div>
                       
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
                         <div className="relative group">
                            {/* Avatar Container */}
-                           <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-white/50 to-primary/20 backdrop-blur-md shadow-2xl">
-                              <div className={cn("w-full h-full rounded-full bg-slate-100 dark:bg-black overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
+                           <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
+                              <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
                                  {settings.avatar ? (
                                     <img src={settings.avatar} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-slate-300 dark:text-slate-700 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-black">
+                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-muted-foreground/20 bg-muted">
                                        {settings.username?.slice(0,2).toUpperCase()}
                                     </div>
                                  )}
@@ -727,11 +732,13 @@ export default function SettingsPage() {
                               {showSecurityInfo && (
                                 <motion.div 
                                    initial={{ opacity: 0, y: 15, scale: 0.9 }} 
-                                   animate={{ opacity: 1, y: 5, scale: 1 }} 
+                                   animate={{ opacity: 1, y: 10, scale: 1 }} 
                                    exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                                   className="absolute top-[100%] left-1/2 -translate-x-1/2 mt-2 w-64 p-5 bg-white/95 dark:bg-black/95 backdrop-blur-xl rounded-[1.5rem] shadow-2xl border border-white/20 dark:border-white/10 z-50 text-center ring-1 ring-black/5"
+                                   className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-5 bg-popover/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-border z-[100] text-center"
                                 >
-                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white/95 dark:bg-black/95 rotate-45 border-l border-t border-white/20 dark:border-white/10" />
+                                  {/* Triangle Pointer */}
+                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-popover/95 rotate-45 border-l border-t border-border" />
+                                  
                                   <p className="text-xs font-black uppercase tracking-widest mb-2 text-primary">Security Protocol</p>
                                   <p className="text-[11px] text-muted-foreground font-medium leading-relaxed">{security.desc}</p>
                                 </motion.div>
@@ -747,7 +754,7 @@ export default function SettingsPage() {
                                     <Input 
                                        value={pendingUsername} 
                                        onChange={(e) => setPendingUsername(e.target.value)} 
-                                       className="h-16 bg-white/40 dark:bg-black/20 border-2 border-transparent focus:border-primary/20 hover:bg-white/60 dark:hover:bg-black/30 shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6" 
+                                       className="h-16 bg-muted/50 border-2 border-transparent focus:border-primary/20 hover:bg-muted/80 shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6 text-foreground placeholder:text-muted-foreground/30" 
                                     />
                                     {!isNameDirty && <span className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={24} /></span>}
                                  </div>
@@ -783,7 +790,7 @@ export default function SettingsPage() {
 
                   <div className={cn("grid gap-8 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
                       {/* EMAIL SECURITY CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-white/20 bg-gradient-to-b from-white/60 to-white/30 dark:from-slate-900/60 dark:to-slate-900/30 backdrop-blur-3xl p-10 shadow-2xl relative overflow-hidden flex flex-col gap-10 transition-all hover:-translate-y-1 hover:shadow-primary/5 min-h-[400px]">
+                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-border/50 bg-gradient-to-b from-card/60 to-card/30 backdrop-blur-3xl p-10 shadow-2xl relative overflow-hidden flex flex-col gap-10 transition-all hover:-translate-y-1 hover:shadow-primary/5 min-h-[400px]">
                          <div className={cn("absolute -top-20 -right-20 w-80 h-80 rounded-full blur-[90px] opacity-25 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
                          <div className="absolute top-10 right-10 opacity-[0.04] rotate-12"><Mail size={180} /></div>
                          
@@ -849,7 +856,7 @@ export default function SettingsPage() {
                       <motion.div variants={itemVariant} className="flex flex-col h-full gap-8">
                           {isGoogleUser ? (
                             <>
-                              <div className="flex items-center justify-between p-8 bg-gradient-to-br from-white/50 to-white/10 dark:from-slate-900/50 dark:to-slate-900/10 rounded-[3rem] border border-white/20 backdrop-blur-xl shadow-lg relative overflow-hidden group">
+                              <div className="flex items-center justify-between p-8 bg-gradient-to-br from-card/50 to-card/10 rounded-[3rem] border border-border/50 backdrop-blur-xl shadow-lg relative overflow-hidden group">
                                 <div className="absolute inset-0 bg-blue-500/5 opacity-50 group-hover:bg-blue-500/10 transition-colors" />
                                 <div className="flex items-center gap-6 relative z-10">
                                    <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/50"><span className="text-3xl font-black text-blue-600">G</span></div>
@@ -880,7 +887,7 @@ export default function SettingsPage() {
                               </div>
                             </>
                           ) : (
-                             <div className="p-10 bg-gradient-to-br from-white/60 to-white/20 dark:from-slate-900/60 dark:to-slate-900/20 rounded-[3rem] border border-white/20 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
+                             <div className="p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[3rem] border border-border/50 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-bl-[100px] pointer-events-none" />
                                 
                                 <div className="flex items-center gap-4 mb-8 relative z-10">
@@ -906,7 +913,7 @@ export default function SettingsPage() {
                                               value={currentPwd} 
                                               onChange={(e) => setCurrentPwd(e.target.value)} 
                                               disabled={pwdStage === "verifying"}
-                                              className="h-16 rounded-[1.2rem] bg-white/40 dark:bg-black/20 pr-14 transition-all font-bold text-lg border-2 border-transparent focus:border-primary/20 hover:bg-white/60 dark:hover:bg-black/30" 
+                                              className="h-16 rounded-[1.2rem] bg-muted/50 pr-14 transition-all font-bold text-lg border-2 border-transparent focus:border-primary/20 hover:bg-muted/80 text-foreground placeholder:text-muted-foreground/40" 
                                             />
                                             <button 
                                               type="button"
