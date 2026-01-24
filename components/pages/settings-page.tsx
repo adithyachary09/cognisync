@@ -414,7 +414,7 @@ export default function SettingsPage() {
   const tabs = [{ id: "appearance", label: "Appearance" }, { id: "account", label: "Account" }, { id: "data", label: "Data" }, { id: "support", label: "Support" }];
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8 transition-colors duration-500 ease-out bg-slate-50 dark:bg-slate-950 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8 transition-colors duration-500 ease-out bg-background text-foreground selection:bg-primary/20 selection:text-primary relative overflow-hidden">
       
       {/* Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
@@ -438,9 +438,17 @@ export default function SettingsPage() {
               <div className="bg-white/80 dark:bg-slate-900/80 p-1.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 backdrop-blur-xl shadow-lg inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
-                          <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-foreground/80">
-                              {activeTab === tab.id && <motion.div layoutId="active-tab-bg" className="absolute inset-0 bg-slate-900 dark:bg-white rounded-full" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
-                              <span className={`relative z-10 ${activeTab === tab.id ? "text-white dark:text-slate-900" : "text-slate-500 dark:text-slate-400"}`}>{tab.label}</span>
+                          <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
+                              {activeTab === tab.id && (
+                                <motion.div 
+                                  layoutId="active-tab-bg" 
+                                  className="absolute inset-0 bg-primary rounded-full shadow-lg shadow-primary/20" 
+                                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} 
+                                />
+                              )}
+                              <span className={`relative z-10 transition-colors duration-300 ${activeTab === tab.id ? "text-white dark:text-black" : "text-muted-foreground"}`}>
+                                {tab.label}
+                              </span>
                           </TabsTrigger>
                       ))}
                   </TabsList>
@@ -609,53 +617,62 @@ export default function SettingsPage() {
                                         />
                                       )}
 
-                                      <div className="relative">
-                                          {/* The Color Circle (Dynamic Orb) */}
+                                     <div className="relative group/orb">
+                                          {/* The Living Gemstone */}
                                           <motion.div 
-                                            className="relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center overflow-hidden"
+                                            className="relative w-16 h-16 rounded-full flex items-center justify-center overflow-hidden"
                                             style={{ backgroundColor: theme.color }}
                                             animate={{ 
-                                              boxShadow: isActive ? `0 0 35px -5px ${theme.color}90` : `0 8px 20px -5px ${theme.color}40`,
-                                              scale: isActive ? 1.15 : 1
+                                              boxShadow: isActive 
+                                                ? `0 0 30px -5px ${theme.color}80, inset 0 -5px 15px rgba(0,0,0,0.2)` 
+                                                : `0 5px 15px -5px ${theme.color}40, inset 0 -2px 5px rgba(0,0,0,0.1)`,
+                                              scale: isActive ? 1.15 : 1,
+                                              y: isActive ? -5 : 0
                                             }}
+                                            whileHover={{ scale: 1.1, y: -2 }}
                                             transition={{ type: "spring", stiffness: 300, damping: 20 }}
                                           >
-                                            {/* 1. 3D Depth Overlay (Static) */}
-                                            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/20 pointer-events-none" />
+                                            {/* 1. Deep Shadow Overlay (Bottom Right) */}
+                                            <div className="absolute inset-0 bg-gradient-to-tl from-black/40 via-transparent to-transparent pointer-events-none" />
 
-                                            {/* 2. Inner Pulsing Glow (Dynamic) */}
+                                            {/* 2. Specular Highlight (Top Left - Hard Shine) */}
+                                            <div className="absolute top-2 left-3 w-6 h-3 bg-white/40 rounded-full blur-[2px] rotate-[-45deg] pointer-events-none" />
+                                            <div className="absolute top-3 left-3 w-2 h-2 bg-white/80 rounded-full blur-[1px] pointer-events-none" />
+
+                                            {/* 3. Internal Caustic Glow (Breathing) */}
                                             <motion.div 
-                                              className="absolute inset-0"
-                                              style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, transparent 70%)" }}
-                                              animate={{ opacity: [0.1, 0.5, 0.1], scale: [0.8, 1.2, 0.8] }}
-                                              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                                              className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent"
+                                              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.2, 0.8] }}
+                                              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                                             />
 
-                                            {/* 3. Specular Highlight (Glass Effect) */}
-                                            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.5)_0%,transparent_50%)] pointer-events-none" />
-
-                                            {isActive && (
-                                              <motion.div 
-                                                initial={{ scale: 0, rotate: -45 }} 
-                                                animate={{ scale: 1, rotate: 0 }} 
-                                                transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                                className="relative z-10 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/30 shadow-inner"
-                                              >
-                                                <Check className="w-5 h-5 text-white font-bold drop-shadow-md" strokeWidth={4} />
-                                              </motion.div>
-                                            )}
+                                            {/* 4. Active State Icon (Glass Box) */}
+                                            <AnimatePresence>
+                                              {isActive && (
+                                                <motion.div 
+                                                  initial={{ scale: 0, opacity: 0 }} 
+                                                  animate={{ scale: 1, opacity: 1 }} 
+                                                  exit={{ scale: 0, opacity: 0 }}
+                                                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                                                  className="relative z-10 w-8 h-8 rounded-full bg-black/20 backdrop-blur-md border border-white/40 flex items-center justify-center shadow-inner"
+                                                >
+                                                  <Check className="w-4 h-4 text-white font-black drop-shadow-md" strokeWidth={4} />
+                                                </motion.div>
+                                              )}
+                                            </AnimatePresence>
                                           </motion.div>
                                           
-                                          {/* Selection Ring Indicator */}
+                                          {/* Active Ring Indicator */}
                                           {isActive && (
                                             <motion.div
                                                 layoutId="outline"
-                                                className="absolute -inset-2 rounded-full border-2 border-primary/20"
-                                                initial={false}
+                                                className="absolute -inset-2 rounded-full border-2 border-primary/30"
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
                                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                             />
                                           )}
-                                      </div>
+                                      </div> 
 
                                       <span className={`text-[10px] font-black tracking-widest uppercase transition-colors duration-300 ${isActive ? 'text-foreground translate-y-0' : 'text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1'}`}>
                                         {theme.label}
