@@ -92,7 +92,15 @@ export default function SettingsPage() {
     (user as any)?.app_metadata?.providers?.includes('google') ||
     (user as any)?.identities?.some((id: any) => id.provider === 'google');
     
-  const memberSinceYear = (user as any)?.created_at ? new Date((user as any).created_at).getFullYear() : new Date().getFullYear();
+  // LOGIC FIX: Member since based on First Entry -> Created At -> Current Year
+  const getMemberSince = () => {
+    if (entries && entries.length > 0) {
+      const sorted = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      return new Date(sorted[0].date).getFullYear();
+    }
+    return (user as any)?.created_at ? new Date((user as any).created_at).getFullYear() : new Date().getFullYear();
+  };
+  const memberSinceYear = getMemberSince();
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
   const [userEmail, setUserEmail] = useState("");
@@ -124,7 +132,7 @@ export default function SettingsPage() {
     }
   
     const storedAvatar = localStorage.getItem(`cognisync:avatar:${user.id}`);
-    updateSettings({ avatar: storedAvatar ?? "/placeholder.jpg" });
+    updateSettings({ avatar: storedAvatar ?? "/placeholder-user.png" });
   }, [user, settings.username]);
 
   // --- HANDLERS ---
@@ -167,7 +175,7 @@ export default function SettingsPage() {
     if (user) {
       localStorage.removeItem(`cognisync:avatar:${user.id}`);
     }
-    updateSettings({ avatar: "/placeholder.jpg" });
+    updateSettings({ avatar: "/placeholder-user.png" });
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
   };
 
@@ -730,18 +738,28 @@ export default function SettingsPage() {
                            
                            <AnimatePresence>
                               {showSecurityInfo && (
-                                <motion.div 
-                                   initial={{ opacity: 0, y: 15, scale: 0.9 }} 
-                                   animate={{ opacity: 1, y: 10, scale: 1 }} 
-                                   exit={{ opacity: 0, y: 15, scale: 0.9 }}
-                                   className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-64 p-5 bg-popover/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)] border border-border z-[100] text-center"
-                                >
-                                  {/* Triangle Pointer */}
-                                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-popover/95 rotate-45 border-l border-t border-border" />
+                                <>
+                                  {/* CLICK OUTSIDE HANDLER (Transparent Overlay) */}
+                                  <div className="fixed inset-0 z-40" onClick={() => setShowSecurityInfo(false)} />
                                   
-                                  <p className="text-xs font-black uppercase tracking-widest mb-2 text-primary">Security Protocol</p>
-                                  <p className="text-[11px] text-muted-foreground font-medium leading-relaxed">{security.desc}</p>
-                                </motion.div>
+                                  <motion.div 
+                                     initial={{ opacity: 0, y: 15, scale: 0.9 }} 
+                                     animate={{ opacity: 1, y: 10, scale: 1 }} 
+                                     exit={{ opacity: 0, y: 15, scale: 0.9 }}
+                                     className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-72 p-6 bg-popover/95 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] border border-border/80 z-50 text-center"
+                                  >
+                                    {/* Triangle Pointer */}
+                                    <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-5 h-5 bg-popover/95 rotate-45 border-l border-t border-border/80" />
+                                    
+                                    <div className="flex flex-col items-center gap-2">
+                                      <div className={cn("p-2 rounded-full mb-1", security.color.replace('text-white', 'bg-opacity-10 text-current'))}>
+                                        <security.icon size={20} />
+                                      </div>
+                                      <p className="text-xs font-black uppercase tracking-widest text-foreground">Security Protocol</p>
+                                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">{security.desc}</p>
+                                    </div>
+                                  </motion.div>
+                                </>
                               )}
                            </AnimatePresence>
                         </div>
@@ -788,11 +806,19 @@ export default function SettingsPage() {
                     </Card>
                   </motion.div>
 
-                  <div className={cn("grid gap-8 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
-                      {/* EMAIL SECURITY CARD */}
-                      <motion.div variants={itemVariant} className="rounded-[3rem] border border-border/50 bg-gradient-to-b from-card/60 to-card/30 backdrop-blur-3xl p-10 shadow-2xl relative overflow-hidden flex flex-col gap-10 transition-all hover:-translate-y-1 hover:shadow-primary/5 min-h-[400px]">
-                         <div className={cn("absolute -top-20 -right-20 w-80 h-80 rounded-full blur-[90px] opacity-25 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
-                         <div className="absolute top-10 right-10 opacity-[0.04] rotate-12"><Mail size={180} /></div>
+                  <div className={cn("grid gap-6 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
+                      {/* EMAIL SECURITY CARD - ENHANCED */}
+                      <motion.div variants={itemVariant} className="group relative rounded-[3rem] border border-border/50 bg-gradient-to-br from-card via-card/80 to-muted/30 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col gap-10 transition-all duration-500 hover:shadow-2xl hover:border-primary/20 min-h-[400px]">
+                         {/* Noise Texture */}
+                         <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
+                         
+                         {/* Dynamic Glow Blob */}
+                         <div className={cn("absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[120px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
+                         
+                         {/* Watermark Icon */}
+                         <div className="absolute top-10 right-10 opacity-[0.04] rotate-12 pointer-events-none">
+                            <Mail size={180} className="text-foreground" />
+                         </div>
                          
                          <div className="relative z-10 flex-1">
                              <div className="flex items-center gap-4 mb-3">
@@ -853,14 +879,16 @@ export default function SettingsPage() {
                       </motion.div>
 
                       {/* ACCESS CONTROL (OR GOOGLE) */}
-                      <motion.div variants={itemVariant} className="flex flex-col h-full gap-8">
+                      <motion.div variants={itemVariant} className="flex flex-col h-full gap-6">
                           {isGoogleUser ? (
                             <>
-                              <div className="flex items-center justify-between p-8 bg-gradient-to-br from-card/50 to-card/10 rounded-[3rem] border border-border/50 backdrop-blur-xl shadow-lg relative overflow-hidden group">
-                                <div className="absolute inset-0 bg-blue-500/5 opacity-50 group-hover:bg-blue-500/10 transition-colors" />
+                              <div className="flex items-center justify-between p-10 bg-gradient-to-br from-card via-card/80 to-muted/30 rounded-[3rem] border border-border/50 backdrop-blur-3xl shadow-xl relative overflow-hidden group transition-all hover:border-blue-500/30">
+                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
+                                <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                                
                                 <div className="flex items-center gap-6 relative z-10">
-                                   <div className="w-16 h-16 bg-white rounded-[1.5rem] flex items-center justify-center shadow-lg border border-white/50"><span className="text-3xl font-black text-blue-600">G</span></div>
-                                   <div><h4 className="font-bold text-lg text-foreground">Google Workspace</h4><p className="text-[11px] font-bold text-muted-foreground/70 mt-1 uppercase tracking-wide">Connected (Primary)</p></div>
+                                   <div className="w-18 h-18 p-4 bg-white rounded-[1.8rem] flex items-center justify-center shadow-xl border border-white/50"><img src="https://authjs.dev/img/providers/google.svg" className="w-full h-full" alt="G" /></div>
+                                   <div><h4 className="font-black text-xl text-foreground">Google Workspace</h4><p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Federated Identity</p></div>
                                 </div>
                                 <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>
                               </div>
