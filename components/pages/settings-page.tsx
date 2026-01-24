@@ -77,7 +77,7 @@ export default function SettingsPage() {
   // FIX: Sync local input state when settings update (e.g. after DB fetch)
   // This ensures the input shows the correct name immediately after page load
   useEffect(() => {
-     if (settings.username && settings.username !== "User") {
+     if (settings.username) {
         setPendingUsername(settings.username);
      }
   }, [settings.username]);
@@ -195,14 +195,15 @@ export default function SettingsPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Write to DB
-    await supabase.from('users').update({ name: trimmed }).eq('id', user.id);
+    // 1. Write to DB (Upsert ensures row creation if missing)
+    await supabase.from('users').upsert({ 
+        id: user.id, 
+        email: user.email,
+        name: trimmed 
+    });
 
     // 2. Update Local State & Broadcast immediately
     updateSettings({ username: trimmed });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-        detail: { ...settings, username: trimmed } 
-    }));
 
     setIsSavingName(false);
     showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
@@ -223,14 +224,15 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        // 1. Write to DB
-        await supabase.from('users').update({ avatar_url: base64 }).eq('id', user.id);
+        // 1. Write to DB (Upsert)
+        await supabase.from('users').upsert({ 
+            id: user.id,
+            email: user.email,
+            avatar_url: base64 
+        });
 
         // 2. Update Local
         updateSettings({ avatar: base64 });
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-             detail: { ...settings, avatar: base64 } 
-        }));
         
         showNotification({ type: "success", message: "Profile photo updated.", duration: 2000 });
       };
@@ -245,7 +247,12 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        await supabase.from('users').update({ avatar_url: null }).eq('id', user.id);
+        // Set avatar_url to empty string or null (Upsert safe)
+        await supabase.from('users').upsert({ 
+            id: user.id, 
+            email: user.email,
+            avatar_url: null 
+        });
     }
     updateSettings({ avatar: "/placeholder-user.png" });
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
@@ -781,16 +788,16 @@ export default function SettingsPage() {
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
                                  
-                                 {/* LOGIC FIX: Always render Image tag, relying on src fallback */}
+                                 {/* FIX: Simplified Source Logic. If invalid/empty, use placeholder. */}
                                  <img 
-                                    src={settings.avatar && settings.avatar.length > 10 ? settings.avatar : "/placeholder-user.png"} 
+                                    src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                                     alt="Profile"
-                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }}
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
                                  />
 
                                  <button 
-                                    onClick={() => fileInputRef.current?.click()}
+                                    onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
                                  >
                                     <Camera className="text-white drop-shadow-md" size={28} />
@@ -800,11 +807,11 @@ export default function SettingsPage() {
                            </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           {/* Secure Badge Button */}
+                           {/* Secure Badge Button (Lifted Z-Index) */}
                            <button 
                              onClick={() => setShowSecurityInfo(!showSecurityInfo)}
                              className={cn(
-                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-card dark:border-black flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-20 hover:-translate-y-1 hover:shadow-2xl", 
+                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-card dark:border-black flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-[60] hover:-translate-y-1 hover:shadow-2xl", 
                                 security.color
                              )}
                            >
