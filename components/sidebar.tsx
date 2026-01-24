@@ -40,26 +40,34 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   
-  // NEW: Local state to force-show avatar from storage immediately
-  const [forceAvatar, setForceAvatar] = useState<string | null>(null);
-
   const { user, logout: contextLogout } = useUser();
   const { settings, resetTheme } = useTheme();
 
-  // FIX: Immediately check LocalStorage when user is found
-  // This mirrors the logic in your Settings Page exactly.
-  useEffect(() => {
-    if (user?.id) {
-        const stored = localStorage.getItem(`cognisync:avatar:${user.id}`);
-        if (stored) {
-            setForceAvatar(stored);
-        }
-    }
-  }, [user?.id]);
+  // NEW: Live State that listens to the Settings Page for instant updates
+  const [liveName, setLiveName] = useState<string | null>(null);
+  const [liveAvatar, setLiveAvatar] = useState<string | null>(null);
 
-  // PRIORITY: ForceAvatar (Direct Storage) -> User Context -> Settings -> Default
-  const displayName = user?.name || settings.username || "User";
-  const displayAvatar = forceAvatar || user?.avatarUrl || settings.avatar;
+  useEffect(() => {
+    // 1. Initial Load: Grab latest data from Storage & Settings Context
+    if (user?.id) {
+        const storedAvatar = localStorage.getItem(`cognisync:avatar:${user.id}`);
+        if (storedAvatar) setLiveAvatar(storedAvatar);
+    }
+    setLiveName(settings.username || user?.name || null);
+
+    // 2. LISTEN FOR UPDATES: Catches the 'PATCH_EVENT' from Settings Page instantly
+    const handlePatch = (e: CustomEvent) => {
+        if (e.detail.username) setLiveName(e.detail.username);
+        if (e.detail.avatar) setLiveAvatar(e.detail.avatar);
+    };
+
+    window.addEventListener("cognisync:settings:patch", handlePatch as EventListener);
+    return () => window.removeEventListener("cognisync:settings:patch", handlePatch as EventListener);
+  }, [user?.id, settings.username]);
+
+  // PRIORITY: Live Event Data -> Settings Context -> Database User -> Default
+  const displayName = liveName || settings.username || user?.name || "User";
+  const displayAvatar = liveAvatar || settings.avatar || user?.avatarUrl;
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home },

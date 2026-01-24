@@ -92,7 +92,7 @@ export default function SettingsPage() {
     (user as any)?.app_metadata?.providers?.includes('google') ||
     (user as any)?.identities?.some((id: any) => id.provider === 'google');
     
-  // LOGIC: Member since based on First Entry -> Created At -> Current Year
+  // LOGIC FIX: Member since based on First Entry -> Created At -> Current Year
   const getMemberSince = () => {
     if (entries && entries.length > 0) {
       const sorted = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -103,12 +103,6 @@ export default function SettingsPage() {
   const memberSinceYear = getMemberSince();
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
-
-  useEffect(() => {
-    // Ensure avatar defaults to placeholder-user.png if not set
-    const storedAvatar = localStorage.getItem(`cognisync:avatar:${user?.id}`);
-    if (!storedAvatar) updateSettings({ avatar: "/placeholder-user.png" });
-  }, [user]);
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
@@ -123,10 +117,11 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // NEW LOGIC: Fetch Profile from Supabase (Source of Truth)
   useEffect(() => {
     if (!user) return;
-    setPendingUsername(settings.username || (user as any)?.user_metadata?.full_name || "");
 
+    // 1. Email Verification Check
     if (user.email) {
       setUserEmail(user.email);
       if ((user as any)?.email_confirmed_at || isGoogleUser) {
@@ -136,10 +131,34 @@ export default function SettingsPage() {
         if (isMailVerified) setEmailStatus("verified");
       }
     }
-  
-    const storedAvatar = localStorage.getItem(`cognisync:avatar:${user.id}`);
-    updateSettings({ avatar: storedAvatar ?? "/placeholder-user.png" });
-  }, [user, settings.username]);
+
+    // 2. Fetch Real Profile Data from Database
+    const fetchProfile = async () => {
+        const supabase = createBrowserClient(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        
+        const { data } = await supabase
+            .from('users')
+            .select('name, avatar_url')
+            .eq('id', user.id)
+            .single();
+
+        // Update local context with DB data (fallback to settings/placeholder)
+        if (data) {
+            if (data.name) setPendingUsername(data.name);
+            updateSettings({ 
+                username: data.name || settings.username,
+                avatar: data.avatar_url || "/placeholder-user.png" 
+            });
+        } else {
+            // Fallback for new users
+             updateSettings({ avatar: "/placeholder-user.png" });
+        }
+    };
+    fetchProfile();
+  }, [user]);
 
   // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
@@ -150,48 +169,74 @@ export default function SettingsPage() {
 
   const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
 
-  const handleUsernameSave = () => {
+  // NEW LOGIC: Save Name to Supabase & Dispatch Event
+  const handleUsernameSave = async () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
     if (!trimmed) return;
-    
     setIsSavingName(true);
-    
-    // Simulate processing delay
-    setTimeout(() => {
-      // 1. Update Local Context State
-      updateSettings({ username: trimmed });
 
-      // 2. Force Immediate System-Wide Update (Fixes Sidebar/Header sync)
-      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    // 1. Write to DB
+    await supabase.from('users').update({ name: trimmed }).eq('id', user.id);
+
+    // 2. Update Local State & Broadcast immediately
+    updateSettings({ username: trimmed });
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
         detail: { ...settings, username: trimmed } 
-      }));
+    }));
 
-      setIsSavingName(false);
-      showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
-    }, 800);
+    setIsSavingName(false);
+    showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
   };
 
+  // NEW LOGIC: Save Avatar to Supabase & Dispatch Event
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
+      
       const reader = new FileReader();
-      reader.onloadend = () => {
-        localStorage.setItem(`cognisync:avatar:${user.id}`, reader.result as string);
-        updateSettings({ avatar: reader.result as string });
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        
+        const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        // 1. Write to DB
+        await supabase.from('users').update({ avatar_url: base64 }).eq('id', user.id);
+
+        // 2. Update Local
+        updateSettings({ avatar: base64 });
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+             detail: { ...settings, avatar: base64 } 
+        }));
+        
         showNotification({ type: "success", message: "Profile photo updated.", duration: 2000 });
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleRemoveAvatar = () => {
+  // NEW LOGIC: Remove Avatar from Supabase
+  const handleRemoveAvatar = async () => {
     if (user) {
-      localStorage.removeItem(`cognisync:avatar:${user.id}`);
+        const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        await supabase.from('users').update({ avatar_url: null }).eq('id', user.id);
     }
     updateSettings({ avatar: "/placeholder-user.png" });
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+         detail: { ...settings, avatar: "/placeholder-user.png" } 
+    }));
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
   };
 
