@@ -458,8 +458,8 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              {/* ENHANCED FIX: "Pure Glass" HUD style. Removed the solid grey background. */}
-              <div className="bg-black/5 dark:bg-white/5 p-1.5 rounded-full border border-black/5 dark:border-white/10 backdrop-blur-xl shadow-lg inline-flex min-w-max mx-auto">
+              {/* FIXED: High-contrast glass borders for Dark Mode + Ring for depth */}
+              <div className="bg-white/80 dark:bg-black/60 p-1.5 rounded-full border border-slate-200/50 dark:border-white/15 ring-1 dark:ring-white/5 backdrop-blur-2xl shadow-xl dark:shadow-black/50 inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
