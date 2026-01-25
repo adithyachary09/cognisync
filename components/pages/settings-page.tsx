@@ -159,11 +159,18 @@ export default function SettingsPage() {
             const finalName = data.name || (user as any)?.user_metadata?.full_name || "User";
             const finalAvatar = data.avatar_url || "/placeholder-user.png";
             
+            // Fix: Set local state immediately to avoid "default" flicker
             setPendingUsername(finalName);
-            updateSettings({ 
-                username: finalName,
+            
+            // Fix: Update context AND dispatch event so sidebar syncs on load
+            const newSettings = { 
+                username: finalName, 
                 avatar: finalAvatar 
-            });
+            };
+            updateSettings(newSettings);
+            
+            // Dispatch to ensure sidebar catches up if it mounted first
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
         } else {
              updateSettings({ avatar: "/placeholder-user.png", username: "User" });
         }
@@ -192,20 +199,33 @@ export default function SettingsPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Write to DB
-    await supabase.from('users').upsert({ 
-        id: user.id, 
-        email: user.email,
-        name: trimmed,
-        updated_at: new Date().toISOString()
-    });
+    try {
+        // 1. Write to DB (Primary Persistence)
+        await supabase.from('users').upsert({ 
+            id: user.id, 
+            email: user.email,
+            name: trimmed,
+            updated_at: new Date().toISOString()
+        });
 
-    // 2. Update Local State & Auth Metadata to persist across sessions
-    await supabase.auth.updateUser({ data: { full_name: trimmed } });
-    updateSettings({ username: trimmed });
+        // 2. Update Auth Metadata (Session Persistence)
+        await supabase.auth.updateUser({ data: { full_name: trimmed } });
+        
+        // 3. Update Local Context
+        updateSettings({ username: trimmed });
 
-    setIsSavingName(false);
-    showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
+        // 4. CRITICAL FIX: Dispatch Event for Sidebar Auto-Update
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+            detail: { ...settings, username: trimmed } 
+        }));
+
+        showNotification({ type: "success", message: "Identity updated successfully.", duration: 2000 });
+    } catch (error) {
+        console.error("Name save error:", error);
+        showNotification({ type: "error", message: "Failed to update name.", duration: 3000 });
+    } finally {
+        setIsSavingName(false);
+    }
   };
 
   // NEW LOGIC: Save Avatar to Supabase & Dispatch Event
@@ -223,17 +243,32 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        // 1. Write to DB (Upsert)
-        await supabase.from('users').upsert({ 
-            id: user.id,
-            email: user.email,
-            avatar_url: base64 
-        });
 
-        // 2. Update Local
-        updateSettings({ avatar: base64 });
-        
-        showNotification({ type: "success", message: "Profile photo updated.", duration: 2000 });
+        try {
+            // 1. Write to DB (Primary Persistence)
+            await supabase.from('users').upsert({ 
+                id: user.id,
+                email: user.email,
+                avatar_url: base64,
+                updated_at: new Date().toISOString()
+            });
+
+            // 2. Update Auth Metadata (Session Persistence)
+            await supabase.auth.updateUser({ data: { avatar_url: base64 } });
+
+            // 3. Update Local Context
+            updateSettings({ avatar: base64 });
+            
+            // 4. CRITICAL FIX: Dispatch Event for Sidebar Auto-Update
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+                detail: { ...settings, avatar: base64 } 
+            }));
+
+            showNotification({ type: "success", message: "Profile photo updated.", duration: 2000 });
+        } catch (error) {
+            console.error("Avatar upload error:", error);
+            showNotification({ type: "error", message: "Failed to update photo.", duration: 3000 });
+        }
       };
       reader.readAsDataURL(file);
     }
