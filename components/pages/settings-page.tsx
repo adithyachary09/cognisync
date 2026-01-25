@@ -155,20 +155,17 @@ export default function SettingsPage() {
             .eq('id', user.id)
             .single();
 
-        // Update local context with DB data (fallback to settings/placeholder)
         if (data) {
-            // FIX: Cast user to 'any' to safely access user_metadata without TypeScript errors
-            const finalName = data.name || (user as any)?.user_metadata?.full_name || settings.username;
+            const finalName = data.name || (user as any)?.user_metadata?.full_name || "User";
+            const finalAvatar = data.avatar_url || "/placeholder-user.png";
             
-            if (finalName) setPendingUsername(finalName);
-            
+            setPendingUsername(finalName);
             updateSettings({ 
                 username: finalName,
-                avatar: data.avatar_url || "/placeholder-user.png" 
+                avatar: finalAvatar 
             });
         } else {
-            // Fallback for new users
-             updateSettings({ avatar: "/placeholder-user.png" });
+             updateSettings({ avatar: "/placeholder-user.png", username: "User" });
         }
     };
     fetchProfile();
@@ -195,14 +192,16 @@ export default function SettingsPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Write to DB (Upsert ensures row creation if missing)
+    // 1. Write to DB
     await supabase.from('users').upsert({ 
         id: user.id, 
         email: user.email,
-        name: trimmed 
+        name: trimmed,
+        updated_at: new Date().toISOString()
     });
 
-    // 2. Update Local State & Broadcast immediately
+    // 2. Update Local State & Auth Metadata to persist across sessions
+    await supabase.auth.updateUser({ data: { full_name: trimmed } });
     updateSettings({ username: trimmed });
 
     setIsSavingName(false);
