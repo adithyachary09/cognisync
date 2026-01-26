@@ -207,6 +207,19 @@ export default function SettingsPage() {
   };
   const securityInfo = getSecurityDetails();
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // --- NEW FEATURES STATE (Gen Z Monolith) ---
+  const [focusAreas, setFocusAreas] = useState<string[]>(["Productivity"]);
+  const [nudgeFreq, setNudgeFreq] = useState("balanced"); // quiet | balanced | active
+  const router = (typeof window !== 'undefined' ? require("next/navigation").useRouter() : null);
+
+  const toggleFocus = (area: string) => {
+    setFocusAreas(prev => prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]);
+  };
+
+  const handleSafetyRedirect = () => {
+    if (router) router.push("/regulation?trigger=sos_setup");
+  };
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -881,281 +894,247 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-{/* ======================= TAB: ACCOUNT (COMMAND CENTER LAYOUT) ======================= */}
+{/* ======================= TAB: ACCOUNT (UNIFIED MONOLITH) ======================= */}
               <TabsContent value="account" className="space-y-6 m-0 relative z-30">
-                  
-                  {/* --- SECTION 1: PUBLIC IDENTITY HERO (Full Width) --- */}
                   <motion.div variants={itemVariant} className="w-full">
-                    <div className="relative p-8 rounded-[2.5rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30 overflow-hidden group/identity">
+                    {/* THE MONOLITH CONTAINER */}
+                    <div className="relative rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-b from-card/90 via-card/70 to-card/40 overflow-hidden">
                       
-                      {/* Ambient Dynamic Background */}
-                      <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none group-hover/identity:bg-primary/20 transition-colors duration-1000" />
+                      {/* Ambient Background FX */}
+                      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
                       
-                      <div className="relative z-10 flex flex-col xl:flex-row items-center gap-10">
-                        {/* LEFT: Avatar & Badge */}
-                        <div className="flex flex-col items-center gap-5">
-                           <div className="relative w-44 h-44 rounded-full p-2 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
-                              <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", securityInfo.status === "SECURE" ? "border-emerald-500/20" : "border-amber-500/20")}>
-                                 <img 
-                                    src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
-                                    className="w-full h-full object-cover transition-transform duration-700 group-hover/identity:scale-110" 
-                                    alt="Profile"
-                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
-                                 />
-                                 <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/60 opacity-0 group-hover/identity:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1 cursor-pointer">
-                                    <Camera className="text-white drop-shadow-md" size={32} />
-                                    <span className="text-[10px] font-bold text-white uppercase tracking-widest">Update</span>
-                                 </button>
-                              </div>
-                           </div>
-                           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                           
-                           {/* Floating Security Badge */}
-                           <div className="relative">
-                               <motion.div 
-                                 onHoverStart={() => setShowSecurityTooltip(true)}
-                                 onHoverEnd={() => setShowSecurityTooltip(false)}
-                                 onClick={() => setShowSecurityTooltip(!showSecurityTooltip)}
-                                 whileHover={{ scale: 1.05 }}
-                                 whileTap={{ scale: 0.95 }}
-                                 className={cn("px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-lg border-2 flex items-center gap-2 cursor-help text-white z-20 relative", securityInfo.color, "border-white/10")}
-                               >
-                                  <securityInfo.icon size={12} strokeWidth={3} /> {securityInfo.status}
-                               </motion.div>
-                               
-                               {/* Smart Tooltip */}
-                               <AnimatePresence>
-                                 {showSecurityTooltip && (
-                                   <motion.div initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.9 }} className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-zinc-900/95 text-white backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 z-50 text-center">
-                                      <div className="font-bold text-xs mb-1 flex items-center justify-center gap-2">
-                                        <securityInfo.icon size={14} className={securityInfo.status === "SECURE" ? "text-emerald-400" : "text-amber-400"} />
-                                        {securityInfo.title}
-                                      </div>
-                                      <p className="text-[10px] text-zinc-400 leading-relaxed font-medium">{securityInfo.desc}</p>
-                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-3 h-3 bg-zinc-900/95 rotate-45 border-r border-b border-white/10" />
-                                   </motion.div>
-                                 )}
-                               </AnimatePresence>
-                           </div>
-                        </div>
-
-                        {/* RIGHT: Inputs & Stats */}
-                        <div className="flex-1 w-full max-w-4xl space-y-8">
-                           <div className="flex flex-col gap-3">
-                              <label htmlFor="username" className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/60 pl-1">Public Identity</label>
-                              <div className="flex flex-col sm:flex-row items-center gap-4">
-                                 <div className="relative flex-1 w-full group/input">
-                                    <Input id="username" value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-20 bg-muted/40 border-2 border-border/50 focus:border-primary/50 focus:bg-background shadow-inner transition-all rounded-[1.5rem] text-3xl font-black tracking-tight px-8 text-foreground placeholder:text-muted-foreground/30" />
-                                    {!isNameDirty && <span className="absolute right-8 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={28} /></span>}
-                                 </div>
-                                 <button onClick={handleUsernameSave} disabled={!isNameDirty || isSavingName} className="h-20 w-full sm:w-auto px-10 rounded-[1.5rem] bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center">
-                                    {isSavingName ? <Loader2 size={24} className="animate-spin" /> : "Save Changes"}
-                                 </button>
-                              </div>
-                           </div>
-                           
-                           <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
-
-                           <div className="flex flex-wrap items-center gap-4 justify-center xl:justify-start">
-                             <div className="h-12 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-sm">
-                                <Sparkles size={16} className="text-amber-500 fill-amber-500 animate-pulse" /> 
-                                <span>Member since {memberSinceYear}</span>
-                             </div>
-                             {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
-                                <button onClick={handleRemoveAvatar} className="h-12 px-6 rounded-full border border-red-500/10 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 transition-all flex items-center gap-2 group active:scale-95">
-                                   <Trash2 size={16} className="group-hover:rotate-12 transition-transform opacity-70 group-hover:opacity-100" /> 
-                                   <span>Remove Photo</span>
-                                </button>
-                             )}
-                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* --- SECTION 2: THE CONTROL GRID (3 Columns) --- */}
-                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-auto xl:h-[420px]">
-                      
-                      {/* COL 1 (5/12): AUTHENTICATION PROVIDER (Google OR Password) */}
-                      <motion.div variants={itemVariant} className="xl:col-span-5 h-full">
-                         {isGoogleUser ? (
-                            /* OPTION A: GOOGLE CARD */
-                            <div className="h-full group relative rounded-[2.5rem] border border-blue-500/20 bg-gradient-to-br from-blue-50/50 via-white to-blue-50/20 dark:from-blue-950/30 dark:via-background dark:to-blue-900/10 backdrop-blur-3xl p-8 shadow-xl overflow-hidden flex flex-col justify-center gap-6 transition-all hover:border-blue-500/40 hover:shadow-blue-500/10">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-                                
-                                <div className="flex flex-col gap-8 relative z-10">
-                                   <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl border border-blue-100 dark:border-blue-900/30 p-5 group-hover:scale-110 transition-transform duration-500">
-                                      <img src="https://authjs.dev/img/providers/google.svg" className="w-full h-full object-contain" alt="Google" />
-                                   </div>
-                                   <div>
-                                      <div className="flex items-center gap-3 mb-2">
-                                         <h4 className="font-black text-3xl text-foreground tracking-tight">Workspace</h4>
-                                         <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                                            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-                                            Active
-                                         </span>
-                                      </div>
-                                      <p className="text-sm font-medium text-muted-foreground/80 max-w-sm leading-relaxed">
-                                         Your account is secured via <strong>Google Federated OAuth 2.0</strong>. <br/>
-                                         Password management and Two-Factor Authentication (2FA) are handled directly by Google.
-                                      </p>
-                                   </div>
-                                </div>
-                            </div>
-                         ) : (
-                             /* OPTION B: PASSWORD MANAGER (Manual Users) */
-                             <div className="h-full p-8 bg-gradient-to-br from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
-                                
-                                <div className="flex items-center gap-4 mb-8 relative z-10">
-                                   <div className="w-14 h-14 flex items-center justify-center bg-primary/10 rounded-2xl text-primary border border-primary/10 shadow-inner"><Lock size={28} strokeWidth={2.5} /></div>
-                                   <div><h4 className="font-black text-2xl tracking-tight text-foreground">Access Control</h4><p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Password Manager</p></div>
-                                </div>
-
-                                <div className="space-y-4 relative z-10 flex-1 flex flex-col justify-center">
-                                   <AnimatePresence mode="wait">
-                                     {pwdStage !== "verified" && pwdStage !== "saving" ? (
-                                       <motion.div key="verify" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-5">
-                                          <div className="relative group/field">
-                                            <Input type={showCurrent ? "text" : "password"} placeholder="Current Password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="h-16 rounded-[1.2rem] bg-muted/50 border-transparent focus:border-primary/20 text-lg font-bold px-6" />
-                                            <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">{showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                                          </div>
-                                          <button onClick={verifyCurrentPassword} disabled={!currentPwd || pwdStage === "verifying"} className="w-full h-16 bg-foreground text-background text-sm font-black uppercase tracking-wider rounded-[1.2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3">
-                                            {pwdStage === "verifying" ? <Loader2 size={20} className="animate-spin" /> : <>Verify Identity <ArrowRight size={20} /></>}
-                                          </button>
-                                       </motion.div>
-                                     ) : (
-                                       <motion.div key="update" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-                                          <div className="p-3 rounded-xl bg-green-500/10 text-green-600 font-bold text-xs flex items-center justify-center gap-2 border border-green-500/20"><Check size={14} strokeWidth={3} /> Verified • Enter New Credentials</div>
-                                          <div className="space-y-3">
-                                            <div className="relative"><Input type={showNew ? "text" : "password"} placeholder="New Password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-14 rounded-2xl bg-muted/30 border-transparent text-base px-5" /><button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">{showNew ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
-                                            <div className="relative"><Input type={showConfirm ? "text" : "password"} placeholder="Confirm Password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-14 rounded-2xl bg-muted/30 border-transparent text-base px-5" /><button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">{showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
-                                          </div>
-                                          <div className="flex gap-3 pt-2">
-                                              <button onClick={() => setPwdStage("idle")} className="flex-1 h-14 rounded-2xl border border-transparent hover:bg-muted/50 text-xs font-black uppercase text-muted-foreground transition-all">Cancel</button>
-                                              <button onClick={saveNewPassword} className="flex-[2] h-14 bg-emerald-500 text-white text-xs font-black uppercase rounded-2xl shadow-lg hover:bg-emerald-600 hover:shadow-emerald-500/20 transition-all">Update</button>
-                                          </div>
-                                       </motion.div>
-                                     )}
-                                   </AnimatePresence>
-                                </div>
-                             </div>
-                          )}
-                      </motion.div>
-
-                      {/* COL 2 (4/12): EMAIL SECURITY (Always Visible) */}
-                      <motion.div variants={itemVariant} className="xl:col-span-4 h-full">
-                        <div className="h-full group relative rounded-[2.5rem] border border-border/50 bg-gradient-to-b from-card via-card/80 to-muted/30 backdrop-blur-3xl p-8 shadow-xl overflow-hidden flex flex-col justify-between gap-6 transition-all hover:border-primary/20 hover:shadow-2xl">
-                            {/* Background FX */}
-                            <div className={cn("absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
-
-                            <div className="relative z-10">
-                               <div className="flex items-center gap-4 mb-6">
-                                 <div className={cn("p-4 rounded-2xl shadow-sm", emailStatus === 'verified' ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600")}>
-                                    <Mail size={28} strokeWidth={2.5} />
-                                 </div>
-                                 <div>
-                                    <h3 className="text-xl font-black tracking-tight">Email Security</h3>
-                                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-70 mt-0.5">Recovery Channel</p>
-                                 </div>
-                               </div>
-
-                               <div className={cn("p-6 rounded-[2rem] border backdrop-blur-md transition-all duration-500 flex flex-col gap-2", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
-                                  <p className={cn("text-[10px] font-extrabold uppercase tracking-[0.2em]", emailStatus === 'verified' ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>Linked Address</p>
-                                  <div className="flex items-center justify-between">
-                                      <p className="font-mono font-bold text-lg truncate pr-2">{userEmail || "No email linked"}</p>
-                                      <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white shadow-md", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")}>
-                                         {emailStatus === 'verified' ? <Check size={16} strokeWidth={4} /> : <AlertTriangle size={16} strokeWidth={3} />}
-                                      </div>
+                      {/* --- SECTION 1: IDENTITY HERO --- */}
+                      <div className="relative z-10 p-8 pb-4 flex flex-col md:flex-row items-center gap-8 border-b border-border/30">
+                         <div className="relative group cursor-pointer">
+                            <div className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-tr from-background to-primary/20 backdrop-blur-md shadow-lg">
+                               <div className="w-full h-full rounded-full bg-background overflow-hidden relative">
+                                  <img 
+                                     src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
+                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                     alt="Profile"
+                                     onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
+                                  />
+                                  <div onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                     <Camera className="text-white drop-shadow-md" size={24} />
                                   </div>
                                </div>
-                               
-                               {isGoogleUser && (
-                                   <p className="text-xs text-muted-foreground font-medium mt-4 leading-relaxed text-center bg-muted/30 p-3 rounded-xl">
-                                      This address is managed by your Google Workspace provider.
-                                   </p>
+                            </div>
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                            
+                            {/* Status Badge */}
+                            <div className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1.5 whitespace-nowrap", securityInfo.color)}>
+                               <securityInfo.icon size={10} strokeWidth={3} /> {securityInfo.status}
+                            </div>
+                         </div>
+
+                         <div className="flex-1 text-center md:text-left space-y-4 w-full">
+                            <div className="flex flex-col gap-1">
+                               <label className="text-[9px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/60">Identity</label>
+                               <div className="flex items-center gap-3 justify-center md:justify-start">
+                                  <Input 
+                                     value={pendingUsername} 
+                                     onChange={(e) => setPendingUsername(e.target.value)} 
+                                     className="h-12 bg-transparent border-none p-0 text-3xl font-black tracking-tight text-foreground placeholder:text-muted-foreground/30 focus-visible:ring-0 w-auto min-w-[200px]" 
+                                  />
+                                  {isNameDirty && (
+                                     <button onClick={handleUsernameSave} disabled={isSavingName} className="h-8 px-4 rounded-full bg-primary text-white text-[10px] font-bold shadow-lg hover:scale-105 active:scale-95 transition-all">
+                                        {isSavingName ? <Loader2 size={12} className="animate-spin" /> : "SAVE"}
+                                     </button>
+                                  )}
+                               </div>
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                               <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
+                                  <Sparkles size={12} /> Member Since {memberSinceYear}
+                               </div>
+                               {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
+                                  <button onClick={handleRemoveAvatar} className="px-3 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10 text-red-600 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/10 transition-colors">
+                                     Remove Photo
+                                  </button>
                                )}
                             </div>
+                         </div>
+                      </div>
 
-                            <div className="relative z-10">
-                               {isGoogleUser ? (
-                                  <div className="w-full h-14 rounded-2xl bg-muted/20 border border-border/50 flex items-center justify-center gap-2 text-muted-foreground cursor-not-allowed">
-                                     <ShieldCheck size={18} /> <span className="text-xs font-bold uppercase tracking-wider">Managed Externally</span>
+                      {/* --- SECTION 2: FOCUS AREAS (Personalization) --- */}
+                      <div className="p-8 py-6 space-y-4 border-b border-border/30">
+                         <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold flex items-center gap-2"><Target size={16} className="text-primary"/> Focus Areas</h4>
+                            <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">Customize AI</span>
+                         </div>
+                         <div className="flex flex-wrap gap-2">
+                            {["Anxiety", "Sleep", "Academic Stress", "Productivity", "Social", "Mood"].map((tag) => {
+                               const isActive = focusAreas.includes(tag);
+                               return (
+                                  <button 
+                                     key={tag} 
+                                     onClick={() => toggleFocus(tag)}
+                                     className={cn(
+                                        "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border",
+                                        isActive ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105" : "bg-background/50 text-muted-foreground border-transparent hover:bg-background hover:border-border/50"
+                                     )}
+                                  >
+                                     {tag}
+                                  </button>
+                               )
+                            })}
+                         </div>
+                      </div>
+
+                      {/* --- SECTION 3: THE UNIFIED STACK (Settings Rows) --- */}
+                      <div className="flex flex-col divide-y divide-border/30 bg-background/20 backdrop-blur-sm">
+                         
+                         {/* ROW A: CONNECTION (Adaptive) */}
+                         <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-4">
+                               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isGoogleUser ? "bg-white shadow-sm border border-blue-100" : "bg-primary/10 text-primary")}>
+                                  {isGoogleUser ? <img src="https://authjs.dev/img/providers/google.svg" className="w-5 h-5" alt="G" /> : <Mail size={20} />}
+                               </div>
+                               <div>
+                                  <p className="text-sm font-bold text-foreground">{isGoogleUser ? "Google Workspace" : "Email Account"}</p>
+                                  <p className="text-xs text-muted-foreground font-medium">{userEmail || "No email linked"}</p>
+                               </div>
+                            </div>
+                            {isGoogleUser ? (
+                               <div className="px-3 py-1 rounded-lg bg-green-500/10 text-green-600 border border-green-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                  <Check size={12} strokeWidth={4} /> Verified
+                               </div>
+                            ) : (
+                               <div className="flex gap-2">
+                                  {emailStatus !== 'verified' && (
+                                     <button onClick={sendEmailVerification} disabled={emailCountdown > 0} className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all">
+                                        {emailCountdown > 0 ? `${emailCountdown}s` : "Verify"}
+                                     </button>
+                                  )}
+                                  <button onClick={unlinkEmail} className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-all">Unlink</button>
+                               </div>
+                            )}
+                         </div>
+
+                         {/* ROW B: PASSWORD (Manual Only) */}
+                         {!isGoogleUser && (
+                            <div className="p-6 flex flex-col gap-4 hover:bg-white/5 transition-colors">
+                               <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Lock size={20} /></div>
+                                  <div>
+                                     <p className="text-sm font-bold text-foreground">Password Manager</p>
+                                     <p className="text-xs text-muted-foreground font-medium">Update your credentials</p>
                                   </div>
-                               ) : (
-                                  emailStatus === 'verified' ? (
-                                     <button onClick={unlinkEmail} className="w-full h-14 rounded-2xl border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
-                                        Unlink Address
+                               </div>
+                               
+                               <div className="pl-14 grid gap-3 max-w-md w-full">
+                                  {pwdStage === 'idle' ? (
+                                     <button onClick={() => setPwdStage("verifying")} className="h-10 w-full rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-2">
+                                        Change Password
                                      </button>
                                   ) : (
-                                     <div className="flex flex-col gap-3">
-                                        {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-14 rounded-2xl text-lg text-center" />}
-                                        <button 
-                                           onClick={sendEmailVerification} 
-                                           disabled={emailStatus === "sending" || emailCountdown > 0} 
-                                           className={cn("w-full h-16 rounded-[1.5rem] text-sm font-bold text-white shadow-xl transition-all flex items-center justify-center gap-2 relative overflow-hidden", emailCountdown > 0 ? "bg-slate-400" : "bg-slate-900 dark:bg-white dark:text-black hover:scale-[1.02]")}
-                                        >
-                                           {emailStatus === "sending" ? <Loader2 size={20} className="animate-spin" /> : emailCountdown > 0 ? `Resend in ${emailCountdown}s` : <>Verify Now <ArrowRight size={18} /></>}
-                                        </button>
+                                     <div className="space-y-3 bg-card/50 p-4 rounded-2xl border border-border/50">
+                                        {pwdStage === 'verifying' ? (
+                                           <div className="flex gap-2">
+                                              <Input type="password" placeholder="Current Password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} className="h-10 text-xs bg-background" />
+                                              <button onClick={verifyCurrentPassword} className="h-10 px-4 bg-foreground text-background rounded-lg text-xs font-bold">Verify</button>
+                                           </div>
+                                        ) : (
+                                           <div className="space-y-2">
+                                              <Input type="password" placeholder="New Password" value={newPwd} onChange={e => setNewPwd(e.target.value)} className="h-10 text-xs bg-background" />
+                                              <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} className="h-10 text-xs bg-background" />
+                                              <div className="flex gap-2 justify-end">
+                                                 <button onClick={() => setPwdStage("idle")} className="text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground">Cancel</button>
+                                                 <button onClick={saveNewPassword} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-[10px] font-bold uppercase shadow-lg">Save</button>
+                                              </div>
+                                           </div>
+                                        )}
                                      </div>
-                                  )
-                               )}
+                                  )}
+                               </div>
                             </div>
-                        </div>
-                      </motion.div>
+                         )}
 
-                      {/* COL 3 (3/12): SESSION TERMINATION (Liquid Hold Button) */}
-                      <motion.div variants={itemVariant} className="xl:col-span-3 h-full">
-                          <div className="h-full p-6 bg-gradient-to-b from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col justify-center relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-[100px] pointer-events-none" />
-                                
-                                <div className="flex flex-col items-center gap-4 mb-8 relative z-10 text-center">
-                                   <div className="w-16 h-16 flex items-center justify-center bg-rose-500/10 rounded-[1.2rem] text-rose-500 border border-rose-500/10 shadow-inner mb-2"><LogOut size={32} strokeWidth={2.5} /></div>
-                                   <div><h4 className="font-black text-xl tracking-tight text-foreground">Session</h4><p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">Termination Protocol</p></div>
+                         {/* ROW C: SAFETY NET (Redirect) */}
+                         <div className="p-6 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors cursor-pointer group" onClick={handleSafetyRedirect}>
+                            <div className="flex items-center gap-4">
+                               <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><Heart size={20} /></div>
+                               <div>
+                                  <p className="text-sm font-bold text-foreground">Safety Net</p>
+                                  <p className="text-xs text-muted-foreground font-medium group-hover:text-rose-500 transition-colors">Manage emergency contacts</p>
+                               </div>
+                            </div>
+                            <div className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
+                               Configure <ArrowRight size={12} />
+                            </div>
+                         </div>
+
+                         {/* ROW D: DIGITAL WELLBEING (Nudge) */}
+                         <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                               <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><Users size={20} /></div>
+                               <div>
+                                  <p className="text-sm font-bold text-foreground">Digital Wellbeing</p>
+                                  <p className="text-xs text-muted-foreground font-medium">Nudge Frequency</p>
+                               </div>
+                            </div>
+                            <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50">
+                               {['quiet', 'balanced', 'active'].map((opt) => (
+                                  <button 
+                                     key={opt}
+                                     onClick={() => setNudgeFreq(opt)}
+                                     className={cn(
+                                        "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
+                                        nudgeFreq === opt ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                     )}
+                                  >
+                                     {opt}
+                                  </button>
+                               ))}
+                            </div>
+                         </div>
+
+                      </div>
+
+                      {/* --- SECTION 4: SESSION CONTROL (Integrated Footer) --- */}
+                      <div className="p-8 bg-gradient-to-b from-card/30 to-rose-500/5 border-t border-border/30">
+                          <div className="flex flex-col gap-4">
+                             <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-bold text-foreground flex items-center gap-2"><LogOut size={16} className="text-rose-500"/> Session Control</h4>
+                                <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest">Secure Termination</p>
+                             </div>
+                             
+                             {/* LIQUID HOLD BUTTON */}
+                             <div 
+                                className="relative w-full h-16 rounded-2xl bg-background border border-border shadow-inner overflow-hidden cursor-pointer select-none touch-none group"
+                                onMouseDown={startHold}
+                                onMouseUp={endHold}
+                                onMouseLeave={endHold}
+                                onTouchStart={startHold}
+                                onTouchEnd={endHold}
+                             >
+                                <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
+                                <motion.div 
+                                   className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600"
+                                   style={{ width: `${logoutProgress}%` }}
+                                   transition={{ ease: "linear", duration: 0 }}
+                                >
+                                   <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
+                                   <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-white/50 box-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+                                </motion.div>
+
+                                <div className="absolute inset-0 flex items-center justify-center gap-3 z-20 pointer-events-none">
+                                   <span className={cn(
+                                       "text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-200", 
+                                       logoutProgress > 50 ? "text-white drop-shadow-md" : "text-rose-500/70"
+                                   )}>
+                                       {logoutProgress > 0 
+                                         ? (logoutProgress >= 100 ? "GOODBYE" : `HOLDING ${Math.floor(logoutProgress)}%`) 
+                                         : "HOLD TO DISCONNECT"}
+                                   </span>
                                 </div>
-
-                                <div className="relative z-10 w-full mt-auto">
-                                    {/* 3D HOLD BUTTON */}
-                                    <div 
-                                       className="relative w-full h-24 rounded-[1.8rem] bg-background/50 border-2 border-rose-500/10 overflow-hidden cursor-pointer select-none touch-none shadow-inner group transition-all active:scale-95"
-                                       onMouseDown={startHold}
-                                       onMouseUp={endHold}
-                                       onMouseLeave={endHold}
-                                       onTouchStart={startHold}
-                                       onTouchEnd={endHold}
-                                    >
-                                       {/* Background Pattern */}
-                                       <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
-                                       
-                                       {/* FILL ANIMATION (Liquid 3D) */}
-                                       <motion.div 
-                                          className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600"
-                                          style={{ width: `${logoutProgress}%` }}
-                                          transition={{ ease: "linear", duration: 0 }} // Direct control via state
-                                       >
-                                          <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
-                                          <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-white/50 box-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
-                                       </motion.div>
-
-                                       {/* Text Label */}
-                                       <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none gap-1">
-                                          <span className={cn(
-                                              "text-xs font-black uppercase tracking-[0.25em] transition-all duration-200", 
-                                              logoutProgress > 50 ? "text-white drop-shadow-md" : "text-rose-500/70"
-                                          )}>
-                                              {logoutProgress > 0 
-                                                ? (logoutProgress >= 100 ? "GOODBYE" : `HOLDING ${Math.floor(logoutProgress)}%`) 
-                                                : "HOLD EXIT"}
-                                          </span>
-                                          {logoutProgress === 0 && <span className="text-[8px] font-bold text-muted-foreground/30 uppercase tracking-widest">Press & Hold</span>}
-                                       </div>
-                                    </div>
-                                </div>
+                             </div>
                           </div>
-                      </motion.div>
+                      </div>
 
-                  </div>
+                    </div>
+                  </motion.div>
               </TabsContent>
 
               
