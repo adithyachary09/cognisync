@@ -113,7 +113,26 @@ export default function SettingsPage() {
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
   const [userEmail, setUserEmail] = useState("");
-  const [emailCountdown, setEmailCountdown] = useState(0);
+  const [emailCountdown, setEmailCountdown] = useState(0); 
+
+  // MAGIC LISTENER: Listens for verification from the other tab
+  useEffect(() => {
+    const channel = new BroadcastChannel('cognisync-auth');
+    
+    channel.onmessage = (event) => {
+      if (event.data.type === 'EMAIL_VERIFIED') {
+        setEmailStatus("verified");
+        showNotification({ 
+            type: "success", 
+            message: "Security Protocol Verified Successfully.", 
+            duration: 5000 
+        });
+        // Optional: Trigger a confetti or sound effect here
+      }
+    };
+
+    return () => channel.close();
+  }, []);
 
   const [logoutProgress, setLogoutProgress] = useState(0);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
