@@ -208,16 +208,33 @@ export default function SettingsPage() {
   const securityInfo = getSecurityDetails();
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // --- NEW FEATURES STATE (Gen Z Monolith) ---
-  const [focusAreas, setFocusAreas] = useState<string[]>(["Productivity"]);
-  const [nudgeFreq, setNudgeFreq] = useState("balanced"); // quiet | balanced | active
+  // --- SESSION RADAR STATE ---
+  const [sessionInfo, setSessionInfo] = useState({ os: "Unknown", browser: "Unknown", location: "Telangana, India" });
+  
+  useEffect(() => {
+    // Client-side detection for "Session Radar"
+    if (typeof window !== 'undefined') {
+        const ua = window.navigator.userAgent;
+        let os = "Unknown OS";
+        if (ua.indexOf("Win") !== -1) os = "Windows";
+        if (ua.indexOf("Mac") !== -1) os = "MacOS";
+        if (ua.indexOf("Linux") !== -1) os = "Linux";
+        if (ua.indexOf("Android") !== -1) os = "Android";
+        if (ua.indexOf("like Mac") !== -1) os = "iOS";
+
+        let browser = "Unknown Browser";
+        if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+        if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+        if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Safari";
+        
+        setSessionInfo(prev => ({ ...prev, os, browser }));
+    }
+  }, []);
+
   const router = (typeof window !== 'undefined' ? require("next/navigation").useRouter() : null);
 
-  const toggleFocus = (area: string) => {
-    setFocusAreas(prev => prev.includes(area) ? prev.filter(a => a !== area) : [...prev, area]);
-  };
-
   const handleSafetyRedirect = () => {
+    // Redirects to Regulation page with a trigger for the SOS modal
     if (router) router.push("/regulation?trigger=sos_setup");
   };
 
@@ -894,247 +911,256 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-{/* ======================= TAB: ACCOUNT (UNIFIED MONOLITH) ======================= */}
+{/* ======================= TAB: ACCOUNT (MODULAR COMMAND CENTER) ======================= */}
               <TabsContent value="account" className="space-y-6 m-0 relative z-30">
+                  
+                  {/* --- CARD 1: IDENTITY HERO (Full Width) --- */}
                   <motion.div variants={itemVariant} className="w-full">
-                    {/* THE MONOLITH CONTAINER */}
-                    <div className="relative rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-b from-card/90 via-card/70 to-card/40 overflow-hidden">
+                    <div className="relative p-8 rounded-[2.5rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30 overflow-hidden group/identity">
                       
-                      {/* Ambient Background FX */}
-                      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+                      {/* Ambient Dynamic Background & Map Pattern */}
+                      <div className="absolute inset-0 opacity-[0.05] bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-no-repeat bg-center bg-cover pointer-events-none mix-blend-overlay" />
+                      <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none group-hover/identity:bg-primary/20 transition-colors duration-1000" />
                       
-                      {/* --- SECTION 1: IDENTITY HERO --- */}
-                      <div className="relative z-10 p-8 pb-4 flex flex-col md:flex-row items-center gap-8 border-b border-border/30">
-                         <div className="relative group cursor-pointer">
-                            <div className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-tr from-background to-primary/20 backdrop-blur-md shadow-lg">
-                               <div className="w-full h-full rounded-full bg-background overflow-hidden relative">
-                                  <img 
-                                     src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
-                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                                     alt="Profile"
-                                     onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
-                                  />
-                                  <div onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                     <Camera className="text-white drop-shadow-md" size={24} />
-                                  </div>
-                               </div>
-                            </div>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
-                            
-                            {/* Status Badge */}
-                            <div className={cn("absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1.5 whitespace-nowrap", securityInfo.color)}>
-                               <securityInfo.icon size={10} strokeWidth={3} /> {securityInfo.status}
-                            </div>
-                         </div>
+                      <div className="relative z-10 flex flex-col xl:flex-row items-center gap-10">
+                        {/* LEFT: Avatar & Badge */}
+                        <div className="flex flex-col items-center gap-5">
+                           <div className="relative w-44 h-44 rounded-full p-2 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
+                              <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", securityInfo.status === "SECURE" ? "border-emerald-500/20" : "border-amber-500/20")}>
+                                 <img 
+                                    src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover/identity:scale-110" 
+                                    alt="Profile"
+                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
+                                 />
+                                 <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/60 opacity-0 group-hover/identity:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1 cursor-pointer">
+                                    <Camera className="text-white drop-shadow-md" size={32} />
+                                    <span className="text-[10px] font-bold text-white uppercase tracking-widest">Update</span>
+                                 </button>
+                              </div>
+                           </div>
+                           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                           
+                           {/* Floating Security Badge */}
+                           <motion.div 
+                             whileHover={{ scale: 1.05 }}
+                             whileTap={{ scale: 0.95 }}
+                             className={cn("px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-lg border-2 flex items-center gap-2 cursor-help text-white z-20 relative", securityInfo.color, "border-white/10")}
+                           >
+                              <securityInfo.icon size={12} strokeWidth={3} /> {securityInfo.status}
+                           </motion.div>
+                        </div>
 
-                         <div className="flex-1 text-center md:text-left space-y-4 w-full">
-                            <div className="flex flex-col gap-1">
-                               <label className="text-[9px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/60">Identity</label>
-                               <div className="flex items-center gap-3 justify-center md:justify-start">
-                                  <Input 
-                                     value={pendingUsername} 
-                                     onChange={(e) => setPendingUsername(e.target.value)} 
-                                     className="h-12 bg-transparent border-none p-0 text-3xl font-black tracking-tight text-foreground placeholder:text-muted-foreground/30 focus-visible:ring-0 w-auto min-w-[200px]" 
-                                  />
-                                  {isNameDirty && (
-                                     <button onClick={handleUsernameSave} disabled={isSavingName} className="h-8 px-4 rounded-full bg-primary text-white text-[10px] font-bold shadow-lg hover:scale-105 active:scale-95 transition-all">
-                                        {isSavingName ? <Loader2 size={12} className="animate-spin" /> : "SAVE"}
-                                     </button>
-                                  )}
-                               </div>
-                            </div>
-                            
-                            <div className="flex flex-wrap items-center gap-2 justify-center md:justify-start">
-                               <div className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
-                                  <Sparkles size={12} /> Member Since {memberSinceYear}
-                               </div>
-                               {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
-                                  <button onClick={handleRemoveAvatar} className="px-3 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10 text-red-600 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/10 transition-colors">
-                                     Remove Photo
-                                  </button>
-                               )}
-                            </div>
-                         </div>
-                      </div>
+                        {/* RIGHT: Inputs & Stats */}
+                        <div className="flex-1 w-full max-w-4xl space-y-8">
+                           <div className="flex flex-col gap-3">
+                              <label htmlFor="username" className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/60 pl-1">Public Identity</label>
+                              <div className="flex flex-col sm:flex-row items-center gap-4">
+                                 <div className="relative flex-1 w-full group/input">
+                                    <Input id="username" value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-20 bg-muted/40 border-2 border-border/50 focus:border-primary/50 focus:bg-background shadow-inner transition-all rounded-[1.5rem] text-3xl font-black tracking-tight px-8 text-foreground placeholder:text-muted-foreground/30" />
+                                    {!isNameDirty && <span className="absolute right-8 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={28} /></span>}
+                                 </div>
+                                 <button onClick={handleUsernameSave} disabled={!isNameDirty || isSavingName} className="h-20 w-full sm:w-auto px-10 rounded-[1.5rem] bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center">
+                                    {isSavingName ? <Loader2 size={24} className="animate-spin" /> : "Save Changes"}
+                                 </button>
+                              </div>
+                           </div>
+                           
+                           <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
-                      {/* --- SECTION 2: FOCUS AREAS (Personalization) --- */}
-                      <div className="p-8 py-6 space-y-4 border-b border-border/30">
-                         <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-bold flex items-center gap-2"><Target size={16} className="text-primary"/> Focus Areas</h4>
-                            <span className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest">Customize AI</span>
-                         </div>
-                         <div className="flex flex-wrap gap-2">
-                            {["Anxiety", "Sleep", "Academic Stress", "Productivity", "Social", "Mood"].map((tag) => {
-                               const isActive = focusAreas.includes(tag);
-                               return (
-                                  <button 
-                                     key={tag} 
-                                     onClick={() => toggleFocus(tag)}
-                                     className={cn(
-                                        "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border",
-                                        isActive ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-105" : "bg-background/50 text-muted-foreground border-transparent hover:bg-background hover:border-border/50"
-                                     )}
-                                  >
-                                     {tag}
-                                  </button>
-                               )
-                            })}
-                         </div>
-                      </div>
-
-                      {/* --- SECTION 3: THE UNIFIED STACK (Settings Rows) --- */}
-                      <div className="flex flex-col divide-y divide-border/30 bg-background/20 backdrop-blur-sm">
-                         
-                         {/* ROW A: CONNECTION (Adaptive) */}
-                         <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/5 transition-colors">
-                            <div className="flex items-center gap-4">
-                               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", isGoogleUser ? "bg-white shadow-sm border border-blue-100" : "bg-primary/10 text-primary")}>
-                                  {isGoogleUser ? <img src="https://authjs.dev/img/providers/google.svg" className="w-5 h-5" alt="G" /> : <Mail size={20} />}
-                               </div>
-                               <div>
-                                  <p className="text-sm font-bold text-foreground">{isGoogleUser ? "Google Workspace" : "Email Account"}</p>
-                                  <p className="text-xs text-muted-foreground font-medium">{userEmail || "No email linked"}</p>
-                               </div>
-                            </div>
-                            {isGoogleUser ? (
-                               <div className="px-3 py-1 rounded-lg bg-green-500/10 text-green-600 border border-green-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                                  <Check size={12} strokeWidth={4} /> Verified
-                               </div>
-                            ) : (
-                               <div className="flex gap-2">
-                                  {emailStatus !== 'verified' && (
-                                     <button onClick={sendEmailVerification} disabled={emailCountdown > 0} className="px-4 py-2 rounded-lg bg-primary text-white text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all">
-                                        {emailCountdown > 0 ? `${emailCountdown}s` : "Verify"}
-                                     </button>
-                                  )}
-                                  <button onClick={unlinkEmail} className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 text-xs font-bold hover:bg-rose-500/20 transition-all">Unlink</button>
-                               </div>
-                            )}
-                         </div>
-
-                         {/* ROW B: PASSWORD (Manual Only) */}
-                         {!isGoogleUser && (
-                            <div className="p-6 flex flex-col gap-4 hover:bg-white/5 transition-colors">
-                               <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Lock size={20} /></div>
-                                  <div>
-                                     <p className="text-sm font-bold text-foreground">Password Manager</p>
-                                     <p className="text-xs text-muted-foreground font-medium">Update your credentials</p>
-                                  </div>
-                               </div>
-                               
-                               <div className="pl-14 grid gap-3 max-w-md w-full">
-                                  {pwdStage === 'idle' ? (
-                                     <button onClick={() => setPwdStage("verifying")} className="h-10 w-full rounded-xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-primary/5 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-2">
-                                        Change Password
-                                     </button>
-                                  ) : (
-                                     <div className="space-y-3 bg-card/50 p-4 rounded-2xl border border-border/50">
-                                        {pwdStage === 'verifying' ? (
-                                           <div className="flex gap-2">
-                                              <Input type="password" placeholder="Current Password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} className="h-10 text-xs bg-background" />
-                                              <button onClick={verifyCurrentPassword} className="h-10 px-4 bg-foreground text-background rounded-lg text-xs font-bold">Verify</button>
-                                           </div>
-                                        ) : (
-                                           <div className="space-y-2">
-                                              <Input type="password" placeholder="New Password" value={newPwd} onChange={e => setNewPwd(e.target.value)} className="h-10 text-xs bg-background" />
-                                              <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} className="h-10 text-xs bg-background" />
-                                              <div className="flex gap-2 justify-end">
-                                                 <button onClick={() => setPwdStage("idle")} className="text-[10px] font-bold uppercase text-muted-foreground hover:text-foreground">Cancel</button>
-                                                 <button onClick={saveNewPassword} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-[10px] font-bold uppercase shadow-lg">Save</button>
-                                              </div>
-                                           </div>
-                                        )}
-                                     </div>
-                                  )}
-                               </div>
-                            </div>
-                         )}
-
-                         {/* ROW C: SAFETY NET (Redirect) */}
-                         <div className="p-6 flex items-center justify-between gap-4 hover:bg-white/5 transition-colors cursor-pointer group" onClick={handleSafetyRedirect}>
-                            <div className="flex items-center gap-4">
-                               <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><Heart size={20} /></div>
-                               <div>
-                                  <p className="text-sm font-bold text-foreground">Safety Net</p>
-                                  <p className="text-xs text-muted-foreground font-medium group-hover:text-rose-500 transition-colors">Manage emergency contacts</p>
-                               </div>
-                            </div>
-                            <div className="px-3 py-1.5 rounded-lg bg-muted/50 border border-border group-hover:bg-rose-500 group-hover:text-white group-hover:border-rose-500 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-2">
-                               Configure <ArrowRight size={12} />
-                            </div>
-                         </div>
-
-                         {/* ROW D: DIGITAL WELLBEING (Nudge) */}
-                         <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-4 hover:bg-white/5 transition-colors">
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                               <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><Users size={20} /></div>
-                               <div>
-                                  <p className="text-sm font-bold text-foreground">Digital Wellbeing</p>
-                                  <p className="text-xs text-muted-foreground font-medium">Nudge Frequency</p>
-                               </div>
-                            </div>
-                            <div className="flex bg-muted/40 p-1 rounded-xl border border-border/50">
-                               {['quiet', 'balanced', 'active'].map((opt) => (
-                                  <button 
-                                     key={opt}
-                                     onClick={() => setNudgeFreq(opt)}
-                                     className={cn(
-                                        "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                                        nudgeFreq === opt ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                                     )}
-                                  >
-                                     {opt}
-                                  </button>
-                               ))}
-                            </div>
-                         </div>
-
-                      </div>
-
-                      {/* --- SECTION 4: SESSION CONTROL (Integrated Footer) --- */}
-                      <div className="p-8 bg-gradient-to-b from-card/30 to-rose-500/5 border-t border-border/30">
-                          <div className="flex flex-col gap-4">
-                             <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-bold text-foreground flex items-center gap-2"><LogOut size={16} className="text-rose-500"/> Session Control</h4>
-                                <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest">Secure Termination</p>
+                           <div className="flex flex-wrap items-center gap-4 justify-center xl:justify-start">
+                             <div className="h-12 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-sm">
+                                <Sparkles size={16} className="text-amber-500 fill-amber-500 animate-pulse" /> 
+                                <span>Member since {memberSinceYear}</span>
                              </div>
-                             
-                             {/* LIQUID HOLD BUTTON */}
-                             <div 
-                                className="relative w-full h-16 rounded-2xl bg-background border border-border shadow-inner overflow-hidden cursor-pointer select-none touch-none group"
-                                onMouseDown={startHold}
-                                onMouseUp={endHold}
-                                onMouseLeave={endHold}
-                                onTouchStart={startHold}
-                                onTouchEnd={endHold}
-                             >
-                                <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
-                                <motion.div 
-                                   className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600"
-                                   style={{ width: `${logoutProgress}%` }}
-                                   transition={{ ease: "linear", duration: 0 }}
-                                >
-                                   <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
-                                   <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-white/50 box-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
-                                </motion.div>
-
-                                <div className="absolute inset-0 flex items-center justify-center gap-3 z-20 pointer-events-none">
-                                   <span className={cn(
-                                       "text-[10px] font-black uppercase tracking-[0.3em] transition-all duration-200", 
-                                       logoutProgress > 50 ? "text-white drop-shadow-md" : "text-rose-500/70"
-                                   )}>
-                                       {logoutProgress > 0 
-                                         ? (logoutProgress >= 100 ? "GOODBYE" : `HOLDING ${Math.floor(logoutProgress)}%`) 
-                                         : "HOLD TO DISCONNECT"}
-                                   </span>
-                                </div>
-                             </div>
-                          </div>
+                             {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
+                                <button onClick={handleRemoveAvatar} className="h-12 px-6 rounded-full border border-red-500/10 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 text-[11px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 transition-all flex items-center gap-2 group active:scale-95">
+                                   <Trash2 size={16} className="group-hover:rotate-12 transition-transform opacity-70 group-hover:opacity-100" /> 
+                                   <span>Remove Photo</span>
+                                </button>
+                             )}
+                           </div>
+                        </div>
                       </div>
-
                     </div>
                   </motion.div>
+
+                  {/* --- ROW 2: SECURITY & SESSION (Adaptive Bento Grid) --- */}
+                  <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-auto xl:h-[500px]">
+                      
+                      {/* COL 1 (7/12): SECURITY COMMAND CENTER */}
+                      <motion.div variants={itemVariant} className="xl:col-span-7 h-full">
+                         {isGoogleUser ? (
+                            /* OPTION A: GOOGLE WORKSPACE (Read Only) */
+                            <div className="h-full group relative rounded-[2.5rem] border border-blue-500/20 bg-gradient-to-br from-blue-50/50 via-white to-blue-50/20 dark:from-blue-950/30 dark:via-background dark:to-blue-900/10 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col justify-center gap-8 transition-all hover:border-blue-500/40 hover:shadow-blue-500/10">
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
+                                
+                                <div className="flex flex-col gap-6 relative z-10">
+                                   <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl border border-blue-100 dark:border-blue-900/30 p-5">
+                                      <img src="https://authjs.dev/img/providers/google.svg" className="w-full h-full object-contain" alt="Google" />
+                                   </div>
+                                   <div>
+                                      <div className="flex items-center gap-4 mb-3">
+                                         <h4 className="font-black text-3xl text-foreground tracking-tight">Workspace Connected</h4>
+                                         <span className="px-4 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                                            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                                            Active
+                                         </span>
+                                      </div>
+                                      <p className="text-base font-medium text-muted-foreground/80 max-w-md leading-relaxed">
+                                         Your security is managed via <strong>Google Federated OAuth 2.0</strong>. Password updates, 2FA, and recovery options are handled directly by your provider.
+                                      </p>
+                                   </div>
+                                   
+                                   {/* Google Email Display */}
+                                   <div className="p-6 bg-white/60 dark:bg-black/20 rounded-[1.5rem] border border-blue-100 dark:border-blue-900/20 flex items-center justify-between">
+                                      <div>
+                                         <p className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600/70 mb-1">Primary ID</p>
+                                         <p className="font-mono text-lg font-bold">{userEmail}</p>
+                                      </div>
+                                      <ShieldCheck size={24} className="text-blue-500" />
+                                   </div>
+                                </div>
+                            </div>
+                         ) : (
+                             /* OPTION B: MANUAL SECURITY SUITE (Password + Email) */
+                             <div className="h-full p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col gap-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
+                                
+                                {/* Header */}
+                                <div className="flex items-center gap-4 relative z-10">
+                                   <div className="w-16 h-16 flex items-center justify-center bg-primary/10 rounded-2xl text-primary border border-primary/10 shadow-inner"><Lock size={32} strokeWidth={2.5} /></div>
+                                   <div><h4 className="font-black text-2xl tracking-tight text-foreground">Security Center</h4><p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Credentials & Recovery</p></div>
+                                </div>
+
+                                <div className="flex-1 grid gap-6 relative z-10 overflow-y-auto pr-2 scrollbar-hide">
+                                   {/* 1. Password Manager */}
+                                   <div className="space-y-4 p-6 bg-background/40 rounded-[2rem] border border-border/50">
+                                      <h5 className="text-sm font-bold flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-primary" /> Password Update</h5>
+                                      <AnimatePresence mode="wait">
+                                         {pwdStage !== "verified" && pwdStage !== "saving" ? (
+                                           <div className="flex gap-3">
+                                              <div className="relative flex-1">
+                                                <Input type={showCurrent ? "text" : "password"} placeholder="Current Password" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)} className="h-12 rounded-xl bg-background border-transparent focus:border-primary/20 text-sm font-bold px-4" />
+                                                <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">{showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                                              </div>
+                                              <button onClick={verifyCurrentPassword} disabled={!currentPwd || pwdStage === "verifying"} className="h-12 px-6 bg-foreground text-background text-xs font-black uppercase tracking-wider rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2">
+                                                {pwdStage === "verifying" ? <Loader2 size={16} className="animate-spin" /> : "Verify"}
+                                              </button>
+                                           </div>
+                                         ) : (
+                                           <div className="space-y-3">
+                                              <div className="grid grid-cols-2 gap-3">
+                                                <Input type="password" placeholder="New Password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="h-12 rounded-xl bg-background border-transparent text-sm" />
+                                                <Input type="password" placeholder="Confirm" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="h-12 rounded-xl bg-background border-transparent text-sm" />
+                                              </div>
+                                              <div className="flex gap-2 justify-end">
+                                                  <button onClick={() => setPwdStage("idle")} className="px-4 h-10 rounded-xl border border-transparent hover:bg-muted/50 text-[10px] font-black uppercase text-muted-foreground transition-all">Cancel</button>
+                                                  <button onClick={saveNewPassword} className="px-6 h-10 bg-emerald-500 text-white text-[10px] font-black uppercase rounded-xl shadow-lg hover:bg-emerald-600 transition-all">Update Credentials</button>
+                                              </div>
+                                           </div>
+                                         )}
+                                      </AnimatePresence>
+                                   </div>
+
+                                   {/* 2. Email Verification */}
+                                   <div className="space-y-4 p-6 bg-background/40 rounded-[2rem] border border-border/50">
+                                      <div className="flex items-center justify-between">
+                                         <h5 className="text-sm font-bold flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Email Verification</h5>
+                                         {emailStatus === 'verified' && <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider flex items-center gap-1"><Check size={12} /> Verified</span>}
+                                      </div>
+                                      
+                                      <div className="flex items-center justify-between gap-4">
+                                         <p className="font-mono text-sm text-muted-foreground truncate bg-muted/30 px-3 py-1.5 rounded-lg flex-1">{userEmail || "No email linked"}</p>
+                                         {emailStatus === 'verified' ? (
+                                            <button onClick={unlinkEmail} className="text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 px-3 py-1.5 rounded-lg transition-colors">Unlink</button>
+                                         ) : (
+                                            <button 
+                                               onClick={sendEmailVerification} 
+                                               disabled={emailStatus === "sending" || emailCountdown > 0} 
+                                               className={cn("px-4 py-2 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center gap-2", emailCountdown > 0 ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700")}
+                                            >
+                                               {emailStatus === "sending" ? <Loader2 size={14} className="animate-spin" /> : emailCountdown > 0 ? `${emailCountdown}s` : "Send Link"}
+                                            </button>
+                                         )}
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                          )}
+                      </motion.div>
+
+                      {/* COL 2 (5/12): SESSION RADAR (Active Monitor) */}
+                      <motion.div variants={itemVariant} className="xl:col-span-5 h-full flex flex-col gap-6">
+                          
+                          {/* RADAR CARD */}
+                          <div className="flex-1 p-8 bg-gradient-to-b from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-[100px] pointer-events-none" />
+                                
+                                <div className="flex items-center gap-4 mb-8 relative z-10">
+                                   <div className="w-14 h-14 flex items-center justify-center bg-rose-500/10 rounded-2xl text-rose-500 border border-rose-500/10 shadow-inner"><LogOut size={28} strokeWidth={2.5} /></div>
+                                   <div><h4 className="font-black text-2xl tracking-tight text-foreground">Session Radar</h4><p className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Active Device Monitor</p></div>
+                                </div>
+
+                                {/* Live Stats */}
+                                <div className="flex-1 space-y-4 relative z-10">
+                                   <div className="flex items-center justify-between p-4 bg-background/40 rounded-2xl border border-border/50">
+                                      <div className="flex items-center gap-3">
+                                         <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><Server size={18} /></div>
+                                         <div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System</p><p className="text-sm font-bold text-foreground">{sessionInfo.os}</p></div>
+                                      </div>
+                                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                   </div>
+                                   <div className="flex items-center justify-between p-4 bg-background/40 rounded-2xl border border-border/50">
+                                      <div className="flex items-center gap-3">
+                                         <div className="p-2 bg-orange-500/10 text-orange-500 rounded-lg"><Target size={18} /></div>
+                                         <div><p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Browser</p><p className="text-sm font-bold text-foreground">{sessionInfo.browser}</p></div>
+                                      </div>
+                                   </div>
+                                   {/* Safety Net Config Link */}
+                                   <div onClick={handleSafetyRedirect} className="flex items-center justify-between p-4 bg-rose-500/5 rounded-2xl border border-rose-500/10 cursor-pointer hover:bg-rose-500/10 transition-colors group">
+                                      <div className="flex items-center gap-3">
+                                         <div className="p-2 bg-rose-500/20 text-rose-600 rounded-lg"><Heart size={18} /></div>
+                                         <div><p className="text-xs font-bold uppercase tracking-wider text-rose-600/70">Safety Net</p><p className="text-sm font-bold text-rose-600">Configure SOS</p></div>
+                                      </div>
+                                      <ArrowRight size={16} className="text-rose-500 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                   </div>
+                                </div>
+
+                                {/* Liquid Button */}
+                                <div className="mt-8 relative z-10 w-full">
+                                    <div 
+                                       className="relative w-full h-20 rounded-[1.8rem] bg-background/50 border-2 border-rose-500/10 overflow-hidden cursor-pointer select-none touch-none shadow-inner group transition-all active:scale-95"
+                                       onMouseDown={startHold}
+                                       onMouseUp={endHold}
+                                       onMouseLeave={endHold}
+                                       onTouchStart={startHold}
+                                       onTouchEnd={endHold}
+                                    >
+                                       <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
+                                       <motion.div 
+                                          className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600"
+                                          style={{ width: `${logoutProgress}%` }}
+                                          transition={{ ease: "linear", duration: 0 }}
+                                       >
+                                          <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-white/50 box-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
+                                       </motion.div>
+                                       <div className="absolute inset-0 flex flex-col items-center justify-center z-20 pointer-events-none gap-1">
+                                          <span className={cn(
+                                              "text-xs font-black uppercase tracking-[0.25em] transition-all duration-200", 
+                                              logoutProgress > 50 ? "text-white drop-shadow-md" : "text-rose-500/70"
+                                          )}>
+                                              {logoutProgress > 0 
+                                                ? (logoutProgress >= 100 ? "GOODBYE" : `HOLDING ${Math.floor(logoutProgress)}%`) 
+                                                : "HOLD TO DISCONNECT"}
+                                          </span>
+                                       </div>
+                                    </div>
+                                </div>
+                          </div>
+                      </motion.div>
+
+                  </div>
               </TabsContent>
 
               
