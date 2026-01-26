@@ -38,24 +38,14 @@ import { cn } from "@/lib/utils";
 
 const PATCH_EVENT = "cognisync:settings:patch";
 
-// SORTED ORDER: Cool (Royal/Emerald/Slate) -> Warm/Deep (Violet/Rose/Amber)
 const THEME_ORDER = ["blue", "teal", "emerald", "slate", "coral", "amber"] as const;
-
-// MAPPING STRATEGY: 
-// We map the 'label' and 'color' to the specific backend ID that renders that look.
-// - 'teal' ID renders Green UI -> Display "Emerald"
-// - 'emerald' ID renders Grey UI -> Display "Slate"
-// - 'slate' ID renders Purple UI -> Display "Deep Purple"
 const THEME_CONFIG = [
-  // Row 1: Cool & Professional
-  { id: "blue", label: "Royal Blue", color: "#3B82F6" },    // Trust/Default
-  { id: "teal", label: "Emerald", color: "#10B981" },       // Growth (Teal ID -> Green UI)
-  { id: "emerald", label: "Slate", color: "#64748B" },      // Minimal (Emerald ID -> Grey UI)
-  
-  // Row 2: Deep & Vibrant
-  { id: "slate", label: "Deep Purple", color: "#7C3AED" },  // Premium (Slate ID -> Purple UI)
-  { id: "coral", label: "Rose", color: "#F43F5E" },         // Vitality
-  { id: "amber", label: "Amber", color: "#F59E0B" },        // Energy
+  { id: "blue", label: "Royal Blue", color: "#3B82F6" },
+  { id: "teal", label: "Emerald", color: "#10B981" },
+  { id: "emerald", label: "Slate", color: "#64748B" },
+  { id: "slate", label: "Deep Purple", color: "#7C3AED" },
+  { id: "coral", label: "Rose", color: "#F43F5E" },
+  { id: "amber", label: "Amber", color: "#F59E0B" },
 ] as const;
 
 const FONT_SIZES = [14, 16, 18] as const;
@@ -72,9 +62,8 @@ export default function SettingsPage() {
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
   const [pendingUsername, setPendingUsername] = useState(settings.username || "");
-  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+  const [showSecurityTooltip, setShowSecurityTooltip] = useState(false);
   
-  // LOGIC FIX: Persistence for Active Tab
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("cognisync:settings-tab") || "appearance";
     return "appearance";
@@ -96,6 +85,34 @@ export default function SettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // SESSION RADAR STATE
+  const [sessionInfo, setSessionInfo] = useState({ os: "Unknown", browser: "Unknown", location: "Telangana, India" });
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const ua = window.navigator.userAgent;
+        let os = "Unknown OS";
+        if (ua.indexOf("Win") !== -1) os = "Windows";
+        if (ua.indexOf("Mac") !== -1) os = "MacOS";
+        if (ua.indexOf("Linux") !== -1) os = "Linux";
+        if (ua.indexOf("Android") !== -1) os = "Android";
+        if (ua.indexOf("like Mac") !== -1) os = "iOS";
+
+        let browser = "Unknown Browser";
+        if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+        if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+        if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Safari";
+        
+        setSessionInfo(prev => ({ ...prev, os, browser }));
+    }
+  }, []);
+
+  const router = (typeof window !== 'undefined' ? require("next/navigation").useRouter() : null);
+
+  const handleSafetyRedirect = () => {
+    if (router) router.push("/regulation?trigger=sos_setup");
+  };
 
   const isGoogleUser =
     (user as any)?.app_metadata?.provider === 'google' ||
@@ -124,25 +141,23 @@ export default function SettingsPage() {
     const triggerSuccess = async () => {
         setEmailStatus("verified");
         setEmailCountdown(0);
-        // Switch to account tab to show the green tick
         setActiveTab("account");
         
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        await supabase.auth.refreshSession(); // Sync session
+        await supabase.auth.refreshSession();
         
         showNotification({ type: "success", message: "Security Protocol Verified Successfully.", duration: 5000 });
     };
 
-    // 1. Broadcast Listener (Fastest)
+    // 1. Broadcast Listener
     channel.onmessage = (event) => {
       if (event.data.type === 'EMAIL_VERIFIED') triggerSuccess();
     };
 
-    // 2. Smart Polling (Backup if Broadcast fails)
-    // Only poll if we are actively waiting (status is 'sending' or 'sent')
+    // 2. Smart Polling
     if (emailStatus === 'sending' || emailStatus === 'sent') {
         pollingInterval = setInterval(async () => {
             if (!user?.id) return;
@@ -150,18 +165,15 @@ export default function SettingsPage() {
                process.env.NEXT_PUBLIC_SUPABASE_URL!,
                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
-            
-            // Check DB directly - Source of Truth
             const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
-            
             if (data?.email_confirmed_at) {
                 clearInterval(pollingInterval);
                 triggerSuccess();
             }
-        }, 2000); // Check every 2s
+        }, 2000);
     }
 
-    // 3. Initial Load Check (Fixes "Reload" issue)
+    // 3. Initial Load Check
     const checkInitialStatus = async () => {
         if (!user?.email) return;
         const supabase = createBrowserClient(
@@ -169,7 +181,6 @@ export default function SettingsPage() {
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
-        // Also check Supabase Auth User Metadata
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
         if (data?.email_confirmed_at || authUser?.email_confirmed_at) {
@@ -182,7 +193,7 @@ export default function SettingsPage() {
         channel.close();
         if (pollingInterval) clearInterval(pollingInterval);
     };
-  }, [user?.id, emailStatus]); // Re-run if status changes
+  }, [user?.id, emailStatus]);
 
   // --- SESSION CONTROL LOGIC ---
   const [logoutProgress, setLogoutProgress] = useState(0);
@@ -190,33 +201,29 @@ export default function SettingsPage() {
 
   const startHold = () => {
     if (logoutInterval.current) clearInterval(logoutInterval.current);
-    
     logoutInterval.current = setInterval(() => {
       setLogoutProgress((prev) => {
         if (prev >= 100) {
           if (logoutInterval.current) clearInterval(logoutInterval.current);
-          handleLogoutAction(); // Trigger Logout
+          handleLogoutAction(); 
           return 100;
         }
-        return prev + 2; // Speed of fill (adjust for faster/slower)
+        return prev + 2; 
       });
-    }, 16); // ~60fps
+    }, 16); 
   };
 
   const endHold = () => {
     if (logoutInterval.current) clearInterval(logoutInterval.current);
-    setLogoutProgress(0); // Snap back logic
+    setLogoutProgress(0); 
   };
 
   const handleLogoutAction = async () => {
-    // Visual feedback before actual logout
     showNotification({ type: "success", message: "Session Terminated.", duration: 2000 });
     setTimeout(() => logout(), 500); 
   };
 
   // --- SECURITY BADGE LOGIC ---
-  const [showSecurityTooltip, setShowSecurityTooltip] = useState(false);
-
   const getSecurityDetails = () => {
     if (isGoogleUser) {
         return {
@@ -245,37 +252,6 @@ export default function SettingsPage() {
     };
   };
   const securityInfo = getSecurityDetails();
-  const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // --- SESSION RADAR STATE ---
-  const [sessionInfo, setSessionInfo] = useState({ os: "Unknown", browser: "Unknown", location: "Telangana, India" });
-  
-  useEffect(() => {
-    // Client-side detection for "Session Radar"
-    if (typeof window !== 'undefined') {
-        const ua = window.navigator.userAgent;
-        let os = "Unknown OS";
-        if (ua.indexOf("Win") !== -1) os = "Windows";
-        if (ua.indexOf("Mac") !== -1) os = "MacOS";
-        if (ua.indexOf("Linux") !== -1) os = "Linux";
-        if (ua.indexOf("Android") !== -1) os = "Android";
-        if (ua.indexOf("like Mac") !== -1) os = "iOS";
-
-        let browser = "Unknown Browser";
-        if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
-        if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
-        if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Safari";
-        
-        setSessionInfo(prev => ({ ...prev, os, browser }));
-    }
-  }, []);
-
-  const router = (typeof window !== 'undefined' ? require("next/navigation").useRouter() : null);
-
-  const handleSafetyRedirect = () => {
-    // Redirects to Regulation page with a trigger for the SOS modal
-    if (router) router.push("/regulation?trigger=sos_setup");
-  };
 
   // --- INITIALIZATION ---
   useEffect(() => {
@@ -285,47 +261,28 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // CRITICAL FIX: Only run this on mount or when user ID changes.
-  // PREVENTS INFINITE LOOP when editing name or uploading avatar.
   useEffect(() => {
-    if (!user?.id) return; // FIX: Dependency on ID only, not the whole object
+    if (!user?.id) return; 
 
-    // 1. Email Verification Check
     if (user.email) {
       setUserEmail(user.email);
-      if ((user as any)?.email_confirmed_at || isGoogleUser) {
-        setEmailStatus("verified");
-      } else {
-        const isMailVerified = localStorage.getItem(`cognisync:email_verified:${user.id}`) === "true";
-        if (isMailVerified) setEmailStatus("verified");
-      }
     }
 
-    // 2. Fetch Real Profile Data from Database
     const fetchProfile = async () => {
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         
-        // A. Try fetching from DB
-        const { data } = await supabase
-            .from('users')
-            .select('name, avatar_url')
-            .eq('id', user.id)
-            .single();
-
-        // B. Get Auth Metadata (Google/Auth Providers) as fallback
+        const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
         const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
         const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
 
-        // C. Determine Final Values
         const finalName = data?.name || authName || "User";
         const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) 
             ? data.avatar_url 
             : (authAvatar || "/placeholder-user.png");
 
-        // D. AUTO-PERSIST FIX
         if (!data && (authName || authAvatar)) {
             await supabase.from('users').upsert({
                 id: user.id,
@@ -336,7 +293,6 @@ export default function SettingsPage() {
             });
         }
 
-        // E. Update State & Dispatch
         setPendingUsername(finalName);
         
         const newSettings = { 
@@ -347,7 +303,7 @@ export default function SettingsPage() {
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
     };
     fetchProfile();
-  }, [user?.id]); // <--- CRITICAL FIX: DEPENDENCY CHANGED
+  }, [user?.id]); 
 
   // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
@@ -358,7 +314,6 @@ export default function SettingsPage() {
 
   const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
 
-  // NEW LOGIC: Save Name to Supabase & Dispatch Event
   const handleUsernameSave = async () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
@@ -371,31 +326,23 @@ export default function SettingsPage() {
     );
 
     try {
-        const { error: dbError } = await supabase.from('users').upsert({ 
+        await supabase.from('users').upsert({ 
             id: user.id, 
             email: user.email,
             name: trimmed,
             updated_at: new Date().toISOString()
         });
-        if (dbError) throw dbError;
-
         await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
         updateSettings({ username: trimmed });
-
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-            detail: { ...settings, username: trimmed } 
-        }));
-
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, username: trimmed } }));
         showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
     } catch (error) {
-        console.error("Name save error:", error);
         showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
     } finally {
         setIsSavingName(false);
     }
   };
 
-  // NEW LOGIC: Save Avatar to Supabase & Dispatch Event
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
@@ -409,26 +356,18 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-
         try {
-            const { error: dbError } = await supabase.from('users').upsert({ 
+            await supabase.from('users').upsert({ 
                 id: user.id, 
                 email: user.email,
                 avatar_url: base64,
                 updated_at: new Date().toISOString()
             });
-            if (dbError) throw dbError;
-
             await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
             updateSettings({ avatar: base64 });
-            
-            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-                detail: { ...settings, avatar: base64 } 
-            }));
-
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, avatar: base64 } }));
             showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
         } catch (error) {
-            console.error("Avatar upload error:", error);
             showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
         }
       };
@@ -442,16 +381,10 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        await supabase.from('users').upsert({ 
-            id: user.id, 
-            email: user.email,
-            avatar_url: null 
-        });
+        await supabase.from('users').upsert({ id: user.id, email: user.email, avatar_url: null });
     }
     updateSettings({ avatar: "/placeholder-user.png" });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-         detail: { ...settings, avatar: "/placeholder-user.png" } 
-    }));
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, avatar: "/placeholder-user.png" } }));
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
   };
 
@@ -478,39 +411,13 @@ export default function SettingsPage() {
     if (!user) return;
     if (confirm("Are you sure? Account recovery will be disabled.")) {
       setEmailStatus("unverified");
-      setUserEmail(""); // FIX: Explicitly clear the email from state
+      setUserEmail(""); 
       localStorage.removeItem(`cognisync:email_verified:${user.id}`);
       showNotification({ type: "info", message: "Email unlinked.", duration: 2000 });
     }
   };
 
-  const getSecurityStatus = () => {
-    // FIX: Only secure if we actually have an email AND it's verified/google
-    if (userEmail && (emailStatus === "verified" || isGoogleUser)) {
-      return { label: "SECURE", color: "bg-emerald-500 text-white", ring: "ring-emerald-500", icon: ShieldCheck, desc: "Your account is protected. Email is verified." };
-    }
-    return { label: "AT RISK", color: "bg-amber-500 text-white", ring: "ring-amber-500", icon: ShieldAlert, desc: "Verify your email to secure account recovery." };
-  };
-  const security = getSecurityStatus();
-
-  // --- PASSWORD & LOGOUT LOGIC ---
-  const startLogout = () => {
-    if (!user) return;
-    let progress = 0;
-    logoutTimerRef.current = setInterval(() => {
-      progress += 1; // FIX: Slower increment (10ms * 100 = 1000ms = 1s total) to prevent accidental logout
-      setLogoutProgress(progress);
-      if (progress >= 100) {
-        if (logoutTimerRef.current) clearInterval(logoutTimerRef.current);
-        logout();
-      }
-    }, 10);
-  };
-  const cancelLogout = () => {
-    if (logoutTimerRef.current) clearInterval(logoutTimerRef.current);
-    setLogoutProgress(0);
-  };
-
+  // --- PASSWORD VERIFICATION (Stateless API Fix) ---
   const verifyCurrentPassword = async () => {
     if (!user || !currentPwd) return;
     setPwdStage("verifying");
@@ -544,7 +451,6 @@ export default function SettingsPage() {
       showNotification({ type: "warning", message: "Password must be 6+ chars & match.", duration: 3000 });
       return;
     }
-    // LOGIC FIX: Prevent using same password
     if (newPwd === currentPwd) {
        showNotification({ type: "warning", message: "New password cannot be the same as current.", duration: 3000 });
        return;
@@ -564,7 +470,6 @@ export default function SettingsPage() {
       setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
       showNotification({ type: "success", message: "Password updated successfully!", duration: 2000 });
     } catch (e: any) {
-      console.error("Pwd Update Error:", e);
       setPwdStage("verified");
       showNotification({ type: "error", message: e.message || "Update failed.", duration: 3000 });
     }
@@ -599,22 +504,10 @@ export default function SettingsPage() {
   };
 
   const handleResetPreferences = () => {
-    const defaults = {
-      darkMode: false,
-      fontSize: 16 as const,
-      colorTheme: 'blue' as const
-    };
+    const defaults = { darkMode: false, fontSize: 16 as const, colorTheme: 'blue' as const };
     updateSettings(defaults);
     const defaultColor = THEME_CONFIG.find(t => t.id === 'blue')?.color || '#3B82F6';
-
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
-      detail: {
-        ...defaults,
-        theme: 'light',
-        accentColor: defaultColor,
-        username: settings.username
-      }
-    }));
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...defaults, theme: 'light', accentColor: defaultColor, username: settings.username } }));
     showNotification({ type: "success", message: "Interface reset to default.", duration: 2000 });
   };
 
@@ -639,15 +532,11 @@ export default function SettingsPage() {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-
     setShowFactoryResetDialog(false);
     showNotification({ type: "warning", message: "Factory Reset Initiated...", duration: 5000 });
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (user) {
-        // 1. Wipe DB Data
         await Promise.allSettled([
           supabase.from('user_entries').delete().eq('user_id', user.id),
           supabase.from('assessments').delete().eq('user_id', user.id),
@@ -656,28 +545,19 @@ export default function SettingsPage() {
           supabase.from('verification_tokens').delete().eq('user_id', user.id),
           supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
         ]);
-
-        // 2. Server Logout FIRST (Requires token)
         await supabase.auth.signOut();
         logout();
-
-        // 3. Clear Local Storage LAST (To prevent context issues during logout)
         localStorage.clear();
         sessionStorage.clear();
-
         showNotification({ type: "success", message: "System Reset Complete. Goodbye.", duration: 2000 });
       }
     } catch (error) {
       console.error("Reset Error:", error);
     } finally {
-      // 4. Force Reload
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
+      setTimeout(() => { window.location.href = "/"; }, 1000);
     }
   };
 
-  // --- SUPPORT ---
   const handleCopyEmail = () => {
     navigator.clipboard.writeText("adithyachary09@gmail.com");
     setCopied(true);
@@ -702,11 +582,9 @@ export default function SettingsPage() {
       <div className="relative mx-auto max-w-5xl z-10 pb-20">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex flex-col gap-2 pt-4 md:pt-0">
           <div className="flex items-center gap-3">
-            {/* Adaptive Icon Container */}
             <div className="p-3 bg-card/50 backdrop-blur-md rounded-2xl shadow-sm border border-border">
                <SettingsIcon className="text-foreground h-6 w-6 md:h-8 md:w-8" />
             </div>
-            {/* Adaptive Title Text */}
             <h1 className="text-3xl md:text-4xl font-black tracking-tight text-foreground">Settings</h1>
           </div>
         </motion.div>
@@ -714,17 +592,12 @@ export default function SettingsPage() {
         <Tabs defaultValue="appearance" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="sticky top-4 z-50 flex justify-center w-full px-2">
             <div className="w-full max-w-full overflow-x-auto scrollbar-hide flex justify-start md:justify-center">
-              {/* FIX: Outline Only, Dynamic Glass, No Fill */}
               <div className="bg-transparent p-1 rounded-full border-2 border-primary/20 dark:border-white/10 backdrop-blur-md shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)] inline-flex min-w-max mx-auto">
                   <TabsList className="bg-transparent p-0 h-auto gap-1">
                       {tabs.map((tab) => (
                           <TabsTrigger key={tab.id} value={tab.id} className="relative px-4 md:px-6 py-2 rounded-full text-xs md:text-sm font-bold transition-all data-[state=active]:bg-transparent z-10 hover:text-primary">
                               {activeTab === tab.id && (
-                                <motion.div 
-                                  layoutId="active-tab-bg" 
-                                  className="absolute inset-0 bg-primary rounded-full shadow-lg shadow-primary/20" 
-                                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} 
-                                />
+                                <motion.div layoutId="active-tab-bg" className="absolute inset-0 bg-primary rounded-full shadow-lg shadow-primary/20" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />
                               )}
                               <span className={`relative z-10 transition-colors duration-300 ${activeTab === tab.id ? "text-white dark:text-black" : "text-muted-foreground"}`}>
                                 {tab.label}
@@ -739,7 +612,7 @@ export default function SettingsPage() {
           <AnimatePresence mode="wait">
             <motion.div key={activeTab} variants={containerVariant} initial="hidden" animate="show" exit={{ opacity: 0, y: -10, transition: { duration: 0.15 } }} className="px-1">
               
-             {/* ======================= TAB: APPEARANCE ======================= */}
+              {/* ======================= TAB: APPEARANCE ======================= */}
               <TabsContent value="appearance" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
                     <Card className={cn(
@@ -748,64 +621,38 @@ export default function SettingsPage() {
                         ? "bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border-white/10 shadow-black/40"
                         : "bg-gradient-to-br from-[#FFFBF0] via-[#FFF5E0] to-[#FFE8CC] border-orange-200/50 shadow-orange-500/10"
                     )}>
-                      {/* Premium Ambient Backgrounds */}
-                      <div className={cn("absolute -top-24 -right-24 w-80 h-80 rounded-full blur-[100px] transition-all duration-1000",
-                        settings.darkMode ? "bg-indigo-500/20" : "bg-orange-400/20")} />
-                      <div className={cn("absolute -bottom-24 -left-24 w-80 h-80 rounded-full blur-[100px] transition-all duration-1000",
-                        settings.darkMode ? "bg-blue-600/10" : "bg-yellow-400/20")} />
+                      {/* AMBIENT BLOBS (Enhanced Texture) */}
+                      <div className={cn("absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[120px] transition-all duration-1000", settings.darkMode ? "bg-indigo-500/30" : "bg-orange-400/30")} />
+                      <div className={cn("absolute -bottom-24 -left-24 w-96 h-96 rounded-full blur-[120px] transition-all duration-1000", settings.darkMode ? "bg-blue-600/20" : "bg-yellow-400/30")} />
 
                       <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
                         <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
-                          <motion.div 
-                            layout
-                            whileHover={{ scale: 1.05, rotate: 5 }}
-                            className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl backdrop-blur-md border", 
-                              settings.darkMode ? "bg-white/5 border-white/10 text-indigo-300" : "bg-white/60 border-white/40 text-orange-500"
-                            )}
-                          >
+                          <motion.div layout whileHover={{ scale: 1.05, rotate: 5 }} className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl backdrop-blur-md border", settings.darkMode ? "bg-white/5 border-white/10 text-indigo-300" : "bg-white/60 border-white/40 text-orange-500")}>
                             <AnimatePresence mode="wait">
-                              <motion.div
-                                key={settings.darkMode ? "dark" : "light"}
-                                initial={{ scale: 0.5, opacity: 0, rotate: -45 }}
-                                animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                                exit={{ scale: 0.5, opacity: 0, rotate: 45 }}
-                                transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                              >
+                              <motion.div key={settings.darkMode ? "dark" : "light"} initial={{ scale: 0.5, opacity: 0, rotate: -45 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} exit={{ scale: 0.5, opacity: 0, rotate: 45 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
                                 {settings.darkMode ? <Moon size={42} className="drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" fill="currentColor" /> : <Sun size={42} className="drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]" fill="currentColor" />}
                               </motion.div>
                             </AnimatePresence>
                           </motion.div>
-                          
                           <div>
                             <motion.h3 layout className="font-black text-3xl text-foreground mb-2 tracking-tight">{getModeLabel()}</motion.h3>
                             <motion.p layout className="text-muted-foreground font-medium text-sm leading-relaxed max-w-sm">
-                               Experience CogniSync in a <span className={cn("font-bold", settings.darkMode ? "text-indigo-400" : "text-orange-500")}>{settings.darkMode ? "deep, immersive dark" : "bright, vibrant light"}</span> environment designed for focus.
+                              Experience CogniSync in a <span className={cn("font-bold", settings.darkMode ? "text-indigo-400" : "text-orange-500")}>{settings.darkMode ? "deep, immersive dark" : "bright, vibrant light"}</span> environment.
                             </motion.p>
                           </div>
                         </div>
-
-                        <div className={cn("flex items-center gap-4 p-2 pl-5 pr-2 rounded-full border backdrop-blur-xl shadow-lg transition-colors duration-500",
-                           settings.darkMode ? "bg-black/40 border-white/10" : "bg-white/60 border-orange-200/50"
-                        )}>
+                        <div className={cn("flex items-center gap-4 p-2 pl-5 pr-2 rounded-full border backdrop-blur-xl shadow-lg transition-colors duration-500", settings.darkMode ? "bg-black/40 border-white/10" : "bg-white/60 border-orange-200/50")}>
                           <span className="text-[11px] font-extrabold uppercase tracking-widest opacity-50">System Mode</span>
-                          <Switch 
-                            checked={settings.darkMode} 
-                            onCheckedChange={(c) => handleInstantChange({ darkMode: c })} 
-                            className="data-[state=checked]:bg-primary scale-125 mx-1" 
-                          />
+                          <Switch checked={settings.darkMode} onCheckedChange={(c) => handleInstantChange({ darkMode: c })} className="data-[state=checked]:bg-primary scale-125 mx-1" />
                         </div>
                       </div>
                     </Card>
                   </motion.div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-                      {/* Typography Scale - Premium Glass */}
+                      {/* Typography Scale */}
                       <motion.div variants={itemVariant} className="h-full">
-                        {/* Adaptive Card: Uses 'from-card' and 'border-border' to blend with active theme */}
                         <Card className="group h-full p-8 border border-border/50 shadow-xl bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
-                            {/* Gradient Noise/Texture */}
-                            <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
-                            
                             <div className="flex items-center gap-5 mb-10 relative z-10">
                                 <div className="w-14 h-14 bg-gradient-to-tr from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center text-primary shadow-inner border border-white/10">
                                   <Type size={26} strokeWidth={2.5} />
@@ -822,33 +669,14 @@ export default function SettingsPage() {
                                 {FONT_SIZES.map(size => {
                                   const isActive = settings.fontSize === size;
                                   return (
-                                    <button 
-                                      key={size} 
-                                      onClick={() => handleInstantChange({ fontSize: size })}
-                                      className="relative w-full group/btn outline-none"
-                                    >
-                                      <div className={cn(
-                                        "relative z-10 flex items-center justify-between p-5 rounded-[1.5rem] border transition-all duration-300",
-                                        isActive ? "border-primary/50 text-primary shadow-xl shadow-primary/5 bg-background/50" : "border-transparent bg-muted/30 hover:bg-muted/60"
-                                      )}>
-                                        {isActive && (
-                                          <motion.div
-                                            layoutId="active-type-bg"
-                                            className="absolute inset-0 bg-primary/5 rounded-[1.5rem]"
-                                            transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                          />
-                                        )}
-                                        
+                                    <button key={size} onClick={() => handleInstantChange({ fontSize: size })} className="relative w-full group/btn outline-none">
+                                      <div className={cn("relative z-10 flex items-center justify-between p-5 rounded-[1.5rem] border transition-all duration-300", isActive ? "border-primary/50 text-primary shadow-xl shadow-primary/5 bg-background/50" : "border-transparent bg-muted/30 hover:bg-muted/60")}>
+                                        {isActive && <motion.div layoutId="active-type-bg" className="absolute inset-0 bg-primary/5 rounded-[1.5rem]" transition={{ type: "spring", bounce: 0.2, duration: 0.6 }} />}
                                         <div className="flex flex-col items-start gap-1">
-                                          <span className={cn("text-xs font-extrabold tracking-[0.2em] uppercase transition-colors", isActive ? "text-primary" : "text-muted-foreground/60")}>
-                                            {size === 14 ? "Compact" : size === 16 ? "Standard" : "Relaxed"}
-                                          </span>
+                                          <span className={cn("text-xs font-extrabold tracking-[0.2em] uppercase transition-colors", isActive ? "text-primary" : "text-muted-foreground/60")}>{size === 14 ? "Compact" : size === 16 ? "Standard" : "Relaxed"}</span>
                                           <span className="text-[10px] font-bold opacity-40">{size}px Inter</span>
                                         </div>
-
-                                        <div className={cn("flex items-center justify-center w-12 h-12 rounded-2xl border transition-all duration-300",
-                                            isActive ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-110" : "bg-background border-border text-muted-foreground"
-                                        )}>
+                                        <div className={cn("flex items-center justify-center w-12 h-12 rounded-2xl border transition-all duration-300", isActive ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-110" : "bg-background border-border text-muted-foreground")}>
                                           <span className="font-serif leading-none" style={{ fontSize: size > 16 ? 20 : 16 }}>Aa</span>
                                         </div>
                                       </div>
@@ -859,11 +687,11 @@ export default function SettingsPage() {
                         </Card>
                       </motion.div>
 
-                      {/* Accent Color - Premium Glass */}
+                      {/* Accent Color (Added Noise Texture) */}
                       <motion.div variants={itemVariant} className="h-full">
-                        {/* Adaptive Card: Uses 'from-card' and 'border-border' to blend with active theme */}
                         <Card className="group h-full p-8 border border-border/50 shadow-xl bg-gradient-to-bl from-card/80 to-card/40 backdrop-blur-3xl rounded-[2.5rem] relative overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1">
-                            <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
+                            {/* TEXTURE: Noise */}
+                            <div className="absolute inset-0 opacity-[0.04] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
 
                             <div className="flex items-center gap-5 mb-10 relative z-10">
                                 <div className="w-14 h-14 bg-gradient-to-tr from-primary/20 to-primary/5 rounded-2xl flex items-center justify-center text-primary shadow-inner border border-white/10">
@@ -881,85 +709,28 @@ export default function SettingsPage() {
                                 {THEME_CONFIG.map((theme) => {
                                   const isActive = settings.colorTheme === theme.id;
                                   return (
-                                    <motion.button 
-                                      key={theme.id} 
-                                      onClick={() => handleInstantChange({ colorTheme: theme.id as any })}
-                                      whileHover={{ scale: 1.05 }}
-                                      whileTap={{ scale: 0.95 }}
-                                      className="group/color flex flex-col items-center gap-3 relative p-4 rounded-3xl transition-colors hover:bg-muted/30 focus:outline-none"
-                                    >
-                                      {/* Active Glow Ring */}
-                                      {isActive && (
-                                        <motion.div 
-                                          layoutId="activeThemeGlow"
-                                          className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10"
-                                          initial={{ opacity: 0 }}
-                                          animate={{ opacity: 1 }}
-                                          transition={{ duration: 0.3 }}
-                                        />
-                                      )}
-
+                                    <motion.button key={theme.id} onClick={() => handleInstantChange({ colorTheme: theme.id as any })} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="group/color flex flex-col items-center gap-3 relative p-4 rounded-3xl transition-colors hover:bg-muted/30 focus:outline-none">
+                                      {isActive && <motion.div layoutId="activeThemeGlow" className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent rounded-3xl -z-10" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} />}
                                       <div className="relative">
-                                          {/* The Color Circle (Dynamic Orb) */}
-                                          <motion.div 
-                                            className="relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center overflow-hidden"
-                                            style={{ backgroundColor: theme.color }}
-                                            animate={{ 
-                                              boxShadow: isActive ? `0 0 35px -5px ${theme.color}90` : `0 8px 20px -5px ${theme.color}40`,
-                                              scale: isActive ? 1.15 : 1
-                                            }}
-                                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                          >
-                                            {/* 1. 3D Depth Overlay (Static) */}
-                                            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/20 pointer-events-none" />
-
-                                            {/* 2. Inner Pulsing Glow (Dynamic) */}
-                                            <motion.div 
-                                              className="absolute inset-0"
-                                              style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, transparent 70%)" }}
-                                              animate={{ opacity: [0.1, 0.5, 0.1], scale: [0.8, 1.2, 0.8] }}
-                                              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                                            />
-
-                                            {/* 3. Specular Highlight (Glass Effect) */}
-                                            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.5)_0%,transparent_50%)] pointer-events-none" />
-
-                                            {isActive && (
-                                              <motion.div 
-                                                initial={{ scale: 0, rotate: -45 }} 
-                                                animate={{ scale: 1, rotate: 0 }} 
-                                                transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                                                className="relative z-10 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/30 shadow-inner"
-                                              >
-                                                <Check className="w-5 h-5 text-white font-bold drop-shadow-md" strokeWidth={4} />
-                                              </motion.div>
-                                            )}
-                                          </motion.div>
-                                          
-                                          {/* Selection Ring Indicator */}
-                                          {isActive && (
-                                            <motion.div
-                                                layoutId="outline"
-                                                className="absolute -inset-2 rounded-full border-2 border-primary/20"
-                                                initial={false}
-                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                            />
-                                          )}
+                                        <motion.div className="relative w-16 h-16 rounded-full shadow-sm flex items-center justify-center overflow-hidden" style={{ backgroundColor: theme.color }} animate={{ boxShadow: isActive ? `0 0 35px -5px ${theme.color}90` : `0 8px 20px -5px ${theme.color}40`, scale: isActive ? 1.15 : 1 }} transition={{ type: "spring", stiffness: 300, damping: 20 }}>
+                                          <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/20 pointer-events-none" />
+                                          <motion.div className="absolute inset-0" style={{ background: "radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, transparent 70%)" }} animate={{ opacity: [0.1, 0.5, 0.1], scale: [0.8, 1.2, 0.8] }} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }} />
+                                          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_35%_35%,rgba(255,255,255,0.5)_0%,transparent_50%)] pointer-events-none" />
+                                          {isActive && <motion.div initial={{ scale: 0, rotate: -45 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 400, damping: 15 }} className="relative z-10 bg-black/20 p-2 rounded-full backdrop-blur-sm border border-white/30 shadow-inner"><Check className="w-5 h-5 text-white font-bold drop-shadow-md" strokeWidth={4} /></motion.div>}
+                                        </motion.div>
+                                        {isActive && <motion.div layoutId="outline" className="absolute -inset-2 rounded-full border-2 border-primary/20" initial={false} transition={{ type: "spring", stiffness: 300, damping: 30 }} />}
                                       </div>
-
-                                      <span className={`text-[10px] font-black tracking-widest uppercase transition-colors duration-300 ${isActive ? 'text-foreground translate-y-0' : 'text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1'}`}>
-                                        {theme.label}
-                                      </span>
+                                      <span className={`text-[10px] font-black tracking-widest uppercase transition-colors duration-300 ${isActive ? 'text-foreground translate-y-0' : 'text-muted-foreground/60 group-hover/color:text-foreground/80 translate-y-1'}`}>{theme.label}</span>
                                     </motion.button>
                                   );
                                 })}
-                            </div> 
+                           </div> 
                         </Card>
                       </motion.div>
                   </div>  
               </TabsContent> 
 
-{/* ======================= TAB: ACCOUNT (MODULAR COMMAND CENTER) ======================= */}
+              {/* ======================= TAB: ACCOUNT (MODULAR COMMAND CENTER) ======================= */}
               <TabsContent value="account" className="space-y-6 m-0 relative z-30">
                   
                   {/* --- CARD 1: IDENTITY HERO (Full Width) --- */}
@@ -967,7 +738,8 @@ export default function SettingsPage() {
                     <div className="relative p-8 rounded-[2.5rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30 overflow-hidden group/identity">
                       
                       {/* Ambient Dynamic Background & Map Pattern */}
-                      <div className="absolute inset-0 opacity-[0.05] bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-no-repeat bg-center bg-cover pointer-events-none mix-blend-overlay" />
+                      {/* FIX: Increased base opacity for light mode, decreased slightly for dark mode to maintain subtlety */}
+                      <div className="absolute inset-0 opacity-[0.15] dark:opacity-[0.05] bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/World_map_blank_without_borders.svg')] bg-no-repeat bg-center bg-cover pointer-events-none mix-blend-multiply dark:mix-blend-normal" />
                       <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none group-hover/identity:bg-primary/20 transition-colors duration-1000" />
                       
                       <div className="relative z-10 flex flex-col xl:flex-row items-center gap-10">
@@ -1039,8 +811,10 @@ export default function SettingsPage() {
                       {/* COL 1 (7/12): SECURITY COMMAND CENTER */}
                       <motion.div variants={itemVariant} className="xl:col-span-7 h-full">
                          {isGoogleUser ? (
-                            /* OPTION A: GOOGLE WORKSPACE (Read Only) */
+                            /* OPTION A: GOOGLE WORKSPACE */
                             <div className="h-full group relative rounded-[2.5rem] border border-blue-500/20 bg-gradient-to-br from-blue-50/50 via-white to-blue-50/20 dark:from-blue-950/30 dark:via-background dark:to-blue-900/10 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col justify-center gap-8 transition-all hover:border-blue-500/40 hover:shadow-blue-500/10">
+                                {/* TEXTURE: Noise */}
+                                <div className="absolute inset-0 opacity-[0.04] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
                                 <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
                                 
                                 <div className="flex flex-col gap-6 relative z-10">
@@ -1071,8 +845,10 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                          ) : (
-                             /* OPTION B: MANUAL SECURITY SUITE (Password + Email) */
+                             /* OPTION B: MANUAL SECURITY SUITE */
                              <div className="h-full p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col gap-8 relative overflow-hidden">
+                                {/* TEXTURE: Noise */}
+                                <div className="absolute inset-0 opacity-[0.04] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
                                 
                                 {/* Header */}
@@ -1143,6 +919,8 @@ export default function SettingsPage() {
                           
                           {/* RADAR CARD */}
                           <div className="flex-1 p-8 bg-gradient-to-b from-card/60 to-card/20 rounded-[2.5rem] border border-border/50 backdrop-blur-xl shadow-xl flex flex-col relative overflow-hidden">
+                                {/* TEXTURE: Dot Grid */}
+                                <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(#000_1.5px,transparent_1.5px)] dark:bg-[radial-gradient(#fff_1.5px,transparent_1.5px)] [background-size:20px_20px] pointer-events-none" />
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-bl-[100px] pointer-events-none" />
                                 
                                 <div className="flex items-center gap-4 mb-8 relative z-10">
@@ -1211,8 +989,7 @@ export default function SettingsPage() {
                   </div>
               </TabsContent>
 
-              
-      {/* ======================= TAB: DATA ======================= */}
+              {/* ======================= TAB: DATA ======================= */}
               <TabsContent value="data" className="space-y-6 m-0">
                   <motion.div variants={itemVariant}>
                     <div className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-border/50 shadow-lg flex items-center justify-between transition-all hover:shadow-xl">
@@ -1280,426 +1057,211 @@ export default function SettingsPage() {
                   </motion.div>
               </TabsContent>
 
-
-
               {/* ======================= TAB: SUPPORT ======================= */}
-
               <TabsContent value="support" className="space-y-6 m-0">
-
                   <motion.div variants={itemVariant}>
-
                       <motion.div 
-
                         whileHover={{ scale: 1.01 }}
-
                         whileTap={{ scale: 0.98 }}
-
                         onClick={handleCopyEmail}
-
                         className="relative p-10 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group"
-
                       >
-
                         <div className="relative z-10 flex flex-col items-center text-center gap-4">
-
                            <div className="p-4 bg-white/10 rounded-full backdrop-blur-lg border border-white/20 mb-2">
-
                               <Fingerprint size={48} className="text-white opacity-90" />
-
                            </div>
-
                            <div>
-
                               <h2 className="text-sm font-bold uppercase tracking-[0.3em] opacity-70 mb-2">Direct Support Line</h2>
-
                               <div className="text-3xl md:text-4xl font-black font-mono tracking-tight group-hover:scale-105 transition-transform duration-300">
-
                                   {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
-
                               </div>
-
                            </div>
-
                            <div className="mt-6 flex items-center gap-2 px-5 py-2 bg-white/20 rounded-full backdrop-blur-md text-sm font-bold border border-white/10 group-hover:bg-white group-hover:text-violet-700 transition-all">
-
                               {copied ? <Check size={16} /> : <Copy size={16} />}
-
                               {copied ? "Address Copied" : "Click card to copy address"}
-
                            </div>
-
                         </div>
-
                         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-y-full group-hover:-translate-y-full transition-transform duration-700 pointer-events-none" />
-
                         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-
                         <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
-
                       </motion.div>
-
                   </motion.div>
 
-
-
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
                       <motion.div variants={itemVariant} className="md:col-span-2">
-
                         <Card className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 h-full">
-
                            <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
-
                            <div className="space-y-3">
-
                               {[
-
                                   { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
-
                                   { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
-
                                   { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
-
                               ].map((item, idx) => (
-
                                   <div key={idx} className="bg-muted/30 rounded-2xl overflow-hidden border border-transparent hover:border-border/50 transition-all">
-
                                      <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
-
-                                         <span className="font-bold text-sm">{item.q}</span>
-
-                                         <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
-
+                                          <span className="font-bold text-sm">{item.q}</span>
+                                          <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
                                      </button>
-
                                      <AnimatePresence>
-
-                                        {openFaq === idx && (
-
-                                           <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-
-                                              <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
-
-                                           </motion.div>
-
-                                        )}
-
+                                         {openFaq === idx && (
+                                            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                                               <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
+                                            </motion.div>
+                                         )}
                                      </AnimatePresence>
-
                                   </div>
-
                               ))}
-
                            </div>
-
                         </Card>
-
                       </motion.div>
 
-
-
                       <motion.div variants={itemVariant} className="flex flex-col gap-4">
-
                         <div className="p-5 rounded-3xl border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
-
                            <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
-
                            <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
-
                            <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
-
                         </div>
-
                         
-
-                        {/* About Project Sheet */}
-
                         <Sheet>
-
                            <SheetTrigger asChild>
-
                               <motion.button 
-
                                  whileHover={{ scale: 1.02, backgroundColor: "rgba(var(--primary-rgb), 0.05)" }} 
-
                                  whileTap={{ scale: 0.98 }}
-
                                  className="w-full p-5 rounded-3xl border border-border/50 bg-background/60 backdrop-blur-xl flex items-center justify-between transition-all group relative overflow-hidden"
-
                               >
-
                                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
                                  <div className="flex items-center gap-3 relative z-10">
-
                                     <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:rotate-12 transition-transform"><Info size={18} /></div>
-
                                     <span className="font-bold text-sm">About Project</span>
-
                                  </div>
-
                                  <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-primary transition-colors relative z-10" />
-
                               </motion.button>
-
                            </SheetTrigger>
-
                            <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-l border-border/50">
-
                               <motion.div 
-
                                  initial="hidden" animate="show"
-
                                  variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
-
                                  className="h-full flex flex-col"
-
                               >
-
                                  <SheetHeader className="p-6 pb-4 relative overflow-hidden">
-
                                     <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-32 h-32 bg-primary/20 blur-[50px] rounded-full pointer-events-none" />
-
                                     <motion.div variants={{ hidden: { y: -20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="flex items-center gap-4 relative z-10">
-
                                        <div className="relative">
-
                                           <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-transparent rounded-xl blur-md" />
-
                                           <div className="w-14 h-14 bg-background/80 backdrop-blur-md rounded-xl relative z-10 border border-white/10 shadow-xl flex items-center justify-center overflow-hidden p-2">
-
                                              <img src="/logo.png" alt="CogniSync" className="w-full h-full object-contain" />
-
                                           </div>
-
                                        </div>
-
                                        <div>
-
                                           <SheetTitle className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">CogniSync</SheetTitle>
-
                                           <p className="text-xs font-bold text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-
                                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"/> Capstone Initiative
-
                                           </p>
-
                                        </div>
-
                                     </motion.div>
-
                                  </SheetHeader>
-
                                  <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-8 relative z-10">
-
                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-
                                        <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-blue-500 to-transparent rounded-full opacity-50" />
-
                                        <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Target size={18} className="text-blue-500"/> Project Objective</h4>
-
                                        <p className="text-sm text-muted-foreground leading-relaxed pl-2 font-medium">To develop a scalable, privacy-first interface for psychological state analysis.</p>
-
                                     </motion.section>
-
                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-
                                        <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-orange-500 to-transparent rounded-full opacity-50" />
-
                                        <h4 className="font-bold text-base mb-3 flex items-center gap-2 pl-2"><Server size={18} className="text-orange-500"/> Academic Context</h4>
-
                                        <div className="pl-2">
-
                                           <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/5 to-transparent border border-orange-500/10 flex items-center gap-4">
-
                                              <div className="w-12 h-12 bg-white rounded-lg p-1 flex-shrink-0 shadow-sm border border-orange-100 overflow-hidden flex items-center justify-center">
-
                                                 <img src="/mlritm.png" alt="MLRITM" className="w-full h-full object-contain" />
-
                                              </div>
-
                                              <div>
-
                                                 <p className="text-[9px] font-bold uppercase tracking-widest text-orange-600 mb-0.5">Developed At</p>
-
                                                 <p className="text-xs font-bold text-foreground leading-tight">Marri Laxman Reddy Institute of Technology & Management</p> 
-
                                                 <p className="text-[10px] text-muted-foreground mt-0.5">Dept. of Computer Science & Engineering (AI & ML)</p>
-
                                              </div>
-
                                           </div>
-
                                        </div>
-
                                     </motion.section>
-
                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="relative">
-
                                        <div className="absolute -left-2 top-0 w-1 h-full bg-gradient-to-b from-purple-500 to-transparent rounded-full opacity-50" />
-
                                        <h4 className="font-bold text-base mb-4 flex items-center gap-2 pl-2"><Terminal size={18} className="text-purple-500"/> Technology Stack</h4>
-
                                        <motion.div variants={{ show: { transition: { staggerChildren: 0.05 } } }} className="flex flex-wrap gap-2 pl-2">
-
                                           {["Next.js 14", "TypeScript", "Tailwind CSS", "Recharts", "Framer Motion", "NLP Analysis", "Local-First Arch"].map((tag) => (
-
                                              <motion.span key={tag} variants={{ hidden: { scale: 0.5, opacity: 0 }, show: { scale: 1, opacity: 1, transition: { type: "spring" } } }} whileHover={{ scale: 1.1, y: -2, backgroundColor: "rgba(var(--primary-rgb), 0.15)" }} className="px-3 py-1.5 rounded-lg bg-muted/50 text-[11px] font-extrabold text-foreground/80 border border-border/50 cursor-default transition-colors">{tag}</motion.span>
-
                                           ))}
-
                                        </motion.div>
-
                                     </motion.section>
-
                                     <motion.section variants={{ hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } }} className="rounded-3xl bg-muted/20 border border-border/50 p-5 relative overflow-hidden">
-
                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-transparent pointer-events-none" />
-
                                        <h4 className="font-bold text-base mb-6 flex items-center gap-2 relative z-10"><Users size={18} className="text-emerald-500"/> Project Team</h4>
-
                                        <div className="space-y-4 relative z-10">
-
                                           {[
-
                                              { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/", image: "/adithya.png" },
-
                                              { 
-
                                                 name: "Abhinaya", 
-
                                                 role: "Research & Documentation", 
-
                                                 color: "from-blue-400 to-cyan-400", 
-
                                                 icon: FileJson, 
-
                                                 isUser: false, 
-
                                                 link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320",
-
                                                 image: "/abhinaya.png" 
-
                                              },
-
                                              { name: "Sushmitha", role: "Compliance & Methodology", color: "from-emerald-400 to-teal-400", icon: ShieldCheck, isUser: false, link: "https://www.linkedin.com/in/sushmitha-dongara-805350348", image: "/sushmitha.png" }
-
                                           ].map((member, i) => (
-
                                              <a key={member.name} href={member.link} target="_blank" rel="noopener noreferrer" className="block group">
-
                                                 <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 + (i * 0.1), type: "spring" }} whileHover={{ scale: 1.02, x: 5 }} className="flex items-center gap-4 p-3 rounded-2xl bg-background/80 border border-white/5 shadow-sm hover:shadow-md transition-all relative overflow-hidden cursor-pointer">
-
                                                    <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
-
                                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
-
                                                       <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
-
                                                          {member.image ? (
-
                                                             <img
-
                                                                src={member.image}
-
                                                                alt={member.name}
-
                                                                className="w-full h-full object-cover"
-
                                                             />
-
                                                          ) : (
-
                                                             <>
-
                                                                <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
-
                                                                   {member.name.charAt(0)}
-
                                                                </span>
-
                                                                <member.icon
-
                                                                   size={24}
-
                                                                   className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
-
                                                                />
-
                                                             </>
-
                                                          )}
-
-
-
-
-
- 
-
                                                       </div>
-
                                                    </div>
-
                                                    <div className="flex-1">
-
                                                       <div className="flex items-center justify-between">
-
                                                          <p className="text-sm font-bold text-foreground flex items-center gap-2">{member.name} {i === 0 && <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-[8px] font-extrabold text-primary uppercase tracking-wider border border-primary/20">Lead</span>}</p>
-
                                                          <ExternalLink size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-primary" />
-
                                                       </div>
-
                                                       <p className="text-xs font-medium text-muted-foreground">{member.role}</p>
-
                                                    </div>
-
                                                 </motion.div>
-
                                              </a>
-
                                           ))}
-
                                        </div>
-
                                     </motion.section>
-
                                     <motion.div variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }} className="pt-6 border-t border-border/50 flex flex-col gap-2 items-center justify-center text-center">
-
                                        <div className="flex items-center gap-2">
-
                                           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-
                                           <p className="text-[10px] font-bold text-muted-foreground tracking-wider">ACADEMIC RELEASE • 2026</p>
-
                                        </div>
-
                                        <p className="text-[10px] font-medium text-muted-foreground/60">Engineered with <Heart size={10} className="inline text-red-500 fill-red-500 mx-0.5" /> in India.</p>
-
                                     </motion.div>
-
                                  </div>
-
                               </motion.div>
-
                            </SheetContent>
-
                         </Sheet>
-
                       </motion.div>    
-
                   </div>
-
               </TabsContent>
 
-
-
             </motion.div>
-
           </AnimatePresence>
-
         </Tabs>
-              
       </div>
     </div>
   );
