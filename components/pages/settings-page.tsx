@@ -145,7 +145,67 @@ export default function SettingsPage() {
     return () => channel.close();
   }, []);
 
+  // --- SESSION CONTROL LOGIC ---
   const [logoutProgress, setLogoutProgress] = useState(0);
+  const logoutInterval = useRef<NodeJS.Timeout | null>(null);
+
+  const startHold = () => {
+    if (logoutInterval.current) clearInterval(logoutInterval.current);
+    
+    logoutInterval.current = setInterval(() => {
+      setLogoutProgress((prev) => {
+        if (prev >= 100) {
+          if (logoutInterval.current) clearInterval(logoutInterval.current);
+          handleLogoutAction(); // Trigger Logout
+          return 100;
+        }
+        return prev + 2; // Speed of fill (adjust for faster/slower)
+      });
+    }, 16); // ~60fps
+  };
+
+  const endHold = () => {
+    if (logoutInterval.current) clearInterval(logoutInterval.current);
+    setLogoutProgress(0); // Snap back logic
+  };
+
+  const handleLogoutAction = async () => {
+    // Visual feedback before actual logout
+    showNotification({ type: "success", message: "Session Terminated.", duration: 2000 });
+    setTimeout(() => logout(), 500); 
+  };
+
+  // --- SECURITY BADGE LOGIC ---
+  const [showSecurityTooltip, setShowSecurityTooltip] = useState(false);
+
+  const getSecurityDetails = () => {
+    if (isGoogleUser) {
+        return {
+            status: "SECURE",
+            color: "bg-blue-500",
+            icon: ShieldCheck,
+            title: "Federated Security",
+            desc: "Your account is protected by Google's OAuth 2.0 protocol. Password management is handled securely by Google."
+        };
+    }
+    if (emailStatus === "verified") {
+        return {
+            status: "SECURE",
+            color: "bg-emerald-500",
+            icon: ShieldCheck,
+            title: "Identity Verified",
+            desc: "Your email is confirmed. Account recovery and secure notifications are active."
+        };
+    }
+    return {
+        status: "AT RISK",
+        color: "bg-amber-500",
+        icon: ShieldAlert,
+        title: "Action Required",
+        desc: "No verified email linked. You risk losing access if you forget your password."
+    };
+  };
+  const securityInfo = getSecurityDetails();
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // --- INITIALIZATION ---
@@ -821,19 +881,23 @@ export default function SettingsPage() {
                   </div>  
               </TabsContent> 
 
-              {/* ======================= TAB: ACCOUNT ======================= */}
+{/* ======================= TAB: ACCOUNT ======================= */}
               <TabsContent value="account" className="space-y-8 m-0 relative z-30">
                   <motion.div variants={itemVariant}>
                     <div className="relative p-8 rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30">
                       
+                      {/* Background Ambient */}
                       <div className="absolute inset-0 rounded-[3rem] overflow-hidden pointer-events-none">
                          <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
                       </div>
 
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
-                        <div className="relative group z-50">
+                        {/* LEFT: Avatar & Security Badge */}
+                        <div className="relative group z-50 flex flex-col items-center">
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
-                              <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
+                              <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", 
+                                  securityInfo.status === "SECURE" ? "border-emerald-500/20" : "border-amber-500/20"
+                              )}>
                                  <img 
                                     src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
@@ -851,42 +915,43 @@ export default function SettingsPage() {
                            </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           <button 
-                             onClick={() => setShowSecurityInfo(!showSecurityInfo)}
-                             className={cn(
-                                "absolute -bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-card dark:border-black flex items-center gap-2 whitespace-nowrap transition-all active:scale-95 z-[60] hover:-translate-y-1 hover:shadow-2xl", 
-                                security.color
-                             )}
-                           >
-                              <security.icon size={12} strokeWidth={3} /> {security.label}
-                           </button>
-                           
-                           <AnimatePresence>
-                              {showSecurityInfo && (
-                                <>
-                                  <div className="fixed inset-0 z-[90]" onClick={() => setShowSecurityInfo(false)} />
-                                  <motion.div 
-                                     initial={{ opacity: 0, y: 10, scale: 0.95 }} 
-                                     animate={{ opacity: 1, y: 20, scale: 1 }} 
-                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                     className="absolute top-full left-1/2 -translate-x-1/2 w-72 p-6 bg-zinc-950/95 text-white backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 z-[100] text-center"
-                                  >
-                                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-zinc-950/95 rotate-45 border-l border-t border-white/10" />
-                                     <div className="flex flex-col items-center gap-3 relative z-10">
-                                       <div className={cn("p-2 rounded-full", security.color.replace('text-white', 'bg-white/10 text-current'))}>
-                                         <security.icon size={20} />
-                                       </div>
-                                       <div>
-                                          <p className="text-xs font-black uppercase tracking-widest text-white mb-1">Security Protocol</p>
-                                          <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">{security.desc}</p>
-                                       </div>
-                                     </div>
-                                  </motion.div>
-                                </>
-                              )}
-                           </AnimatePresence>
+                           {/* --- NEW SECURITY BADGE WITH TOOLTIP --- */}
+                           <div className="relative mt-[-20px]">
+                               <motion.div 
+                                 onHoverStart={() => setShowSecurityTooltip(true)}
+                                 onHoverEnd={() => setShowSecurityTooltip(false)}
+                                 onClick={() => setShowSecurityTooltip(!showSecurityTooltip)} // Mobile tap
+                                 className={cn(
+                                    "px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.25em] shadow-xl border-4 border-card dark:border-black flex items-center gap-2 cursor-help transition-transform hover:scale-105 active:scale-95 text-white", 
+                                    securityInfo.color
+                                 )}
+                               >
+                                  <securityInfo.icon size={12} strokeWidth={3} /> {securityInfo.status}
+                               </motion.div>
+
+                               {/* Floating Tooltip (Above) */}
+                               <AnimatePresence>
+                                 {showSecurityTooltip && (
+                                   <motion.div
+                                     initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                                     exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                     className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-64 p-4 bg-zinc-900/95 text-white backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 z-[60] text-center"
+                                   >
+                                      <div className="font-bold text-xs mb-1 flex items-center justify-center gap-2">
+                                        <securityInfo.icon size={14} className={securityInfo.status === "SECURE" ? "text-emerald-400" : "text-amber-400"} />
+                                        {securityInfo.title}
+                                      </div>
+                                      <p className="text-[10px] text-zinc-400 leading-relaxed font-medium">{securityInfo.desc}</p>
+                                      {/* Arrow */}
+                                      <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-3 h-3 bg-zinc-900/95 rotate-45 border-r border-b border-white/10" />
+                                   </motion.div>
+                                 )}
+                               </AnimatePresence>
+                           </div>
                         </div>
 
+                        {/* RIGHT: Identity Inputs */}
                         <div className="flex-1 space-y-8 text-center md:text-left w-full max-w-2xl">
                            <div className="flex flex-col md:items-start items-center gap-4">
                               <label htmlFor="username" className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/50 pl-1">Public Identity</label>
@@ -933,14 +998,13 @@ export default function SettingsPage() {
                     </div>
                   </motion.div>
 
-                  <div className={cn("grid gap-6 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
-                      <motion.div variants={itemVariant} className="group relative rounded-[3rem] border border-border/50 bg-gradient-to-br from-card via-card/80 to-muted/30 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col gap-10 transition-all duration-500 hover:shadow-2xl hover:border-primary/20 min-h-[400px]">
+                  {/* --- EMAIL & SESSION ROW --- */}
+                  <div className={cn("grid gap-6 items-start", isGoogleUser ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2")}>
+                      
+                      {/* EMAIL CARD */}
+                      <motion.div variants={itemVariant} className="group relative rounded-[3rem] border border-border/50 bg-gradient-to-br from-card via-card/80 to-muted/30 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col gap-10 min-h-[350px]">
                          <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
                          <div className={cn("absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[120px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
-                         
-                         <div className="absolute top-10 right-10 opacity-[0.04] rotate-12 pointer-events-none">
-                            <Mail size={180} className="text-foreground" />
-                         </div>
                          
                          <div className="relative z-10 flex-1">
                              <div className="flex items-center gap-4 mb-3">
@@ -949,7 +1013,9 @@ export default function SettingsPage() {
                                </div>
                                <h3 className="text-2xl font-black tracking-tight">Email Security</h3>
                              </div>
-                             <p className="text-sm text-muted-foreground font-medium leading-relaxed pl-1">Secure your primary communication and account recovery channels.</p>
+                             <p className="text-sm text-muted-foreground font-medium leading-relaxed pl-1">
+                                {isGoogleUser ? "Your email is managed via Google Workspace." : "Secure your primary communication channel."}
+                             </p>
 
                              <div className={cn("mt-8 p-6 rounded-[2rem] border backdrop-blur-md transition-all duration-500", emailStatus === 'verified' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-amber-500/5 border-amber-500/20")}>
                                 <div className="flex items-center justify-between">
@@ -965,219 +1031,83 @@ export default function SettingsPage() {
                          </div>
 
                          <div className="relative z-10">
-                             {emailStatus === 'verified' ? (
-                                <div className="mt-6 p-2 rounded-[1.5rem] bg-background/50 border border-white/5 backdrop-blur-md flex items-center justify-between pl-5">
-                                   <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
-                                      <span className="relative flex h-3 w-3">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                                      </span>
-                                      Account Protected
-                                   </span>
-                                   <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 px-5 py-3 rounded-2xl transition-all">Unlink</button>
-                                </div>
-                             ) : (
-                                <div className="space-y-5">
-                                   {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-14 rounded-2xl text-lg" />}
-                                   
-                                   <button 
-                                      onClick={sendEmailVerification} 
-                                      disabled={emailStatus === "sending" || emailCountdown > 0} 
-                                      className={cn(
-                                        "w-full h-16 rounded-[1.2rem] text-sm font-bold text-white shadow-2xl transition-all flex items-center justify-center gap-3 relative overflow-hidden group",
-                                        emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900 dark:bg-white dark:text-black hover:scale-[1.02] active:scale-95"
-                                      )}
-                                   >
-                                      {emailStatus !== "sending" && emailCountdown === 0 && (
-                                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                                      )}
-                                      
-                                      {emailStatus === "sending" ? <Loader2 size={20} className="animate-spin" /> : emailCountdown > 0 ? `Resend Link in ${emailCountdown}s` : <span className="flex items-center gap-2">Send Verification Link <ArrowRight size={18} className="opacity-70 group-hover:translate-x-1 transition-transform" /></span>}
-                                   </button>
-                                   <p className="text-[10px] text-center font-bold uppercase tracking-wide text-muted-foreground/60">Secure Verification Protocol</p>
-                                </div>
+                             {!isGoogleUser && (
+                                 emailStatus === 'verified' ? (
+                                    <div className="mt-6 p-2 rounded-[1.5rem] bg-background/50 border border-white/5 backdrop-blur-md flex items-center justify-between pl-5">
+                                       <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
+                                          <span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>
+                                          Protected
+                                       </span>
+                                       <button onClick={unlinkEmail} className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 px-5 py-3 rounded-2xl transition-all">Unlink</button>
+                                    </div>
+                                 ) : (
+                                    <div className="space-y-5">
+                                       {!userEmail && <Input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@example.com" className="bg-white/50 h-14 rounded-2xl text-lg" />}
+                                       <button 
+                                          onClick={sendEmailVerification} 
+                                          disabled={emailStatus === "sending" || emailCountdown > 0} 
+                                          className={cn("w-full h-16 rounded-[1.2rem] text-sm font-bold text-white shadow-2xl transition-all flex items-center justify-center gap-3 relative overflow-hidden group", emailCountdown > 0 ? "bg-slate-400 cursor-not-allowed" : "bg-slate-900 dark:bg-white dark:text-black hover:scale-[1.02] active:scale-95")}
+                                       >
+                                          {emailStatus === "sending" ? <Loader2 size={20} className="animate-spin" /> : emailCountdown > 0 ? `Resend Link in ${emailCountdown}s` : <span className="flex items-center gap-2">Send Verification Link <ArrowRight size={18} /></span>}
+                                       </button>
+                                    </div>
+                                 )
                              )}
                          </div>
                       </motion.div>
 
+                      {/* SESSION CONTROL - REBUILT 3D HOLD BUTTON */}
                       <motion.div variants={itemVariant} className="flex flex-col h-full gap-6">
-                          {isGoogleUser ? (
-                            <>
-                              <div className="flex items-center justify-between p-10 bg-gradient-to-br from-card via-card/80 to-muted/30 rounded-[3rem] border border-border/50 backdrop-blur-3xl shadow-xl relative overflow-hidden group transition-all hover:border-blue-500/30">
-                                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
-                                <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                                
-                                <div className="flex items-center gap-6 relative z-10">
-                                   <div className="w-18 h-18 p-4 bg-white rounded-[1.8rem] flex items-center justify-center shadow-xl border border-white/50"><img src="https://authjs.dev/img/providers/google.svg" className="w-full h-full" alt="G" /></div>
-                                   <div><h4 className="font-black text-xl text-foreground">Google Workspace</h4><p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Federated Identity</p></div>
-                                </div>
-                                <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>
-                              </div>
-                              
-                              <motion.div whileHover={{ scale: 1.01 }} className="p-2 rounded-[2.5rem] bg-gradient-to-br from-rose-500/5 via-background to-background border border-rose-500/10 mt-auto shadow-xl backdrop-blur-md group/session">
-                                <div className="flex flex-col items-center justify-between p-6 gap-6">
-                                   <div className="flex gap-5 w-full items-center">
-                                      <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/20 rounded-2xl flex items-center justify-center text-rose-600 shadow-sm border border-rose-100 dark:border-rose-900/30 group-hover/session:scale-110 transition-transform"><LogOut size={22} strokeWidth={2.5} /></div>
-                                      <div><h4 className="font-black text-base text-foreground tracking-tight">Session Control</h4><p className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider mt-0.5">Termination Protocol</p></div>
-                                   </div>
-                                   <div 
-                                      className="relative w-full h-14 bg-card/50 rounded-2xl border border-rose-200/50 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none group touch-none hover:border-rose-500/30 transition-colors"
-                                      onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
-                                   >
-                                      <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 to-red-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }} />
-                                      <div className="absolute inset-0 flex items-center justify-center gap-3 z-10">
-                                         <span className={cn("text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-300", logoutProgress > 50 ? "text-white" : "text-rose-500/80")}>
-                                            {logoutProgress > 0 ? "DISCONNECTING..." : "HOLD TO DISCONNECT"}
-                                         </span>
-                                      </div>
-                                   </div>
-                                </div>
-                              </motion.div>
-                            </>
-                          ) : (
-                             <div className="p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[3rem] border border-border/50 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-bl-[100px] pointer-events-none" />
+                          <div className="p-10 bg-gradient-to-br from-card/60 to-card/20 rounded-[3rem] border border-border/50 backdrop-blur-xl transition-all duration-300 shadow-xl flex-1 flex flex-col justify-center relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-40 h-40 bg-rose-500/5 rounded-bl-[100px] pointer-events-none" />
                                 
                                 <div className="flex items-center gap-4 mb-8 relative z-10">
-                                   <div className="w-12 h-12 flex items-center justify-center bg-primary/10 rounded-2xl text-primary border border-primary/10"><Lock size={24} strokeWidth={2.5} /></div>
-                                   <div><h4 className="font-black text-xl tracking-tight text-foreground">Access Control</h4><p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Credential Management</p></div>
+                                   <div className="w-12 h-12 flex items-center justify-center bg-rose-500/10 rounded-2xl text-rose-500 border border-rose-500/10"><LogOut size={24} strokeWidth={2.5} /></div>
+                                   <div><h4 className="font-black text-xl tracking-tight text-foreground">Session Control</h4><p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-0.5">Secure Termination</p></div>
                                 </div>
 
-                                <div className="space-y-5 relative z-10">
-                                   <AnimatePresence mode="wait">
-                                     {pwdStage !== "verified" && pwdStage !== "saving" ? (
+                                <div className="relative z-10 w-full">
+                                    {/* 3D HOLD BUTTON */}
+                                    <div 
+                                       className="relative w-full h-20 rounded-[1.5rem] bg-background/50 border-2 border-rose-500/10 overflow-hidden cursor-pointer select-none touch-none shadow-inner group"
+                                       onMouseDown={startHold}
+                                       onMouseUp={endHold}
+                                       onMouseLeave={endHold}
+                                       onTouchStart={startHold}
+                                       onTouchEnd={endHold}
+                                    >
+                                       {/* Background Pattern */}
+                                       <div className="absolute inset-0 opacity-[0.05] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:16px_16px]" />
+                                       
+                                       {/* FILL ANIMATION (Liquid 3D) */}
                                        <motion.div 
-                                          key="verify-step"
-                                          initial={{ opacity: 0, x: -20 }}
-                                          animate={{ opacity: 1, x: 0 }}
-                                          exit={{ opacity: 0, x: 20 }}
-                                          className="space-y-5"
+                                          className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-600 via-red-500 to-rose-600"
+                                          style={{ width: `${logoutProgress}%` }}
+                                          transition={{ ease: "linear", duration: 0 }} // Direct control via state
                                        >
-                                          <div className="relative group/field">
-                                            <Input 
-                                              type={showCurrent ? "text" : "password"} 
-                                              placeholder="Current Password" 
-                                              value={currentPwd} 
-                                              onChange={(e) => setCurrentPwd(e.target.value)} 
-                                              disabled={pwdStage === "verifying"}
-                                              className="h-16 rounded-[1.2rem] bg-muted/50 pr-14 transition-all font-bold text-lg border-2 border-transparent focus:border-primary/20 hover:bg-muted/80 text-foreground placeholder:text-muted-foreground/40" 
-                                            />
-                                            <button 
-                                              type="button"
-                                              onClick={() => setShowCurrent(!showCurrent)}
-                                              className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors"
-                                            >
-                                              {showCurrent ? <EyeOff size={20} /> : <Eye size={20} />}
-                                            </button>
-                                          </div>
-                                          
-                                          <button 
-                                            onClick={verifyCurrentPassword} 
-                                            disabled={!currentPwd || pwdStage === "verifying"}
-                                            className="w-full h-16 bg-foreground text-background text-sm font-black uppercase tracking-[0.15em] rounded-[1.2rem] shadow-2xl hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all flex items-center justify-center gap-3"
-                                          >
-                                            {pwdStage === "verifying" ? <Loader2 size={18} className="animate-spin" /> : <div className="flex items-center gap-2">Verify Identity <ArrowRight size={18} /></div>}
-                                          </button>
+                                          {/* Glass Shine on Fill */}
+                                          <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
+                                          {/* Leading Edge Glow */}
+                                          <div className="absolute right-0 top-0 bottom-0 w-[2px] bg-white/50 box-shadow-[0_0_15px_rgba(255,255,255,0.8)]" />
                                        </motion.div>
-                                     ) : (
-                                       <motion.div 
-                                          key="update-step"
-                                          initial={{ opacity: 0, scale: 0.95 }}
-                                          animate={{ opacity: 1, scale: 1 }}
-                                          className="space-y-4"
-                                       >
-                                          <div className="p-3 mb-2 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center gap-2 text-green-600 font-bold text-xs">
-                                             <Check size={14} strokeWidth={3} /> Identity Verified
-                                          </div>
-                                          <div className="space-y-3">
-                                            <div className="relative">
-                                              <Input 
-                                                type={showNew ? "text" : "password"} 
-                                                placeholder="New Strong Password" 
-                                                value={newPwd} 
-                                                onChange={(e) => setNewPwd(e.target.value)} 
-                                                className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
-                                              />
-                                              <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">
-                                                {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
-                                              </button>
-                                            </div>
-                                            <div className="relative">
-                                              <Input 
-                                                type={showConfirm ? "text" : "password"} 
-                                                placeholder="Confirm New Password" 
-                                                value={confirmPwd} 
-                                                onChange={(e) => setConfirmPwd(e.target.value)} 
-                                                className="h-14 rounded-2xl bg-white/40 dark:bg-black/20 pr-12 border-transparent focus:border-primary/30" 
-                                              />
-                                              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground">
-                                                {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-                                              </button>
-                                            </div>
-                                          </div>
 
-                                          <div className="flex gap-3 pt-2">
-                                              <button 
-                                                onClick={() => {
-                                                  setPwdStage("idle");
-                                                  setCurrentPwd("");
-                                                  setNewPwd("");
-                                                  setConfirmPwd("");
-                                                }} 
-                                                className="flex-1 h-14 rounded-2xl border border-transparent hover:bg-muted/50 text-xs font-black uppercase tracking-wider text-muted-foreground transition-all"
-                                              >
-                                                Cancel
-                                              </button>
-                                              <button 
-                                                onClick={saveNewPassword} 
-                                                disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
-                                                className="flex-[2] h-14 bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg hover:bg-emerald-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 hover:shadow-emerald-500/20"
-                                              >
-                                                {pwdStage === "saving" && <Loader2 size={16} className="animate-spin" />}
-                                                Update Credentials
-                                              </button>
-                                          </div>
-                                       </motion.div>
-                                     )}
-                                   </AnimatePresence>
+                                       {/* Text Label */}
+                                       <div className="absolute inset-0 flex items-center justify-center gap-3 z-20 pointer-events-none">
+                                          <span className={cn(
+                                              "text-xs font-black uppercase tracking-[0.25em] transition-all duration-200", 
+                                              logoutProgress > 50 ? "text-white drop-shadow-md" : "text-rose-500/70"
+                                          )}>
+                                              {logoutProgress > 0 
+                                                ? (logoutProgress >= 100 ? "DISCONNECTED" : `HOLDING ${Math.floor(logoutProgress)}%`) 
+                                                : "HOLD TO DISCONNECT"}
+                                          </span>
+                                       </div>
+                                    </div>
+                                    <p className="text-[10px] text-center mt-3 text-muted-foreground/40 font-bold uppercase tracking-widest">Release to Cancel</p>
                                 </div>
-                             </div>
-                          )}
+                          </div>
                       </motion.div>
                   </div>
-
-                  {!isGoogleUser && (
-                    <motion.div variants={itemVariant} className="mt-8">
-                        <div className="p-2 rounded-[3rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 shadow-2xl backdrop-blur-2xl group">
-                          <div className="flex flex-col md:flex-row items-center justify-between p-8 gap-8">
-                             <div className="flex gap-6 items-center text-center md:text-left">
-                                <div className="w-16 h-16 bg-white dark:bg-rose-950/30 rounded-[1.5rem] flex items-center justify-center text-rose-500 shadow-xl border border-rose-200/50 dark:border-rose-900/50 group-hover:scale-110 transition-transform duration-500"><LogOut size={28} strokeWidth={2.5} /></div>
-                                <div>
-                                  <h4 className="font-black text-2xl text-foreground tracking-tight mb-1">System Termination</h4>
-                                  <p className="text-xs font-bold text-muted-foreground/70 uppercase tracking-[0.15em]">Secure Session Logout Protocol</p>
-                                </div>
-                             </div>
-                             
-                             <div className="w-full md:max-w-md">
-                                 <div 
-                                    className="relative w-full h-20 bg-white/80 dark:bg-black/40 rounded-[1.5rem] border-2 border-rose-100 dark:border-rose-900/30 shadow-inner overflow-hidden cursor-pointer select-none touch-none transition-all active:scale-[0.98]"
-                                    onMouseDown={startLogout} onMouseUp={cancelLogout} onMouseLeave={cancelLogout} onTouchStart={startLogout} onTouchEnd={cancelLogout}
-                                 >
-                                    <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-                                    <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-rose-500 via-red-500 to-rose-600 transition-all ease-linear" style={{ width: `${logoutProgress}%` }}>
-                                       <div className="absolute right-0 top-0 bottom-0 w-px bg-white/50 box-shadow-[0_0_20px_white]" />
-                                    </div>
-                                    <div className="absolute inset-0 flex items-center justify-center gap-4 z-10 pointer-events-none">
-                                       <span className={cn("text-xs font-black uppercase tracking-[0.25em] transition-all duration-300 drop-shadow-sm", logoutProgress > 50 ? "text-white translate-x-2" : "text-rose-500/60")}>
-                                          {logoutProgress > 0 ? (logoutProgress >= 100 ? "DISCONNECTING..." : `HOLDING ${Math.floor(logoutProgress)}%`) : "HOLD TO DISCONNECT"}
-                                       </span>
-                                    </div>
-                                 </div>
-                             </div>
-                          </div>
-                        </div>
-                    </motion.div>
-                  )}
               </TabsContent>
 
               
