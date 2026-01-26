@@ -98,13 +98,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // User present? Load their unique settings
+    // 1. Load cached settings (Dark Mode, Font Size, etc.)
     const key = storageKey(user.id);
     const raw = localStorage.getItem(key);
-    const next = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
+    const stored = raw ? sanitize(JSON.parse(raw)) : DEFAULT_SETTINGS;
 
-    setSettings(next);
-    applyThemeDOM(next);
+    // 2. FORCE SYNC: Override Identity with fresh data from UserContext (Source of Truth)
+    // This ensures that even if LocalStorage is stale, the sidebar updates immediately.
+    const syncedSettings: ThemeSettings = {
+      ...stored,
+      username: user.name || stored.username,
+      avatar: user.avatarUrl || stored.avatar,
+    };
+
+    // 3. Update State & Apply
+    // We only save to storage if there's a difference to avoid churn, 
+    // but we ALWAYS update state to ensure UI reflects DB.
+    if (JSON.stringify(stored) !== JSON.stringify(syncedSettings) || settings.avatar !== syncedSettings.avatar) {
+        setSettings(syncedSettings);
+        applyThemeDOM(syncedSettings);
+        localStorage.setItem(key, JSON.stringify(syncedSettings));
+    } else {
+        setSettings(syncedSettings);
+        applyThemeDOM(syncedSettings);
+    }
   }, [user]);
 
   /* ---- ACTIONS ---- */
