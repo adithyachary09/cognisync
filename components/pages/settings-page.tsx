@@ -115,35 +115,50 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-  // MAGIC LISTENER: Listens for verification from the new tab
+  // MAGIC LISTENER: Fixes Sync & Animation
   useEffect(() => {
     const channel = new BroadcastChannel('cognisync-auth');
     
-    channel.onmessage = (event) => {
+    // 1. Listen for the "Success" signal from the Verify Tab
+    channel.onmessage = async (event) => {
       if (event.data.type === 'EMAIL_VERIFIED') {
-        // 1. Mark as verified instantly
         setEmailStatus("verified");
-        
-        // 2. Switch to Account Tab
         setActiveTab("account");
         
-        // 3. Show Success Notification
-        showNotification({ 
-            type: "success", 
-            message: "Security Protocol Verified Successfully.", 
-            duration: 5000 
-        });
+        // Force a session refresh to persist the 'verified' status
+        const supabase = createBrowserClient(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        await supabase.auth.refreshSession();
         
-        // Optional: Force a data refresh just in case
-        if (typeof window !== 'undefined') {
-             // Dispatch event to update other components if needed
-             window.dispatchEvent(new Event('cognisync:auth:refresh'));
-        }
+        showNotification({ type: "success", message: "Security Protocol Verified Successfully.", duration: 5000 });
       }
     };
 
+    // 2. Force-Check Verification on Mount (Fixes "Reload" issue)
+    const checkVerification = async () => {
+        if (user?.email) {
+            const supabase = createBrowserClient(
+               process.env.NEXT_PUBLIC_SUPABASE_URL!,
+               process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            // Check Public Table (Source of Truth)
+            const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
+            
+            // Check Auth Session
+            const { data: { session } } = await supabase.auth.getSession();
+            const isAuthVerified = session?.user?.user_metadata?.email_verified === true || !!session?.user?.email_confirmed_at;
+
+            if (data?.email_confirmed_at || isAuthVerified) {
+                setEmailStatus("verified");
+            }
+        }
+    };
+    checkVerification();
+
     return () => channel.close();
-  }, []);
+  }, [user?.id]);
 
   // --- SESSION CONTROL LOGIC ---
   const [logoutProgress, setLogoutProgress] = useState(0);
@@ -475,16 +490,25 @@ export default function SettingsPage() {
   const verifyCurrentPassword = async () => {
     if (!user || !currentPwd) return;
     setPwdStage("verifying");
+    
+    const supabase = createBrowserClient(
+       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
     try {
-      const res = await fetch('/api/auth/verify-credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, password: currentPwd })
+      // LOGIC FIX: Re-authenticate to prove ownership
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email!, // Use verified email from context
+        password: currentPwd
       });
-      if (!res.ok) throw new Error();
+
+      if (error) throw error;
+
       setPwdStage("verified");
       showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
     } catch (e) {
+      console.error("Verification failed:", e);
       setPwdStage("idle");
       showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
     }
