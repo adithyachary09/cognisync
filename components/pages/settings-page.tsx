@@ -118,6 +118,7 @@ export default function SettingsPage() {
   const [logoutProgress, setLogoutProgress] = useState(0);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // --- INITIALIZATION ---
   useEffect(() => {
     const timer = setInterval(() => {
       setEmailCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -125,9 +126,12 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
+  // CRITICAL FIX: Only run this on mount or when user ID changes.
+  // PREVENTS INFINITE LOOP when editing name or uploading avatar.
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return; // FIX: Dependency on ID only, not the whole object
 
+    // 1. Email Verification Check
     if (user.email) {
       setUserEmail(user.email);
       if ((user as any)?.email_confirmed_at || isGoogleUser) {
@@ -138,38 +142,55 @@ export default function SettingsPage() {
       }
     }
 
+    // 2. Fetch Real Profile Data from Database
     const fetchProfile = async () => {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+        const supabase = createBrowserClient(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        
+        // A. Try fetching from DB
+        const { data } = await supabase
+            .from('users')
+            .select('name, avatar_url')
+            .eq('id', user.id)
+            .single();
 
-      const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
-      
-      const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
-      const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
+        // B. Get Auth Metadata (Google/Auth Providers) as fallback
+        const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
+        const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
 
-      const finalName = data?.name || authName || "User";
-      const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) ? data.avatar_url : (authAvatar || "/placeholder-user.png");
+        // C. Determine Final Values
+        const finalName = data?.name || authName || "User";
+        const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) 
+            ? data.avatar_url 
+            : (authAvatar || "/placeholder-user.png");
 
-      if (!data && (authName || authAvatar)) {
-        await supabase.from('users').upsert({
-          id: user.id,
-          email: user.email,
-          name: finalName,
-          avatar_url: finalAvatar,
-          updated_at: new Date().toISOString()
-        });
-      }
+        // D. AUTO-PERSIST FIX
+        if (!data && (authName || authAvatar)) {
+            await supabase.from('users').upsert({
+                id: user.id,
+                email: user.email,
+                name: finalName,
+                avatar_url: finalAvatar,
+                updated_at: new Date().toISOString()
+            });
+        }
 
-      setPendingUsername(finalName);
-      const newSettings = { username: finalName, avatar: finalAvatar };
-      updateSettings(newSettings);
-      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
+        // E. Update State & Dispatch
+        setPendingUsername(finalName);
+        
+        const newSettings = { 
+            username: finalName, 
+            avatar: finalAvatar 
+        };
+        updateSettings(newSettings);
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
     };
     fetchProfile();
-  }, [user]); // Removed redundant updates to settings
+  }, [user?.id]); // <--- CRITICAL FIX: DEPENDENCY CHANGED
 
+  // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
     updateSettings(partial);
     const merged = { ...settings, ...partial };
@@ -178,6 +199,7 @@ export default function SettingsPage() {
 
   const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
 
+  // NEW LOGIC: Save Name to Supabase & Dispatch Event
   const handleUsernameSave = async () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
@@ -185,70 +207,70 @@ export default function SettingsPage() {
     setIsSavingName(true);
 
     const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     try {
-      const { error: dbError } = await supabase.from('users').upsert({
-        id: user.id,
-        email: user.email,
-        name: trimmed,
-        updated_at: new Date().toISOString()
-      });
-      if (dbError) throw dbError;
+        const { error: dbError } = await supabase.from('users').upsert({ 
+            id: user.id, 
+            email: user.email,
+            name: trimmed,
+            updated_at: new Date().toISOString()
+        });
+        if (dbError) throw dbError;
 
-      await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
-      updateSettings({ username: trimmed });
+        await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
+        updateSettings({ username: trimmed });
 
-      window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
-        detail: { ...settings, username: trimmed }
-      }));
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+            detail: { ...settings, username: trimmed } 
+        }));
 
-      showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
+        showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
     } catch (error) {
-      console.error("Name save error:", error);
-      showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
+        console.error("Name save error:", error);
+        showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
     } finally {
-      setIsSavingName(false);
+        setIsSavingName(false);
     }
   };
 
+  // NEW LOGIC: Save Avatar to Supabase & Dispatch Event
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
-
+      
       const reader = new FileReader();
       reader.onloadend = async () => {
-        // RACE CONDITION FIX: Ensure user is still valid
-        if(!user) return; 
         const base64 = reader.result as string;
         const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
 
         try {
-          const { error: dbError } = await supabase.from('users').upsert({
-            id: user.id,
-            email: user.email,
-            avatar_url: base64,
-            updated_at: new Date().toISOString()
-          });
-          if (dbError) throw dbError;
+            const { error: dbError } = await supabase.from('users').upsert({ 
+                id: user.id, 
+                email: user.email,
+                avatar_url: base64,
+                updated_at: new Date().toISOString()
+            });
+            if (dbError) throw dbError;
 
-          await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
-          updateSettings({ avatar: base64 });
+            await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
+            updateSettings({ avatar: base64 });
+            
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+                detail: { ...settings, avatar: base64 } 
+            }));
 
-          window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
-            detail: { ...settings, avatar: base64 }
-          }));
-
-          showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
+            showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
         } catch (error) {
-          showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
+            console.error("Avatar upload error:", error);
+            showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
         }
       };
       reader.readAsDataURL(file);
@@ -257,53 +279,55 @@ export default function SettingsPage() {
 
   const handleRemoveAvatar = async () => {
     if (user) {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      await supabase.from('users').upsert({
-        id: user.id,
-        email: user.email,
-        avatar_url: null
-      });
+        const supabase = createBrowserClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        await supabase.from('users').upsert({ 
+            id: user.id, 
+            email: user.email,
+            avatar_url: null 
+        });
     }
     updateSettings({ avatar: "/placeholder-user.png" });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
-      detail: { ...settings, avatar: "/placeholder-user.png" }
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+         detail: { ...settings, avatar: "/placeholder-user.png" } 
     }));
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
   };
 
   const sendEmailVerification = async () => {
-    if (!user || !userEmail || emailCountdown > 0) return;
-    setEmailStatus("sending");
-    try {
-      const res = await fetch('/api/auth/send-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail, name: pendingUsername })
-      });
-      if (!res.ok) throw new Error("Failed to send");
-      setEmailStatus("sent");
-      setEmailCountdown(60);
-      showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
-    } catch (e: any) {
-      setEmailStatus("unverified");
-      showNotification({ type: "error", message: "Could not send email. Try again.", duration: 3000 });
-    }
+     if (!user || !userEmail || emailCountdown > 0) return; 
+     setEmailStatus("sending");
+     try {
+       const res = await fetch('/api/auth/send-verification', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email: userEmail, name: pendingUsername }) 
+       });
+       if (!res.ok) throw new Error("Failed to send");
+       setEmailStatus("sent");
+       setEmailCountdown(60); 
+       showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
+     } catch (e: any) {
+       setEmailStatus("unverified");
+       showNotification({ type: "error", message: "Could not send email. Try again.", duration: 3000 });
+     }
   };
 
   const unlinkEmail = () => {
     if (!user) return;
     if (confirm("Are you sure? Account recovery will be disabled.")) {
       setEmailStatus("unverified");
+      setUserEmail(""); // FIX: Explicitly clear the email from state
       localStorage.removeItem(`cognisync:email_verified:${user.id}`);
       showNotification({ type: "info", message: "Email unlinked.", duration: 2000 });
     }
   };
 
   const getSecurityStatus = () => {
-    if (emailStatus === "verified" || isGoogleUser) {
+    // FIX: Only secure if we actually have an email AND it's verified/google
+    if (userEmail && (emailStatus === "verified" || isGoogleUser)) {
       return { label: "SECURE", color: "bg-emerald-500 text-white", ring: "ring-emerald-500", icon: ShieldCheck, desc: "Your account is protected. Email is verified." };
     }
     return { label: "AT RISK", color: "bg-amber-500 text-white", ring: "ring-amber-500", icon: ShieldAlert, desc: "Verify your email to secure account recovery." };
