@@ -86,7 +86,7 @@ export default function SettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // SESSION RADAR STATE
+  // --- SESSION RADAR STATE ---
   const [sessionInfo, setSessionInfo] = useState({ os: "Unknown", browser: "Unknown", location: "Telangana, India" });
   
   useEffect(() => {
@@ -108,10 +108,11 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const router = (typeof window !== 'undefined' ? require("next/navigation").useRouter() : null);
-
   const handleSafetyRedirect = () => {
-    if (router) router.push("/regulation?trigger=sos_setup");
+    // FIX: Dispatch event to Dashboard to switch tabs
+    window.dispatchEvent(new CustomEvent('cognisync:navigate', { 
+        detail: { page: 'awareness', trigger: 'sos' } 
+    }));
   };
 
   const isGoogleUser =
@@ -132,62 +133,49 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-  // MAGIC LISTENER: Fixes Sync & Animation (Broadcast + Polling)
+// MAGIC LISTENER: Fixes Sync & Animation (Broadcast + Aggressive Polling)
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout;
     const channel = new BroadcastChannel('cognisync-auth');
     
-    // Helper: Success Action
+    // Success Action
     const triggerSuccess = async () => {
         setEmailStatus("verified");
         setEmailCountdown(0);
+        // FORCE SWITCH to account tab to show animation
         setActiveTab("account");
         
+        // Sync session
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         await supabase.auth.refreshSession();
         
-        showNotification({ type: "success", message: "Security Protocol Verified Successfully.", duration: 5000 });
+        showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
     };
 
-    // 1. Broadcast Listener
     channel.onmessage = (event) => {
       if (event.data.type === 'EMAIL_VERIFIED') triggerSuccess();
     };
 
-    // 2. Smart Polling
-    if (emailStatus === 'sending' || emailStatus === 'sent') {
+    // POLLING FIX: Always poll if status is 'sent', ensuring main page wakes up
+    if (emailStatus === 'sent' || emailStatus === 'sending') {
         pollingInterval = setInterval(async () => {
             if (!user?.id) return;
             const supabase = createBrowserClient(
                process.env.NEXT_PUBLIC_SUPABASE_URL!,
                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
+            
+            // Check DB directly
             const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
             if (data?.email_confirmed_at) {
                 clearInterval(pollingInterval);
                 triggerSuccess();
             }
-        }, 2000);
+        }, 1000); // Check every 1s (Aggressive)
     }
-
-    // 3. Initial Load Check
-    const checkInitialStatus = async () => {
-        if (!user?.email) return;
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (data?.email_confirmed_at || authUser?.email_confirmed_at) {
-            setEmailStatus("verified");
-        }
-    };
-    checkInitialStatus();
 
     return () => {
         channel.close();
@@ -423,7 +411,7 @@ export default function SettingsPage() {
     setPwdStage("verifying");
 
     try {
-      // Use API Route to verify without breaking session
+      // FIX: Use Stateless API Route
       const res = await fetch('/api/auth/verify-credentials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -432,15 +420,14 @@ export default function SettingsPage() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-          throw new Error(data.error || "Verification failed");
-      }
+      if (!res.ok) throw new Error(data.error || "Verification failed");
 
       setPwdStage("verified");
       showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
     } catch (e: any) {
       console.error("Verification failed:", e);
       setPwdStage("idle");
+      // Specific error messaging
       showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
     }
   };
@@ -629,7 +616,13 @@ export default function SettingsPage() {
                         <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-left">
                           <motion.div layout whileHover={{ scale: 1.05, rotate: 5 }} className={cn("w-24 h-24 rounded-[2rem] flex items-center justify-center shadow-2xl backdrop-blur-md border", settings.darkMode ? "bg-white/5 border-white/10 text-indigo-300" : "bg-white/60 border-white/40 text-orange-500")}>
                             <AnimatePresence mode="wait">
-                              <motion.div key={settings.darkMode ? "dark" : "light"} initial={{ scale: 0.5, opacity: 0, rotate: -45 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} exit={{ scale: 0.5, opacity: 0, rotate: 45 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
+                              <motion.div 
+                                key={settings.darkMode ? "dark" : "light"} 
+                                initial={{ scale: 0.5, opacity: 0, rotate: -45 }} 
+                                animate={{ scale: 1, opacity: 1, rotate: 0 }} 
+                                exit={{ scale: 0.5, opacity: 0, rotate: 45 }} 
+                                transition={{ duration: 0.2 }} // FIX: Snappy 0.2s duration
+                              >
                                 {settings.darkMode ? <Moon size={42} className="drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" fill="currentColor" /> : <Sun size={42} className="drop-shadow-[0_0_15px_rgba(249,115,22,0.3)]" fill="currentColor" />}
                               </motion.div>
                             </AnimatePresence>
