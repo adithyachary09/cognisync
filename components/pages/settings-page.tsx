@@ -64,26 +64,26 @@ export default function SettingsPage() {
   const { settings, updateSettings, getModeLabel } = useTheme();
   const { showNotification } = useNotification();
   const { user, logout } = useUser();
-  const { entries } = useJournal(); 
+  const { entries } = useJournal();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // UI States
   const [showFactoryResetDialog, setShowFactoryResetDialog] = useState(false);
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
-  // Initialize with settings, will be overwritten by DB fetch
   const [pendingUsername, setPendingUsername] = useState(settings.username || "");
-  
-  // FIX: Sync local input state when settings update (e.g. after DB fetch)
-  // This ensures the input shows the correct name immediately after page load
-  useEffect(() => {
-     if (settings.username) {
-        setPendingUsername(settings.username);
-     }
-  }, [settings.username]);
-
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
-  const [activeTab, setActiveTab] = useState("appearance");
+  
+  // LOGIC FIX: Persistence for Active Tab
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem("cognisync:settings-tab") || "appearance";
+    return "appearance";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("cognisync:settings-tab", activeTab);
+  }, [activeTab]);
+
   const [copied, setCopied] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -92,17 +92,16 @@ export default function SettingsPage() {
   const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
-  // Visibility Toggles
+  
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-   
-  const isGoogleUser = 
-    (user as any)?.app_metadata?.provider === 'google' || 
+
+  const isGoogleUser =
+    (user as any)?.app_metadata?.provider === 'google' ||
     (user as any)?.app_metadata?.providers?.includes('google') ||
     (user as any)?.identities?.some((id: any) => id.provider === 'google');
-    
-  // LOGIC FIX: Member since based on First Entry -> Created At -> Current Year
+
   const getMemberSince = () => {
     if (entries && entries.length > 0) {
       const sorted = [...entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -114,12 +113,11 @@ export default function SettingsPage() {
 
   const [emailStatus, setEmailStatus] = useState<"unverified" | "sending" | "sent" | "verified">("unverified");
   const [userEmail, setUserEmail] = useState("");
-  const [emailCountdown, setEmailCountdown] = useState(0); 
+  const [emailCountdown, setEmailCountdown] = useState(0);
 
   const [logoutProgress, setLogoutProgress] = useState(0);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // --- INITIALIZATION ---
   useEffect(() => {
     const timer = setInterval(() => {
       setEmailCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -127,11 +125,9 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // NEW LOGIC: Fetch Profile from Supabase (Source of Truth with Auto-Persist)
   useEffect(() => {
     if (!user) return;
 
-    // 1. Email Verification Check
     if (user.email) {
       setUserEmail(user.email);
       if ((user as any)?.email_confirmed_at || isGoogleUser) {
@@ -142,59 +138,38 @@ export default function SettingsPage() {
       }
     }
 
-    // 2. Fetch Real Profile Data from Database
     const fetchProfile = async () => {
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        
-        // A. Try fetching from DB
-        const { data } = await supabase
-            .from('users')
-            .select('name, avatar_url')
-            .eq('id', user.id)
-            .single();
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
 
-        // B. Get Auth Metadata (Google/Auth Providers) as fallback
-        const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
-        const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
+      const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
+      
+      const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
+      const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
 
-        // C. Determine Final Values (DB wins -> then Auth -> then Default)
-        const finalName = data?.name || authName || "User";
-        // Check for placeholder explicitly to avoid overwriting valid images
-        const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) 
-            ? data.avatar_url 
-            : (authAvatar || "/placeholder-user.png");
+      const finalName = data?.name || authName || "User";
+      const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) ? data.avatar_url : (authAvatar || "/placeholder-user.png");
 
-        // D. AUTO-PERSIST FIX: If DB was empty but we found Auth data, save it NOW.
-        // This prevents the "reset" on reload by locking the data into the DB.
-        if (!data && (authName || authAvatar)) {
-            await supabase.from('users').upsert({
-                id: user.id,
-                email: user.email,
-                name: finalName,
-                avatar_url: finalAvatar,
-                updated_at: new Date().toISOString()
-            });
-        }
+      if (!data && (authName || authAvatar)) {
+        await supabase.from('users').upsert({
+          id: user.id,
+          email: user.email,
+          name: finalName,
+          avatar_url: finalAvatar,
+          updated_at: new Date().toISOString()
+        });
+      }
 
-        // E. Update State & Dispatch
-        setPendingUsername(finalName);
-        
-        const newSettings = { 
-            username: finalName, 
-            avatar: finalAvatar 
-        };
-        updateSettings(newSettings);
-        
-        // Force immediate update across app
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
+      setPendingUsername(finalName);
+      const newSettings = { username: finalName, avatar: finalAvatar };
+      updateSettings(newSettings);
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
     };
     fetchProfile();
-  }, [user]);
+  }, [user]); // Removed redundant updates to settings
 
-  // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
     updateSettings(partial);
     const merged = { ...settings, ...partial };
@@ -203,7 +178,6 @@ export default function SettingsPage() {
 
   const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
 
-  // NEW LOGIC: Save Name to Supabase & Dispatch Event
   const handleUsernameSave = async () => {
     if (!user) return;
     const trimmed = (pendingUsername ?? "").trim();
@@ -211,125 +185,112 @@ export default function SettingsPage() {
     setIsSavingName(true);
 
     const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     try {
-        // 1. Write to DB (Permanent Storage)
-        const { error: dbError } = await supabase.from('users').upsert({ 
-            id: user.id, 
-            email: user.email,
-            name: trimmed,
-            updated_at: new Date().toISOString()
-        });
-        if (dbError) throw dbError;
+      const { error: dbError } = await supabase.from('users').upsert({
+        id: user.id,
+        email: user.email,
+        name: trimmed,
+        updated_at: new Date().toISOString()
+      });
+      if (dbError) throw dbError;
 
-        // 2. Update Auth Session (Prevents session overwrite on reload)
-        await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
-        
-        // 3. Update Local State immediately
-        updateSettings({ username: trimmed });
+      await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
+      updateSettings({ username: trimmed });
 
-        // 4. Global Sync
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-            detail: { ...settings, username: trimmed } 
-        }));
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
+        detail: { ...settings, username: trimmed }
+      }));
 
-        showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
+      showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
     } catch (error) {
-        console.error("Name save error:", error);
-        showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
+      console.error("Name save error:", error);
+      showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
     } finally {
-        setIsSavingName(false);
+      setIsSavingName(false);
     }
   };
 
-  // NEW LOGIC: Save Avatar to Supabase & Dispatch Event
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
-      
+
       const reader = new FileReader();
       reader.onloadend = async () => {
+        // RACE CONDITION FIX: Ensure user is still valid
+        if(!user) return; 
         const base64 = reader.result as string;
-        
         const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
 
         try {
-            // 1. Write to DB (Permanent Storage)
-            const { error: dbError } = await supabase.from('users').upsert({ 
-                id: user.id,
-                email: user.email,
-                avatar_url: base64,
-                updated_at: new Date().toISOString()
-            });
-            if (dbError) throw dbError;
+          const { error: dbError } = await supabase.from('users').upsert({
+            id: user.id,
+            email: user.email,
+            avatar_url: base64,
+            updated_at: new Date().toISOString()
+          });
+          if (dbError) throw dbError;
 
-            // 2. Update Auth Session
-            await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
+          await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
+          updateSettings({ avatar: base64 });
 
-            // 3. Update Local
-            updateSettings({ avatar: base64 });
-            
-            // 4. Global Sync
-            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-                detail: { ...settings, avatar: base64 } 
-            }));
+          window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
+            detail: { ...settings, avatar: base64 }
+          }));
 
-            showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
+          showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
         } catch (error) {
-            console.error("Avatar upload error:", error);
-            showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
+          showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // NEW LOGIC: Remove Avatar from Supabase
   const handleRemoveAvatar = async () => {
     if (user) {
-        const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        // Set avatar_url to empty string or null (Upsert safe)
-        await supabase.from('users').upsert({ 
-            id: user.id, 
-            email: user.email,
-            avatar_url: null 
-        });
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      await supabase.from('users').upsert({
+        id: user.id,
+        email: user.email,
+        avatar_url: null
+      });
     }
     updateSettings({ avatar: "/placeholder-user.png" });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-         detail: { ...settings, avatar: "/placeholder-user.png" } 
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
+      detail: { ...settings, avatar: "/placeholder-user.png" }
     }));
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
   };
 
   const sendEmailVerification = async () => {
-     if (!user || !userEmail || emailCountdown > 0) return; 
-     setEmailStatus("sending");
-     try {
-       const res = await fetch('/api/auth/send-verification', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, name: pendingUsername }) 
-       });
-       if (!res.ok) throw new Error("Failed to send");
-       setEmailStatus("sent");
-       setEmailCountdown(60); 
-       showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
-     } catch (e: any) {
-       setEmailStatus("unverified");
-       showNotification({ type: "error", message: "Could not send email. Try again.", duration: 3000 });
-     }
+    if (!user || !userEmail || emailCountdown > 0) return;
+    setEmailStatus("sending");
+    try {
+      const res = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, name: pendingUsername })
+      });
+      if (!res.ok) throw new Error("Failed to send");
+      setEmailStatus("sent");
+      setEmailCountdown(60);
+      showNotification({ type: "info", message: `Verification link sent to ${userEmail}`, duration: 5000 });
+    } catch (e: any) {
+      setEmailStatus("unverified");
+      showNotification({ type: "error", message: "Could not send email. Try again.", duration: 3000 });
+    }
   };
 
   const unlinkEmail = () => {
@@ -354,11 +315,11 @@ export default function SettingsPage() {
     if (!user) return;
     let progress = 0;
     logoutTimerRef.current = setInterval(() => {
-      progress += 2;
+      progress += 1; // FIX: Slower increment (10ms * 100 = 1000ms = 1s total) to prevent accidental logout
       setLogoutProgress(progress);
       if (progress >= 100) {
         if (logoutTimerRef.current) clearInterval(logoutTimerRef.current);
-        logout(); 
+        logout();
       }
     }, 10);
   };
@@ -368,67 +329,70 @@ export default function SettingsPage() {
   };
 
   const verifyCurrentPassword = async () => {
-     if (!user || !currentPwd) return;
-     setPwdStage("verifying");
-     try {
-       const res = await fetch('/api/auth/verify-credentials', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email: userEmail, password: currentPwd })
-       });
-       if (!res.ok) throw new Error();
-       setPwdStage("verified");
-       showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
-     } catch (e) {
-       setPwdStage("idle");
-       showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
-     }
+    if (!user || !currentPwd) return;
+    setPwdStage("verifying");
+    try {
+      const res = await fetch('/api/auth/verify-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, password: currentPwd })
+      });
+      if (!res.ok) throw new Error();
+      setPwdStage("verified");
+      showNotification({ type: "success", message: "Identity verified.", duration: 1500 });
+    } catch (e) {
+      setPwdStage("idle");
+      showNotification({ type: "error", message: "Incorrect password.", duration: 3000 });
+    }
   };
 
   const saveNewPassword = async () => {
-     if (!user) return;
-     if (newPwd.length < 6 || newPwd !== confirmPwd) {
-        showNotification({ type: "warning", message: "Password must be 6+ chars & match.", duration: 3000 });
-        return;
-     }
-     setPwdStage("saving");
-     
-     // USE SUPABASE CLIENT DIRECTLY (No API Route needed)
-     const supabase = createBrowserClient(
-       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-     );
+    if (!user) return;
+    if (newPwd.length < 6 || newPwd !== confirmPwd) {
+      showNotification({ type: "warning", message: "Password must be 6+ chars & match.", duration: 3000 });
+      return;
+    }
+    // LOGIC FIX: Prevent using same password
+    if (newPwd === currentPwd) {
+       showNotification({ type: "warning", message: "New password cannot be the same as current.", duration: 3000 });
+       return;
+    }
 
-     try {
-       const { error } = await supabase.auth.updateUser({ password: newPwd });
-       
-       if (error) throw error;
+    setPwdStage("saving");
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
-       setPwdStage("idle");
-       setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-       showNotification({ type: "success", message: "Password updated successfully!", duration: 2000 });
-     } catch (e: any) {
-       console.error("Pwd Update Error:", e);
-       setPwdStage("verified"); 
-       showNotification({ type: "error", message: e.message || "Update failed.", duration: 3000 });
-     }
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPwd });
+      if (error) throw error;
+
+      setPwdStage("idle");
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+      showNotification({ type: "success", message: "Password updated successfully!", duration: 2000 });
+    } catch (e: any) {
+      console.error("Pwd Update Error:", e);
+      setPwdStage("verified");
+      showNotification({ type: "error", message: e.message || "Update failed.", duration: 3000 });
+    }
   };
 
   // --- DATA MANAGEMENT LOGIC ---
   const handleExportArchive = () => {
     if (!user) return;
     const data = {
-        user: { name: pendingUsername, email: userEmail, id: user.id },
-        settings: settings,
-        journal_entries: entries, 
-        clinical_history: JSON.parse(localStorage.getItem("offline_assessments") || "[]"),
-        timestamp: new Date().toISOString()
+      user: { name: pendingUsername, email: userEmail, id: user.id },
+      settings: settings,
+      journal_entries: entries,
+      clinical_history: JSON.parse(localStorage.getItem("offline_assessments") || "[]"),
+      timestamp: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `cognisync-archive-${user.id.slice(0,5)}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `cognisync-archive-${user.id.slice(0, 5)}-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -437,55 +401,48 @@ export default function SettingsPage() {
 
   const handleClearCache = () => {
     Object.keys(localStorage).forEach(key => {
-        if (key.includes(":temp")) localStorage.removeItem(key);
+      if (key.includes(":temp")) localStorage.removeItem(key);
     });
     showNotification({ type: "success", message: "Temporary cache cleared.", duration: 2000 });
   };
 
   const handleResetPreferences = () => {
-    // 1. Define Defaults with strict types
-    const defaults = { 
-      darkMode: false, 
-      fontSize: 16 as const, 
-      colorTheme: 'blue' as const // Fixed: Resets to Royal Blue (Azure)
+    const defaults = {
+      darkMode: false,
+      fontSize: 16 as const,
+      colorTheme: 'blue' as const
     };
-    
-    // 2. Update Context
     updateSettings(defaults);
-    
-    // 3. Force Immediate UI Patch (Explicitly sending 'light' theme & 'blue' default accent)
-        // Retrieve the hex color for the default 'blue' theme from our new config
-        const defaultColor = THEME_CONFIG.find(t => t.id === 'blue')?.color || '#3B82F6';
+    const defaultColor = THEME_CONFIG.find(t => t.id === 'blue')?.color || '#3B82F6';
 
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-          detail: { 
-            ...defaults, 
-            theme: 'light', 
-            accentColor: defaultColor, 
-            username: settings.username 
-          } 
-        }));
-
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
+      detail: {
+        ...defaults,
+        theme: 'light',
+        accentColor: defaultColor,
+        username: settings.username
+      }
+    }));
     showNotification({ type: "success", message: "Interface reset to default.", duration: 2000 });
   };
 
   const handleDeleteJournals = async () => {
     if (!user) return;
     const supabase = createBrowserClient(
-       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
     try {
-        await supabase.from('user_entries').delete().eq('user_id', user.id);
-        setShowJournalDeleteDialog(false);
-        showNotification({ type: "success", message: "Journal entries deleted.", duration: 2000 });
-        setTimeout(() => window.location.reload(), 1000);
+      await supabase.from('user_entries').delete().eq('user_id', user.id);
+      setShowJournalDeleteDialog(false);
+      showNotification({ type: "success", message: "Journal entries deleted.", duration: 2000 });
+      setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
-        showNotification({ type: "error", message: "Deletion failed.", duration: 3000 });
+      showNotification({ type: "error", message: "Deletion failed.", duration: 3000 });
     }
   };
 
- const handleFactoryReset = async () => {
+  const handleFactoryReset = async () => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -498,47 +455,33 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Wipe DB Data (Targeting ONLY your existing 7 tables)
-        // Using allSettled to ensure one failure doesn't stop the rest
+        // 1. Wipe DB Data
         await Promise.allSettled([
-          supabase.from('user_entries').delete().eq('user_id', user.id),       // Journal
-          supabase.from('assessments').delete().eq('user_id', user.id),        // Assessments
-          supabase.from('journal_entries').delete().eq('user_id', user.id),    // Extra Journal table
-          supabase.from('verification_codes').delete().eq('identifier', user.email), // Codes
-          supabase.from('verification_tokens').delete().eq('user_id', user.id), // Tokens
-          supabase.from('password_reset_tokens').delete().eq('user_id', user.id), // Reset tokens
-          // Note: We do NOT delete from 'users' table directly as that is the auth record itself.
-          // Supabase Auth handles user deletion, but we are just resetting DATA here.
+          supabase.from('user_entries').delete().eq('user_id', user.id),
+          supabase.from('assessments').delete().eq('user_id', user.id),
+          supabase.from('journal_entries').delete().eq('user_id', user.id),
+          supabase.from('verification_codes').delete().eq('identifier', user.email),
+          supabase.from('verification_tokens').delete().eq('user_id', user.id),
+          supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
         ]);
 
-        // 2. Clear Local Storage (Wipes cached Views, Themes, Username, etc.)
-        localStorage.clear(); 
-        sessionStorage.clear();
-
-        // 3. Reset Context State (Visual Feedback)
-        updateSettings({ 
-            darkMode: false, 
-            fontSize: 16 as const, 
-            colorTheme: 'emerald' as const, 
-            username: undefined, 
-            avatar: null 
-        });
-
-        // 4. Force Server Logout
+        // 2. Server Logout FIRST (Requires token)
         await supabase.auth.signOut();
         logout();
+
+        // 3. Clear Local Storage LAST (To prevent context issues during logout)
+        localStorage.clear();
+        sessionStorage.clear();
 
         showNotification({ type: "success", message: "System Reset Complete. Goodbye.", duration: 2000 });
       }
     } catch (error) {
       console.error("Reset Error:", error);
-      // Even if DB fails, we proceed to kill the local session in 'finally'
     } finally {
-       // 5. GUARANTEED HARD RELOAD -> LOGIN PAGE
-       // This forces the browser to drop all state and re-fetch '0' values from the empty DB.
-       setTimeout(() => {
-          window.location.href = "/"; 
-       }, 1000);
+      // 4. Force Reload
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1000);
     }
   };
 
@@ -829,25 +772,20 @@ export default function SettingsPage() {
                   <motion.div variants={itemVariant}>
                     <div className="relative p-8 rounded-[3rem] border border-border/50 shadow-2xl backdrop-blur-3xl bg-gradient-to-br from-card/90 via-card/60 to-card/30">
                       
-                      {/* Clipping Layer for Background Blobs */}
                       <div className="absolute inset-0 rounded-[3rem] overflow-hidden pointer-events-none">
                          <div className="absolute -top-32 -right-32 w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
                       </div>
 
                       <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
-                        {/* LEFT COLUMN: AVATAR & SECURE BADGE (High Z-Index to overlap Email Card) */}
                         <div className="relative group z-50">
                            <div className="relative w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", security.ring)}>
-                                 
-                                 {/* FIX: Simplified Source Logic. If invalid/empty, use placeholder. */}
                                  <img 
                                     src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                                     alt="Profile"
                                     onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
                                  />
-
                                  <button 
                                     onClick={() => fileInputRef.current?.click()} 
                                     className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1"
@@ -859,7 +797,6 @@ export default function SettingsPage() {
                            </div>
                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                            
-                           {/* Secure Badge Button (Lifted Z-Index) */}
                            <button 
                              onClick={() => setShowSecurityInfo(!showSecurityInfo)}
                              className={cn(
@@ -870,43 +807,39 @@ export default function SettingsPage() {
                               <security.icon size={12} strokeWidth={3} /> {security.label}
                            </button>
                            
-                           {/* Secure Info Popup */}
                            <AnimatePresence>
                               {showSecurityInfo && (
                                 <>
-                                  {/* Transparent Overlay for Click-Outside */}
                                   <div className="fixed inset-0 z-[90]" onClick={() => setShowSecurityInfo(false)} />
-                                  
                                   <motion.div 
                                      initial={{ opacity: 0, y: 10, scale: 0.95 }} 
                                      animate={{ opacity: 1, y: 20, scale: 1 }} 
                                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                      className="absolute top-full left-1/2 -translate-x-1/2 w-72 p-6 bg-zinc-950/95 text-white backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] border border-white/10 z-[100] text-center"
                                   >
-                                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-zinc-950/95 rotate-45 border-l border-t border-white/10" />
-                                    <div className="flex flex-col items-center gap-3 relative z-10">
-                                      <div className={cn("p-2 rounded-full", security.color.replace('text-white', 'bg-white/10 text-current'))}>
-                                        <security.icon size={20} />
-                                      </div>
-                                      <div>
-                                         <p className="text-xs font-black uppercase tracking-widest text-white mb-1">Security Protocol</p>
-                                         <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">{security.desc}</p>
-                                      </div>
-                                    </div>
+                                     <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-zinc-950/95 rotate-45 border-l border-t border-white/10" />
+                                     <div className="flex flex-col items-center gap-3 relative z-10">
+                                       <div className={cn("p-2 rounded-full", security.color.replace('text-white', 'bg-white/10 text-current'))}>
+                                         <security.icon size={20} />
+                                       </div>
+                                       <div>
+                                          <p className="text-xs font-black uppercase tracking-widest text-white mb-1">Security Protocol</p>
+                                          <p className="text-[11px] text-zinc-400 font-medium leading-relaxed">{security.desc}</p>
+                                       </div>
+                                     </div>
                                   </motion.div>
                                 </>
                               )}
                            </AnimatePresence>
                         </div>
 
-                        {/* RIGHT COLUMN: IDENTITY INPUTS */}
                         <div className="flex-1 space-y-8 text-center md:text-left w-full max-w-2xl">
                            <div className="flex flex-col md:items-start items-center gap-4">
-                              <label className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/50 pl-1">Public Identity</label>
+                              <label htmlFor="username" className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-muted-foreground/50 pl-1">Public Identity</label>
                               <div className="flex items-center gap-4 w-full">
                                  <div className="relative flex-1 group/input">
-                                    {/* Enhanced Input with Better Borders */}
                                     <Input 
+                                       id="username"
                                        value={pendingUsername} 
                                        onChange={(e) => setPendingUsername(e.target.value)} 
                                        className="h-16 bg-muted/40 border-2 border-border/50 focus:border-primary/50 focus:bg-background shadow-inner transition-all rounded-[1.2rem] text-3xl font-black tracking-tight px-6 text-foreground placeholder:text-muted-foreground/30" 
@@ -926,13 +859,11 @@ export default function SettingsPage() {
                            <div className="h-px w-full bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
                            <div className="flex flex-wrap items-center gap-3 justify-center md:justify-start">
-                             {/* Enhanced Member Badge */}
                              <div className="h-11 px-6 rounded-full bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-3 shadow-[0_4px_20px_-5px_rgba(245,158,11,0.1)]">
                                 <Sparkles size={14} className="text-amber-500 fill-amber-500 animate-pulse" /> 
                                 <span>Member since {memberSinceYear}</span>
                              </div>
 
-                             {/* Enhanced Remove Button */}
                              {settings.avatar && settings.avatar !== "/placeholder-user.png" && (
                                 <button 
                                    onClick={handleRemoveAvatar} 
@@ -949,15 +880,10 @@ export default function SettingsPage() {
                   </motion.div>
 
                   <div className={cn("grid gap-6 items-start", isGoogleUser ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2")}>
-                      {/* EMAIL SECURITY CARD - ENHANCED */}
                       <motion.div variants={itemVariant} className="group relative rounded-[3rem] border border-border/50 bg-gradient-to-br from-card via-card/80 to-muted/30 backdrop-blur-3xl p-10 shadow-xl overflow-hidden flex flex-col gap-10 transition-all duration-500 hover:shadow-2xl hover:border-primary/20 min-h-[400px]">
-                         {/* Noise Texture */}
                          <div className="absolute inset-0 opacity-[0.03] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
-                         
-                         {/* Dynamic Glow Blob */}
                          <div className={cn("absolute -top-32 -right-32 w-96 h-96 rounded-full blur-[120px] opacity-20 pointer-events-none transition-colors duration-1000", emailStatus === 'verified' ? "bg-emerald-500" : "bg-amber-500")} />
                          
-                         {/* Watermark Icon */}
                          <div className="absolute top-10 right-10 opacity-[0.04] rotate-12 pointer-events-none">
                             <Mail size={180} className="text-foreground" />
                          </div>
@@ -986,7 +912,6 @@ export default function SettingsPage() {
 
                          <div className="relative z-10">
                              {emailStatus === 'verified' ? (
-                                /* FIX: Removed dashed line, added container box */
                                 <div className="mt-6 p-2 rounded-[1.5rem] bg-background/50 border border-white/5 backdrop-blur-md flex items-center justify-between pl-5">
                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2.5">
                                       <span className="relative flex h-3 w-3">
@@ -1021,7 +946,6 @@ export default function SettingsPage() {
                          </div>
                       </motion.div>
 
-                      {/* ACCESS CONTROL (OR GOOGLE) */}
                       <motion.div variants={itemVariant} className="flex flex-col h-full gap-6">
                           {isGoogleUser ? (
                             <>
@@ -1036,7 +960,6 @@ export default function SettingsPage() {
                                 <div className="relative z-10 px-4 py-2 bg-white/80 dark:bg-black/40 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-xl border border-emerald-500/20 uppercase tracking-[0.2em] flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active</div>
                               </div>
                               
-                              {/* OAuth User Session Control (Small - Enhanced) */}
                               <motion.div whileHover={{ scale: 1.01 }} className="p-2 rounded-[2.5rem] bg-gradient-to-br from-rose-500/5 via-background to-background border border-rose-500/10 mt-auto shadow-xl backdrop-blur-md group/session">
                                 <div className="flex flex-col items-center justify-between p-6 gap-6">
                                    <div className="flex gap-5 w-full items-center">
@@ -1069,7 +992,6 @@ export default function SettingsPage() {
                                 <div className="space-y-5 relative z-10">
                                    <AnimatePresence mode="wait">
                                      {pwdStage !== "verified" && pwdStage !== "saving" ? (
-                                       /* View 1: Verify Old Password */
                                        <motion.div 
                                           key="verify-step"
                                           initial={{ opacity: 0, x: -20 }}
@@ -1104,7 +1026,6 @@ export default function SettingsPage() {
                                           </button>
                                        </motion.div>
                                      ) : (
-                                       /* View 2: Update New Password */
                                        <motion.div 
                                           key="update-step"
                                           initial={{ opacity: 0, scale: 0.95 }}
@@ -1142,25 +1063,25 @@ export default function SettingsPage() {
                                           </div>
 
                                           <div className="flex gap-3 pt-2">
-                                             <button 
-                                               onClick={() => {
-                                                 setPwdStage("idle");
-                                                 setCurrentPwd("");
-                                                 setNewPwd("");
-                                                 setConfirmPwd("");
-                                               }} 
-                                               className="flex-1 h-14 rounded-2xl border border-transparent hover:bg-muted/50 text-xs font-black uppercase tracking-wider text-muted-foreground transition-all"
-                                             >
-                                               Cancel
-                                             </button>
-                                             <button 
-                                               onClick={saveNewPassword} 
-                                               disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
-                                               className="flex-[2] h-14 bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg hover:bg-emerald-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 hover:shadow-emerald-500/20"
-                                             >
-                                               {pwdStage === "saving" && <Loader2 size={16} className="animate-spin" />}
-                                               Update Credentials
-                                             </button>
+                                              <button 
+                                                onClick={() => {
+                                                  setPwdStage("idle");
+                                                  setCurrentPwd("");
+                                                  setNewPwd("");
+                                                  setConfirmPwd("");
+                                                }} 
+                                                className="flex-1 h-14 rounded-2xl border border-transparent hover:bg-muted/50 text-xs font-black uppercase tracking-wider text-muted-foreground transition-all"
+                                              >
+                                                Cancel
+                                              </button>
+                                              <button 
+                                                onClick={saveNewPassword} 
+                                                disabled={!newPwd || newPwd !== confirmPwd || pwdStage === "saving"}
+                                                className="flex-[2] h-14 bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-2xl shadow-lg hover:bg-emerald-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 hover:shadow-emerald-500/20"
+                                              >
+                                                {pwdStage === "saving" && <Loader2 size={16} className="animate-spin" />}
+                                                Update Credentials
+                                              </button>
                                           </div>
                                        </motion.div>
                                      )}
@@ -1171,7 +1092,6 @@ export default function SettingsPage() {
                       </motion.div>
                   </div>
 
-                  {/* SESSION CONTROL - Full Width (Only for Manual Users) */}
                   {!isGoogleUser && (
                     <motion.div variants={itemVariant} className="mt-8">
                         <div className="p-2 rounded-[3rem] bg-gradient-to-r from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/10 shadow-2xl backdrop-blur-2xl group">
@@ -1208,137 +1128,71 @@ export default function SettingsPage() {
 
               
       {/* ======================= TAB: DATA ======================= */}
-
               <TabsContent value="data" className="space-y-6 m-0">
-
                   <motion.div variants={itemVariant}>
-
-                    <div className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 shadow-lg flex items-center justify-between">
-
+                    <div className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-border/50 shadow-lg flex items-center justify-between transition-all hover:shadow-xl">
                         <div className="flex gap-4 items-center">
-
                           <div className="p-4 bg-blue-500/10 text-blue-600 rounded-2xl"><FileJson size={24} /></div>
-
                           <div><h3 className="font-bold text-lg">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your data (JSON).</p></div>
-
                         </div>
-
-                        <motion.button whileTap={{ scale: 0.95 }} onClick={handleExportArchive} className="px-5 py-3 bg-foreground text-background rounded-2xl text-sm font-bold shadow-lg hover:opacity-90 flex items-center gap-2">
-
+                        <motion.button whileTap={{ scale: 0.95 }} onClick={handleExportArchive} className="h-12 px-6 bg-foreground text-background rounded-2xl text-sm font-bold shadow-lg hover:opacity-90 flex items-center gap-2">
                           <Download size={16} /> Download
-
                         </motion.button>
-
                     </div>
-
                   </motion.div>
 
-
-
                   <motion.div variants={itemVariant}>
-
-                    <Card className="p-8 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 shadow-lg">
-
+                    <Card className="p-8 border-0 bg-background/60 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-border/50 shadow-lg">
                         <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Storage</h3></div>
-
                         <div className="space-y-4">
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-border transition-all">
-
+                          <div className="flex items-center justify-between p-4 rounded-3xl bg-muted/20 border border-transparent hover:border-border transition-all">
                               <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Safe to clear.</p></div></div>
-
-                              <button onClick={handleClearCache} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
-
+                              <button onClick={handleClearCache} className="h-10 px-5 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
                           </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-muted/20 border border-transparent hover:border-border transition-all">
-
+                          <div className="flex items-center justify-between p-4 rounded-3xl bg-muted/20 border border-transparent hover:border-border transition-all">
                               <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Default theme.</p></div></div>
-
-                              <button onClick={handleResetPreferences} className="px-4 py-2 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
-
+                              <button onClick={handleResetPreferences} className="h-10 px-5 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
                           </div>
-
-                          <div className="flex items-center justify-between p-4 rounded-2xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition-all">
-
+                          <div className="flex items-center justify-between p-4 rounded-3xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition-all">
                               <div className="flex items-center gap-3"><Eraser size={18} className="text-red-500" /><div><p className="font-bold text-sm text-red-600">Delete Journals</p><p className="text-xs text-red-400/80">Permanent loss.</p></div></div>
-
                               <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
-
-                                <AlertDialogTrigger asChild><button className="px-4 py-2 text-xs font-bold text-white bg-red-600 rounded-xl shadow-lg shadow-red-500/20 hover:scale-105 transition-transform">Delete</button></AlertDialogTrigger>
-
+                                <AlertDialogTrigger asChild><button className="h-10 px-5 text-xs font-bold text-white bg-red-600 rounded-xl shadow-lg shadow-red-500/20 hover:scale-105 transition-transform">Delete</button></AlertDialogTrigger>
                                 <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-red-600">Delete</AlertDialogAction></div></AlertDialogContent>
-
                               </AlertDialog>
-
                           </div>
-
                         </div>
-
                     </Card>
-
                   </motion.div>
-
-
 
                   <motion.div variants={itemVariant}>
-
-                    <div className="p-6 rounded-3xl border border-red-500/20 bg-red-500/5 backdrop-blur-xl flex items-center justify-between">
-
+                    <div className="p-6 rounded-[2.5rem] border border-red-500/20 bg-red-500/5 backdrop-blur-xl flex items-center justify-between transition-all hover:border-red-500/40">
                         <div><h3 className="font-bold text-red-600 flex items-center gap-2"><RotateCcw size={18} /> Factory Reset</h3><p className="text-xs text-red-500/70 mt-1">Wipes Journals, AI History, Dashboard Logs & Settings.</p></div>
-
                         <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
-
-                          <AlertDialogTrigger asChild><button className="px-5 py-3 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 shadow-xl shadow-red-500/30 hover:scale-105 transition-transform">Reset App</button></AlertDialogTrigger>
-
+                          <AlertDialogTrigger asChild><button className="h-12 px-6 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 shadow-xl shadow-red-500/30 hover:scale-105 transition-transform">Reset App</button></AlertDialogTrigger>
                           <AlertDialogContent>
-
                             <AlertDialogHeader>
-
                               <AlertDialogTitle className="text-red-600">⚠️ CRITICAL WARNING</AlertDialogTitle>
-
                               <AlertDialogDescription className="font-medium text-foreground">
-
                                 This action is IRREVERSIBLE.
-
                                 <br/><br/>
-
                                 It will permanently delete:
-
                                 <ul className="list-disc pl-5 mt-2 space-y-1 text-sm text-muted-foreground">
-
                                   <li>All Journal Entries & Analysis</li>
-
                                   <li>Dashboard Streaks & Wellness Data</li>
-
                                   <li>Clinical Assessment History</li>
-
                                   <li>AI Assistant Chat Logs</li>
-
                                   <li>All User Settings & Preferences</li>
-
                                 </ul>
-
                               </AlertDialogDescription>
-
                             </AlertDialogHeader>
-
                             <div className="flex justify-end gap-3">
-
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-
                               <AlertDialogAction onClick={handleFactoryReset} className="bg-red-600 hover:bg-red-700">Yes, Wipe Everything</AlertDialogAction>
-
                             </div>
-
                           </AlertDialogContent>
-
                         </AlertDialog>
-
                     </div>
-
                   </motion.div>
-
               </TabsContent>
 
 
