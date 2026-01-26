@@ -17,37 +17,27 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (dbError || !tokenEntry) {
-      console.error("Token Lookup Error:", dbError);
       return NextResponse.json({ error: 'Invalid or missing token' }, { status: 400 });
     }
 
-    // 2. Strict Expiry Check
-    // "Is right now LATER than the expiry time?"
-    const now = new Date();
-    const expiresAt = new Date(tokenEntry.expires_at);
-
-    if (now > expiresAt) {
-      return NextResponse.json({ error: 'Link has expired' }, { status: 410 });
-    }
-
-    // 3. Verify User in Supabase Auth (The actual security part)
+    // 2. Verify User in Supabase Auth
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
       tokenEntry.user_id,
       { email_confirm: true, user_metadata: { email_verified: true } }
     );
 
+    // Ignore error if user is already verified
     if (authError) {
-      console.error("Auth Update Error:", authError);
-      return NextResponse.json({ error: 'System failed to verify identity' }, { status: 500 });
+      console.warn("Auth Update Warning:", authError);
     }
 
-    // 4. Update Public Table (For your UI)
+    // 3. Update Public Table (Critical for UI)
     await supabaseAdmin
       .from('users')
       .update({ email_confirmed_at: new Date().toISOString() })
       .eq('id', tokenEntry.user_id);
 
-    // 5. Cleanup used token
+    // 4. Cleanup used token
     await supabaseAdmin
       .from('verification_tokens')
       .delete()

@@ -115,19 +115,30 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-  // MAGIC LISTENER: Listens for verification from the other tab
+  // MAGIC LISTENER: Listens for verification from the new tab
   useEffect(() => {
     const channel = new BroadcastChannel('cognisync-auth');
     
     channel.onmessage = (event) => {
       if (event.data.type === 'EMAIL_VERIFIED') {
+        // 1. Mark as verified instantly
         setEmailStatus("verified");
+        
+        // 2. Switch to Account Tab
+        setActiveTab("account");
+        
+        // 3. Show Success Notification
         showNotification({ 
             type: "success", 
             message: "Security Protocol Verified Successfully.", 
             duration: 5000 
         });
-        // Optional: Trigger a confetti or sound effect here
+        
+        // Optional: Force a data refresh just in case
+        if (typeof window !== 'undefined') {
+             // Dispatch event to update other components if needed
+             window.dispatchEvent(new Event('cognisync:auth:refresh'));
+        }
       }
     };
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, X } from "lucide-react";
 import Image from "next/image";
 
@@ -76,11 +76,11 @@ function VerifyEmailContent() {
   }, [countdown]);
 
   const notifyAndStartTimer = (seconds: number) => {
-    // 1. Notify other tabs using BroadcastChannel
+    // 1. Notify other tabs (The Main Settings Page)
     try {
       const channel = new BroadcastChannel('cognisync-auth');
       channel.postMessage({ type: 'EMAIL_VERIFIED' });
-      // Keep channel open briefly to ensure message sends
+      // Keep channel open briefly
       setTimeout(() => channel.close(), 1000);
     } catch (e) {
       console.error("Broadcast failed", e);
@@ -94,7 +94,7 @@ function VerifyEmailContent() {
     } catch (e) {
       console.log("Browser blocked auto-close");
     }
-    // Fallback if window.close() is blocked: Redirect
+    // Fallback: Redirect if close fails
     if (status === "success") {
         router.push("/settings?verified=true");
     }
@@ -103,11 +103,9 @@ function VerifyEmailContent() {
   return (
     <div className="flex items-center justify-center min-h-screen p-4 relative overflow-hidden bg-slate-50">
       
-      {/* Background Blobs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-100/60 blur-[100px] z-0 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-100/50 blur-[100px] z-0 pointer-events-none" />
 
-      {/* Glass Card */}
       <motion.div 
         initial={{ opacity: 0, y: 20, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -125,33 +123,24 @@ function VerifyEmailContent() {
         </h1>
         <p className="text-slate-500 font-medium text-sm mb-8">{message}</p>
 
-        {/* LOADING STATE */}
         {status === "verifying" && (
           <div className="flex justify-center py-8">
             <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
           </div>
         )}
 
-        {/* SUCCESS STATE */}
         {status === "success" && (
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="space-y-6">
             <div className="bg-emerald-50 text-emerald-600 p-6 rounded-3xl border border-emerald-100 flex flex-col items-center gap-3 relative overflow-hidden">
-               <motion.div 
-                 initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}
-                 className="relative z-10"
-               >
+               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }} className="relative z-10">
                  <ShieldCheck size={48} />
                </motion.div>
                <p className="font-bold text-sm relative z-10">Secure Link Established</p>
-               {/* Pulse Ring */}
                <div className="absolute inset-0 bg-emerald-500/5 animate-pulse" />
             </div>
             
             <div className="space-y-3">
-                <button 
-                  onClick={() => window.close()}
-                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-                >
+                <button onClick={() => window.close()} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
                   Close Tab <X size={18} />
                 </button>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
@@ -161,19 +150,14 @@ function VerifyEmailContent() {
           </motion.div>
         )}
 
-        {/* ERROR STATE */}
         {status === "error" && (
           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="space-y-6">
             <div className="bg-rose-50 text-rose-600 p-6 rounded-3xl border border-rose-100 flex flex-col items-center gap-3">
                <XCircle size={48} />
                <p className="font-bold text-sm">Link Expired or Invalid</p>
             </div>
-            
             <div className="space-y-3">
-                <button 
-                  onClick={() => window.close()}
-                  className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 transition-colors"
-                >
+                <button onClick={() => window.close()} className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-50 transition-colors">
                   Close & Return
                 </button>
                 <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">
