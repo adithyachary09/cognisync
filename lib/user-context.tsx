@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -42,7 +42,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
-      user_metadata: sbUser.user_metadata || {}, // Fixed: Added missing property
+      user_metadata: sbUser.user_metadata || {}, 
       name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
       avatarUrl: "", // Default empty
     };
@@ -86,6 +86,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // 3. LISTEN FOR SETTINGS PATCH (Moved outside main effect to handle dependencies correctly)
+  const handlePatch = useCallback((e: Event) => {
+      const customEvent = e as CustomEvent;
+      // We use a functional state update here to ensure we ALWAYS have the latest 'prevUser'
+      // This fixes the "Stale Closure" bug where 'user' was frozen.
+      setUserState((prevUser) => {
+          if (!prevUser || !customEvent.detail) return prevUser;
+          
+          const updatedUser = {
+              ...prevUser,
+              name: customEvent.detail.username || prevUser.name,
+              avatarUrl: customEvent.detail.avatar || prevUser.avatarUrl
+          };
+          
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          return updatedUser;
+      });
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('cognisync:settings:patch', handlePatch);
+    return () => window.removeEventListener('cognisync:settings:patch', handlePatch);
+  }, [handlePatch]);
+
+
+  // 4. MAIN AUTH CHECK
   useEffect(() => {
     let mounted = true;
     
@@ -116,28 +142,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
          handleUserUpdate(fullUser);
       } else if (event === 'SIGNED_OUT') {
         handleUserUpdate(null);
-        window.location.href = '/'; 
+        // Only redirect if explicitly signed out (avoids loops)
+        if (event === 'SIGNED_OUT') window.location.href = '/'; 
       }
       setIsLoading(false);
     });
 
-    // Listen for Settings changes to update Context instantly
-    const handlePatch = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (user && customEvent.detail) {
-            handleUserUpdate({
-                ...user,
-                name: customEvent.detail.username || user.name,
-                avatarUrl: customEvent.detail.avatar || user.avatarUrl
-            });
-        }
-    };
-    window.addEventListener('cognisync:settings:patch', handlePatch);
-
     return () => { 
         mounted = false; 
         subscription.unsubscribe();
-        window.removeEventListener('cognisync:settings:patch', handlePatch);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
