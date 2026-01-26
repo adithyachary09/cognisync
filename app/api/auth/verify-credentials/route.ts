@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
-import bcrypt from 'bcryptjs';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
@@ -10,27 +9,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
 
-    // 1. Fetch user hash securely
-    const { data: user, error } = await supabaseAdmin
-      .from('users')
-      .select('id, password_hash')
-      .eq('email', email)
-      .single();
+    // Create a fresh Supabase client just for this check (Stateless)
+    // We do NOT use the admin client because we want to verify the password by signing in.
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false // CRITICAL: Don't save this session
+        }
+      }
+    );
 
-    if (error || !user || !user.password_hash) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    // 2. Verify Password
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!isMatch) {
-      return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("Verify Creds Error:", err);
-    return NextResponse.json({ error: 'Server verification failed' }, { status: 500 });
+
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
