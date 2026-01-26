@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
 // 1. Export Interfaces
@@ -25,6 +25,12 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 const USER_STORAGE_KEY = "cognisync:user-session";
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  // Initialize Supabase Client dynamically for proper Session handling
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // 2. Initialize from LocalStorage to prevent flicker
   const [user, setUserState] = useState<User | null>(() => {
     if (typeof window !== "undefined") {
@@ -38,32 +44,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Helper: Merges Auth Data with Database (Source of Truth)
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
-    // Start with basic info from Auth
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
       user_metadata: sbUser.user_metadata || {}, 
       name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
-      avatarUrl: "", // Default empty
+      avatarUrl: "", 
     };
 
-    // FETCH LATEST PROFILE FROM DATABASE
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('name, avatar_url') // Fetch both fields
+        .select('name, avatar_url') 
         .eq('id', sbUser.id)
         .single();
 
       if (data && !error) {
         if (data.name) finalUser.name = data.name;
+        // CRITICAL: Ensure we map snake_case from DB to camelCase for Context
         if (data.avatar_url) finalUser.avatarUrl = data.avatar_url;
       }
     } catch (err) {
       console.error("Background profile fetch failed:", err);
     }
 
-    // Fallback: If DB avatar is empty, use placeholder
     if (!finalUser.avatarUrl) {
         finalUser.avatarUrl = "/placeholder-user.png";
     }
@@ -73,11 +77,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const handleUserUpdate = (u: User | null) => {
     setUserState(u);
-    if (u) localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
-    else localStorage.removeItem(USER_STORAGE_KEY);
+    if (u) {
+        try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(u));
+        } catch (e) {
+            // Handle QuotaExceeded for large Base64 avatars
+            console.warn("LocalStorage quota exceeded, skipping cache.");
+        }
+    } else {
+        localStorage.removeItem(USER_STORAGE_KEY);
+    }
   };
 
-  // Exposed function to re-fetch data
   const refreshProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
@@ -86,11 +97,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 3. LISTEN FOR SETTINGS PATCH (Moved outside main effect to handle dependencies correctly)
   const handlePatch = useCallback((e: Event) => {
       const customEvent = e as CustomEvent;
-      // We use a functional state update here to ensure we ALWAYS have the latest 'prevUser'
-      // This fixes the "Stale Closure" bug where 'user' was frozen.
       setUserState((prevUser) => {
           if (!prevUser || !customEvent.detail) return prevUser;
           
@@ -100,7 +108,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
               avatarUrl: customEvent.detail.avatar || prevUser.avatarUrl
           };
           
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          try {
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+          } catch(e) {}
+          
           return updatedUser;
       });
   }, []);
@@ -110,8 +121,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('cognisync:settings:patch', handlePatch);
   }, [handlePatch]);
 
-
-  // 4. MAIN AUTH CHECK
   useEffect(() => {
     let mounted = true;
     
@@ -120,7 +129,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
           if (session?.user) {
-            // Wait for the Profile fetch to complete
             const fullUser = await fetchFullProfile(session.user);
             handleUserUpdate(fullUser);
           } else if (!user) {
@@ -142,8 +150,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
          handleUserUpdate(fullUser);
       } else if (event === 'SIGNED_OUT') {
         handleUserUpdate(null);
-        // Only redirect if explicitly signed out (avoids loops)
-        if (event === 'SIGNED_OUT') window.location.href = '/'; 
       }
       setIsLoading(false);
     });
@@ -157,6 +163,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await supabase.auth.signOut();
     handleUserUpdate(null);
+    window.location.href = '/'; 
   };
 
   return (
