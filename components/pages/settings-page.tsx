@@ -490,10 +490,29 @@ export default function SettingsPage() {
   };
 
   const handleClearCache = () => {
+    const essentialKeys = [
+      'supabase.auth.token', 
+      'cognisync:settings', 
+      'cognisync:settings-tab',
+      'theme-storage'
+    ];
+    
+    let count = 0;
     Object.keys(localStorage).forEach(key => {
-      if (key.includes(":temp")) localStorage.removeItem(key);
+      if (!essentialKeys.some(essential => key.includes(essential))) {
+        localStorage.removeItem(key);
+        count++;
+      }
     });
-    showNotification({ type: "success", message: "Temporary cache cleared.", duration: 2000 });
+
+    // Clear session storage fragments
+    sessionStorage.clear();
+    
+    showNotification({ 
+      type: "success", 
+      message: count > 0 ? `Purged ${count} cached fragments.` : "Cache is already optimal.", 
+      duration: 2000 
+    });
   };
 
   const handleResetPreferences = () => {
@@ -1024,15 +1043,15 @@ export default function SettingsPage() {
 
                     {/* INTERFACE RESET CARD (5/12) */}
                     <motion.div variants={itemVariant} className="md:col-span-5">
-                      <div className="relative h-full p-8 rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-3xl overflow-hidden group/reset shadow-xl flex flex-col justify-between">
-                         <div className="space-y-4">
+                      <div className="relative h-full p-8 rounded-[2.5rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card/50 to-card/20 backdrop-blur-3xl overflow-hidden group/reset shadow-xl flex flex-col justify-between transition-all duration-500">
+                         <div className="space-y-4 relative z-10">
                             <div className="flex items-center gap-3">
-                               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20"><Palette size={20} /></div>
+                               <div className="p-3 bg-primary/10 text-primary rounded-2xl border border-primary/20"><Palette size={20} /></div>
                                <h4 className="font-black text-lg">UI Baseline</h4>
                             </div>
-                            <p className="text-sm font-medium text-muted-foreground leading-relaxed">Restores default typography, theme accents, and light/dark modes without affecting logs.</p>
+                            <p className="text-sm font-medium text-muted-foreground leading-relaxed">Restores default typography, theme accents, and system modes without affecting logs.</p>
                          </div>
-                         <button onClick={handleResetPreferences} className="h-12 w-full rounded-xl border-2 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs font-black uppercase tracking-widest hover:bg-amber-500/10 transition-all">Reset Visuals</button>
+                         <button onClick={handleResetPreferences} className="relative z-10 h-12 w-full rounded-xl border-2 border-primary/20 bg-primary/5 text-primary text-xs font-black uppercase tracking-widest hover:bg-primary/10 transition-all">Reset Visuals</button>
                       </div>
                     </motion.div>
                   </div>
@@ -1054,7 +1073,7 @@ export default function SettingsPage() {
                        </div>
                     </motion.div>
 
-                    {/* DANGER ZONE (MODULAR) */}
+                    {/* DANGER ZONE (FACTORY RESET LOGIC FIXED) */}
                     <motion.div variants={itemVariant}>
                        <div className="p-8 rounded-[2.5rem] border border-red-500/20 bg-red-500/5 backdrop-blur-3xl shadow-xl flex flex-col gap-6 relative overflow-hidden group/danger">
                           <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
@@ -1076,12 +1095,20 @@ export default function SettingsPage() {
                                     <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-600 mb-4 mx-auto border border-red-500/20"><AlertTriangle size={32} strokeWidth={3} /></div>
                                     <AlertDialogTitle className="text-2xl font-black text-center text-red-600">CRITICAL SYSTEM RESET</AlertDialogTitle>
                                     <AlertDialogDescription className="text-center font-medium text-muted-foreground">
-                                      You are about to permanently delete all journals, clinical data, and personal settings. This bypasses all recovery protocols.
+                                      This will permanently purge your Supabase tables and local storage. All CogniSync data will be lost forever.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <div className="flex flex-col gap-3 mt-4">
-                                     <AlertDialogAction onClick={handleFactoryReset} className="h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest transition-all">Yes, Delete Everything</AlertDialogAction>
-                                     <AlertDialogCancel className="h-12 rounded-2xl border-none font-bold text-muted-foreground">Abort Reset</AlertDialogCancel>
+                                     <AlertDialogAction 
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          handleFactoryReset();
+                                        }} 
+                                        className="h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest transition-all"
+                                     >
+                                        Execute Hard Reset
+                                     </AlertDialogAction>
+                                     <AlertDialogCancel className="h-12 rounded-2xl border-none font-bold text-muted-foreground">Abort</AlertDialogCancel>
                                   </div>
                                 </AlertDialogContent>
                              </AlertDialog>
