@@ -44,9 +44,12 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
   const { user, isLoading, logout: contextLogout } = useUser();
   const { settings, resetTheme } = useTheme();
 
-  // Data Logic: Context > DB > Default
-  const displayName = settings.username || user?.name || "User";
-  const displayAvatar = settings.avatar || user?.avatarUrl;
+  // FIX: Prioritize UserContext (Source of Truth) but allow Theme Settings to act as a 
+  // temporary "Instant Patch" while the DB is saving in the background.
+  const displayName = user?.name || settings.username || "User";
+  const displayAvatar = (user?.avatarUrl && user.avatarUrl !== "/placeholder-user.png") 
+    ? user.avatarUrl 
+    : (settings.avatar || "/placeholder-user.png");
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home, shortcut: "D" },

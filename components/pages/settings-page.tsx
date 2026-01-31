@@ -320,32 +320,34 @@ export default function SettingsPage() {
     );
 
     try {
-        // 1. Update the Public Table
+        // Use explicit column selection to avoid RLS handshake issues
         const { error: dbError } = await supabase.from('users').upsert({ 
             id: user.id, 
             email: user.email,
             name: trimmed,
             updated_at: new Date().toISOString()
-        });
+        }, { onConflict: 'id' });
+
         if (dbError) throw dbError;
 
-        // 2. Update the Auth Metadata (This stops the "reset" after refresh)
+        // Metadata update ensures consistency across reloads
         const { error: authError } = await supabase.auth.updateUser({ 
             data: { full_name: trimmed, name: trimmed } 
         });
+
         if (authError) throw authError;
 
-        // 3. Update Local State
+        // Local UI update
         updateSettings({ username: trimmed });
         
-        // 4. Force UserContext to hear the change immediately
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-            detail: { username: trimmed, avatar: settings.avatar } 
+            detail: { username: trimmed, avatar: settings.avatar || user.avatarUrl } 
         }));
 
-        showNotification({ type: "success", message: "Identity synchronized.", duration: 2000 });
-    } catch (error) {
-        showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
+        showNotification({ type: "success", message: "Identity updated.", duration: 2000 });
+    } catch (error: any) {
+        console.error("Name Save Error:", error.message);
+        showNotification({ type: "error", message: "Sync failed. Refresh and try again.", duration: 3000 });
     } finally {
         setIsSavingName(false);
     }
@@ -365,32 +367,31 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         try {
-            // 1. Update Public Table
             const { error: dbError } = await supabase.from('users').upsert({ 
                 id: user.id, 
                 email: user.email,
                 avatar_url: base64,
                 updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
+
             if (dbError) throw dbError;
 
-            // 2. Update Auth Metadata (Crucial for persistence)
             const { error: authError } = await supabase.auth.updateUser({ 
                 data: { avatar_url: base64, picture: base64 } 
             });
+
             if (authError) throw authError;
 
-            // 3. Local State
             updateSettings({ avatar: base64 });
 
-            // 4. Broadcast to Sidebar/UserContext
             window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-                detail: { username: settings.username, avatar: base64 } 
+                detail: { username: settings.username || user.name, avatar: base64 } 
             }));
 
-            showNotification({ type: "success", message: "Visual ID saved.", duration: 2000 });
-        } catch (error) {
-            showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
+            showNotification({ type: "success", message: "Avatar saved.", duration: 2000 });
+        } catch (error: any) {
+            console.error("Avatar Upload Error:", error.message);
+            showNotification({ type: "error", message: "Upload failed. Try a smaller file.", duration: 3000 });
         }
       };
       reader.readAsDataURL(file);
