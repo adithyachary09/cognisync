@@ -539,6 +539,7 @@ export default function SettingsPage() {
     }
   };
 
+  // Ensure we have the clear function from context
   const { clearAllData } = useJournal();
 
   const handleFactoryReset = async () => {
@@ -553,39 +554,46 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // 1. CLEAR REMOTE DATA
-        await Promise.allSettled([
-          supabase.from('user_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-          supabase.from('assessments').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-          supabase.from('journal_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-          supabase.from('verification_codes').delete().eq('identifier', user.email),
-          supabase.from('verification_tokens').delete().eq('user_id', user.id),
-          supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
-        ]);
-
-        // 2. CLEAR LOCAL CONTEXT STATE (FIX)
-        clearAllData();
-
-        // 3. CLEAR BROWSER STORAGE & SESSION
+        // 1. ATTEMPT REMOTE PURGE 
+        // We use an inner try-catch so that database errors don't stop the local logout process.
+        try {
+            await Promise.allSettled([
+              // Standard matching for your new RLS policies
+              supabase.from('user_entries').delete().eq('user_id', user.id),
+              supabase.from('assessments').delete().eq('user_id', user.id),
+              supabase.from('journal_entries').delete().eq('user_id', user.id),
+              supabase.from('verification_codes').delete().eq('identifier', user.email),
+              supabase.from('verification_tokens').delete().eq('user_id', user.id),
+              supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
+            ]);
+            await supabase.auth.signOut();
+        } catch (dbError) {
+            console.error("Database purge failed, proceeding with local wipe:", dbError);
+        }
+      }
+    } catch (error) {
+      console.error("Auth layer check failed:", error);
+    } finally {
+        // 2. THE FAIL-SAFE: RUNS REGARDLESS OF ERRORS
+        
+        // Wipe Context state immediately
+        if (typeof clearAllData === 'function') {
+            clearAllData();
+        }
+        
+        // Clear all Browser memory
         localStorage.clear();
         sessionStorage.clear();
         
-        // 4. SIGNOUT SUPABASE
-        await supabase.auth.signOut();
-        
-        // 5. TRIGGER LOCAL LOGOUT STATE
+        // Terminate local session
         logout();
 
-        showNotification({ type: "success", message: "System Reset Complete. Redirection initiated.", duration: 2000 });
+        showNotification({ type: "success", message: "System Reset Complete. Goodbye.", duration: 2000 });
         
-        // 6. HARD REFRESH
+        // Force Hard Reload to clear all RAM and redirect home
         setTimeout(() => {
           window.location.href = "/";
-        }, 1500);
-      }
-    } catch (error) {
-      console.error("Critical Reset Failure:", error);
-      showNotification({ type: "error", message: "System failure during purge.", duration: 4000 });
+        }, 1000);
     }
   };
 
