@@ -44,31 +44,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Helper: Merges Auth Data with Database (Source of Truth)
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
+    // 1. Start with Auth Metadata, but check for CUSTOM overrides first
+    // This handles the case where we just updated the user via supabase.auth.updateUser
+    const meta = sbUser.user_metadata || {};
+    
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
-      user_metadata: sbUser.user_metadata || {}, 
-      name: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || "",
-      avatarUrl: "", 
+      user_metadata: meta, 
+      // Priority: Custom saved name > Google Full Name > Google Name
+      name: meta.full_name || meta.name || "User",
+      // Priority: Custom saved avatar > Google Picture > Placeholder
+      avatarUrl: meta.avatar_url || meta.picture || "/placeholder-user.png", 
     };
 
     try {
+      // 2. STICKY OVERRIDE: Fetch from 'users' table (Ultimate Source of Truth)
+      // We force { cache: 'no-store' } logic by using a fresh supabase call if needed,
+      // but standard select is usually fine if RLS is correct.
       const { data, error } = await supabase
         .from('users')
         .select('name, avatar_url') 
         .eq('id', sbUser.id)
-        .single();
+        .maybeSingle(); // Use maybeSingle to avoid errors if user row doesn't exist yet
 
       if (data && !error) {
+        // If Database has values, they OVERWRITE auth metadata permanently
         if (data.name) finalUser.name = data.name;
-        // CRITICAL: Ensure we map snake_case from DB to camelCase for Context
-        if (data.avatar_url) finalUser.avatarUrl = data.avatar_url;
+        if (data.avatar_url && data.avatar_url.length > 10) {
+            finalUser.avatarUrl = data.avatar_url;
+        }
       }
     } catch (err) {
-      console.error("Background profile fetch failed:", err);
+      console.error("Database sync failed, falling back to Auth Metadata:", err);
     }
 
-    if (!finalUser.avatarUrl) {
+    // Final safety check for empty strings
+    if (!finalUser.avatarUrl || finalUser.avatarUrl === "") {
         finalUser.avatarUrl = "/placeholder-user.png";
     }
 
