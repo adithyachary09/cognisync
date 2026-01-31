@@ -397,23 +397,7 @@ export default function SettingsPage() {
     try {
       showNotification({ type: "info", message: "Uploading...", duration: 1000 });
 
-      // 1. Check if bucket exists, if not create it (one-time operation)
-      const { data: buckets } = await supabase.storage.listBuckets();
-      const bucketExists = buckets?.some(b => b.name === 'avatars');
-      
-      if (!bucketExists) {
-        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
-          public: true,
-          fileSizeLimit: 2097152, // 2MB
-          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']
-        });
-        if (bucketError) {
-          console.error("Bucket creation failed:", bucketError);
-          throw new Error("Storage setup failed. Please contact support.");
-        }
-      }
-
-      // 2. Upload with proper path structure
+      // 1. Upload with proper path structure (bucket already exists)
       const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
       const timestamp = Date.now();
       const filePath = `${user.id}/avatar-${timestamp}.${fileExt}`;
