@@ -539,6 +539,8 @@ export default function SettingsPage() {
     }
   };
 
+  const { clearAllData } = useJournal();
+
   const handleFactoryReset = async () => {
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -546,27 +548,44 @@ export default function SettingsPage() {
     );
     setShowFactoryResetDialog(false);
     showNotification({ type: "warning", message: "Factory Reset Initiated...", duration: 5000 });
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
       if (user) {
+        // 1. CLEAR REMOTE DATA
         await Promise.allSettled([
-          supabase.from('user_entries').delete().eq('user_id', user.id),
-          supabase.from('assessments').delete().eq('user_id', user.id),
-          supabase.from('journal_entries').delete().eq('user_id', user.id),
+          supabase.from('user_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+          supabase.from('assessments').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+          supabase.from('journal_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
           supabase.from('verification_codes').delete().eq('identifier', user.email),
           supabase.from('verification_tokens').delete().eq('user_id', user.id),
           supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
         ]);
-        await supabase.auth.signOut();
-        logout();
+
+        // 2. CLEAR LOCAL CONTEXT STATE (FIX)
+        clearAllData();
+
+        // 3. CLEAR BROWSER STORAGE & SESSION
         localStorage.clear();
         sessionStorage.clear();
-        showNotification({ type: "success", message: "System Reset Complete. Goodbye.", duration: 2000 });
+        
+        // 4. SIGNOUT SUPABASE
+        await supabase.auth.signOut();
+        
+        // 5. TRIGGER LOCAL LOGOUT STATE
+        logout();
+
+        showNotification({ type: "success", message: "System Reset Complete. Redirection initiated.", duration: 2000 });
+        
+        // 6. HARD REFRESH
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1500);
       }
     } catch (error) {
-      console.error("Reset Error:", error);
-    } finally {
-      setTimeout(() => { window.location.href = "/"; }, 1000);
+      console.error("Critical Reset Failure:", error);
+      showNotification({ type: "error", message: "System failure during purge.", duration: 4000 });
     }
   };
 

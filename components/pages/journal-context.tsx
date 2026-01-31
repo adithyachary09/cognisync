@@ -22,6 +22,7 @@ interface JournalContextType {
   refreshEntries: () => Promise<void>;
   getStats: () => any;
   setUserIdManual: (uid: string) => void;
+  clearAllData: () => void; // Added for Factory Reset
 }
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
