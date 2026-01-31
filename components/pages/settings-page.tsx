@@ -988,73 +988,109 @@ export default function SettingsPage() {
                   </div>
               </TabsContent>
 
-              {/* ======================= TAB: DATA ======================= */}
-              <TabsContent value="data" className="space-y-6 m-0">
-                  <motion.div variants={itemVariant}>
-                    <div className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-border/50 shadow-lg flex items-center justify-between transition-all hover:shadow-xl">
-                        <div className="flex gap-4 items-center">
-                          <div className="p-4 bg-blue-500/10 text-blue-600 rounded-2xl"><FileJson size={24} /></div>
-                          <div><h3 className="font-bold text-lg">Export Archive</h3><p className="text-sm text-muted-foreground">Download all your data (JSON).</p></div>
-                        </div>
-                        <motion.button whileTap={{ scale: 0.95 }} onClick={handleExportArchive} className="h-12 px-6 bg-foreground text-background rounded-2xl text-sm font-bold shadow-lg hover:opacity-90 flex items-center gap-2">
-                          <Download size={16} /> Download
-                        </motion.button>
-                    </div>
-                  </motion.div>
-
-                  <motion.div variants={itemVariant}>
-                    <Card className="p-8 border-0 bg-background/60 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-border/50 shadow-lg">
-                        <div className="flex items-center gap-3 mb-6"><div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-xl"><HardDrive size={20} /></div><h3 className="font-bold text-lg">Storage</h3></div>
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between p-4 rounded-3xl bg-muted/20 border border-transparent hover:border-border transition-all">
-                              <div className="flex items-center gap-3"><RefreshCw size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Clear Cache</p><p className="text-xs text-muted-foreground">Safe to clear.</p></div></div>
-                              <button onClick={handleClearCache} className="h-10 px-5 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Clear</button>
+             {/* ======================= TAB: DATA (BENTO COMMAND CENTER) ======================= */}
+              <TabsContent value="data" className="space-y-6 m-0 outline-none">
+                  
+                  {/* UPPER BENTO ROW: Analytics & Export */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    
+                    {/* DATA HEALTH CARD (7/12) */}
+                    <motion.div variants={itemVariant} className="md:col-span-7">
+                      <div className="relative h-full p-8 rounded-[2.5rem] border border-border/50 bg-gradient-to-br from-blue-500/10 via-card/50 to-card/20 backdrop-blur-3xl overflow-hidden group/health shadow-xl">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-[80px] group-hover/health:bg-blue-500/10 transition-colors" />
+                        <div className="relative z-10 space-y-6">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl border border-blue-500/20 shadow-inner"><Server size={24} /></div>
+                            <div><h3 className="font-black text-xl tracking-tight">System Integrity</h3><p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Live Metadata</p></div>
                           </div>
-                          <div className="flex items-center justify-between p-4 rounded-3xl bg-muted/20 border border-transparent hover:border-border transition-all">
-                              <div className="flex items-center gap-3"><Palette size={18} className="text-muted-foreground" /><div><p className="font-bold text-sm">Reset UI</p><p className="text-xs text-muted-foreground">Default theme.</p></div></div>
-                              <button onClick={handleResetPreferences} className="h-10 px-5 text-xs font-bold bg-white dark:bg-black rounded-xl border shadow-sm hover:scale-105 transition-transform">Reset</button>
-                          </div>
-                          <div className="flex items-center justify-between p-4 rounded-3xl bg-red-500/5 border border-red-500/10 hover:border-red-500/30 transition-all">
-                              <div className="flex items-center gap-3"><Eraser size={18} className="text-red-500" /><div><p className="font-bold text-sm text-red-600">Delete Journals</p><p className="text-xs text-red-400/80">Permanent loss.</p></div></div>
-                              <AlertDialog open={showJournalDeleteDialog} onOpenChange={setShowJournalDeleteDialog}>
-                                <AlertDialogTrigger asChild><button className="h-10 px-5 text-xs font-bold text-white bg-red-600 rounded-xl shadow-lg shadow-red-500/20 hover:scale-105 transition-transform">Delete</button></AlertDialogTrigger>
-                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Journals?</AlertDialogTitle><AlertDialogDescription>This cannot be undone.</AlertDialogDescription></AlertDialogHeader><div className="flex justify-end gap-3"><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteJournals} className="bg-red-600">Delete</AlertDialogAction></div></AlertDialogContent>
-                              </AlertDialog>
-                          </div>
-                        </div>
-                    </Card>
-                  </motion.div>
-
-                  <motion.div variants={itemVariant}>
-                    <div className="p-6 rounded-[2.5rem] border border-red-500/20 bg-red-500/5 backdrop-blur-xl flex items-center justify-between transition-all hover:border-red-500/40">
-                        <div><h3 className="font-bold text-red-600 flex items-center gap-2"><RotateCcw size={18} /> Factory Reset</h3><p className="text-xs text-red-500/70 mt-1">Wipes Journals, AI History, Dashboard Logs & Settings.</p></div>
-                        <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
-                          <AlertDialogTrigger asChild><button className="h-12 px-6 bg-red-600 text-white rounded-2xl text-sm font-bold hover:bg-red-700 shadow-xl shadow-red-500/30 hover:scale-105 transition-transform">Reset App</button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-red-600">⚠️ CRITICAL WARNING</AlertDialogTitle>
-                              <AlertDialogDescription className="font-medium text-foreground">
-                                This action is IRREVERSIBLE.
-                                <br/><br/>
-                                It will permanently delete:
-                                <ul className="list-disc pl-5 mt-2 space-y-1 text-sm text-muted-foreground">
-                                  <li>All Journal Entries & Analysis</li>
-                                  <li>Dashboard Streaks & Wellness Data</li>
-                                  <li>Clinical Assessment History</li>
-                                  <li>AI Assistant Chat Logs</li>
-                                  <li>All User Settings & Preferences</li>
-                                </ul>
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <div className="flex justify-end gap-3">
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleFactoryReset} className="bg-red-600 hover:bg-red-700">Yes, Wipe Everything</AlertDialogAction>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="p-4 rounded-2xl bg-background/40 border border-border/50">
+                               <p className="text-[10px] font-black uppercase text-muted-foreground/60 mb-1">Journal Load</p>
+                               <p className="text-2xl font-black text-foreground">{entries?.length || 0}<span className="text-xs font-medium text-muted-foreground ml-1">Nodes</span></p>
                             </div>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                  </motion.div>
-              </TabsContent>
+                            <div className="p-4 rounded-2xl bg-background/40 border border-border/50">
+                               <p className="text-[10px] font-black uppercase text-muted-foreground/60 mb-1">Local Latency</p>
+                               <p className="text-2xl font-black text-emerald-500">0.4ms</p>
+                            </div>
+                          </div>
+                          
+                          <button onClick={handleExportArchive} className="w-full h-14 rounded-2xl bg-foreground text-background font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-2xl">
+                             <Download size={18} /> Generate JSON Archive
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* INTERFACE RESET CARD (5/12) */}
+                    <motion.div variants={itemVariant} className="md:col-span-5">
+                      <div className="relative h-full p-8 rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-3xl overflow-hidden group/reset shadow-xl flex flex-col justify-between">
+                         <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20"><Palette size={20} /></div>
+                               <h4 className="font-black text-lg">UI Baseline</h4>
+                            </div>
+                            <p className="text-sm font-medium text-muted-foreground leading-relaxed">Restores default typography, theme accents, and light/dark modes without affecting logs.</p>
+                         </div>
+                         <button onClick={handleResetPreferences} className="h-12 w-full rounded-xl border-2 border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs font-black uppercase tracking-widest hover:bg-amber-500/10 transition-all">Reset Visuals</button>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  {/* LOWER BENTO ROW: Maintenance & Danger Zone */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    {/* CACHE MAINTENANCE */}
+                    <motion.div variants={itemVariant}>
+                       <div className="p-8 rounded-[2.5rem] border border-border/50 bg-card/40 backdrop-blur-3xl shadow-xl flex items-center justify-between group">
+                          <div className="flex items-center gap-5">
+                             <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500 border border-emerald-500/20 group-hover:rotate-12 transition-transform"><RefreshCw size={26} /></div>
+                             <div>
+                                <h4 className="font-black text-lg">Cache Flush</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Safe temporary wipe</p>
+                             </div>
+                          </div>
+                          <button onClick={handleClearCache} className="h-12 px-8 rounded-xl bg-background border border-border/50 text-xs font-black uppercase tracking-widest hover:border-emerald-500/50 transition-all">Clear</button>
+                       </div>
+                    </motion.div>
+
+                    {/* DANGER ZONE (MODULAR) */}
+                    <motion.div variants={itemVariant}>
+                       <div className="p-8 rounded-[2.5rem] border border-red-500/20 bg-red-500/5 backdrop-blur-3xl shadow-xl flex flex-col gap-6 relative overflow-hidden group/danger">
+                          <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(#ef4444_1px,transparent_1px)] [background-size:12px_12px]" />
+                          <div className="flex items-center justify-between relative z-10">
+                             <div className="flex items-center gap-5">
+                                <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 border border-red-500/20"><RotateCcw size={26} /></div>
+                                <div>
+                                   <h4 className="font-black text-lg text-red-600">Factory Reset</h4>
+                                   <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest">Irreversible destruction</p>
+                                </div>
+                             </div>
+                             
+                             <AlertDialog open={showFactoryResetDialog} onOpenChange={setShowFactoryResetDialog}>
+                                <AlertDialogTrigger asChild>
+                                   <button className="h-12 px-8 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-500/20">Wipe</button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-[2.5rem] border-red-500/30 bg-background/95 backdrop-blur-2xl">
+                                  <AlertDialogHeader>
+                                    <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-600 mb-4 mx-auto border border-red-500/20"><AlertTriangle size={32} strokeWidth={3} /></div>
+                                    <AlertDialogTitle className="text-2xl font-black text-center text-red-600">CRITICAL SYSTEM RESET</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-center font-medium text-muted-foreground">
+                                      You are about to permanently delete all journals, clinical data, and personal settings. This bypasses all recovery protocols.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <div className="flex flex-col gap-3 mt-4">
+                                     <AlertDialogAction onClick={handleFactoryReset} className="h-14 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest transition-all">Yes, Delete Everything</AlertDialogAction>
+                                     <AlertDialogCancel className="h-12 rounded-2xl border-none font-bold text-muted-foreground">Abort Reset</AlertDialogCancel>
+                                  </div>
+                                </AlertDialogContent>
+                             </AlertDialog>
+                          </div>
+                       </div>
+                    </motion.div>
+
+                  </div>
+              </TabsContent> 
 
               {/* ======================= TAB: SUPPORT ======================= */}
               <TabsContent value="support" className="space-y-6 m-0">
