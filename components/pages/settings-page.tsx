@@ -277,6 +277,12 @@ export default function SettingsPage() {
             ? data.avatar_url 
             : (authAvatar || "/placeholder-user.png");
 
+        // FIX: Update Local Cache Immediately
+        localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+            name: finalName, 
+            avatarUrl: finalAvatar 
+        }));
+
         if (!data && (authName || authAvatar)) {
             await supabase.from('users').upsert({
                 id: user.id,
@@ -320,8 +326,16 @@ export default function SettingsPage() {
     );
 
     try {
-        // 1. INSTANT UI UPDATE (Optimistic)
+        // 1. INSTANT UI UPDATE (Optimistic & Persistent)
         updateSettings({ username: trimmed });
+        
+        // FIX: Force persist to LocalStorage for Sidebar
+        const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+        localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+            ...currentCache, 
+            name: trimmed 
+        }));
+
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
             detail: { username: trimmed, avatar: settings.avatar } 
         }));
@@ -382,8 +396,16 @@ export default function SettingsPage() {
         .from('avatars')
         .getPublicUrl(filePath);
 
-      // 3. INSTANT UI UPDATE
+      // 3. INSTANT UI UPDATE (Persistent)
       updateSettings({ avatar: publicUrl });
+
+      // FIX: Force persist to LocalStorage for Sidebar
+      const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+      localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+          ...currentCache, 
+          avatarUrl: publicUrl 
+      }));
+
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
           detail: { username: settings.username, avatar: publicUrl } 
       }));
@@ -418,6 +440,11 @@ export default function SettingsPage() {
         );
         await supabase.from('users').upsert({ id: user.id, email: user.email, avatar_url: null });
     }
+    
+    // FIX: Update Cache
+    const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+    localStorage.setItem("cognisync:user-session", JSON.stringify({ ...currentCache, avatarUrl: "/placeholder-user.png" }));
+
     updateSettings({ avatar: "/placeholder-user.png" });
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, avatar: "/placeholder-user.png" } }));
     showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
@@ -598,18 +625,24 @@ export default function SettingsPage() {
         // 1. ATTEMPT REMOTE PURGE 
         // We use an inner try-catch so that database errors don't stop the local logout process.
         try {
+            // CRITICAL: We double-verify the ID exists to prevent accidental global wipes
+            if (!user.id || user.id.length < 10) throw new Error("Invalid session ID");
+
             await Promise.allSettled([
-              // Standard matching for your new RLS policies
+              // Explicitly targeting only the current user's rows
+              supabase.from('users').delete().eq('id', user.id),
               supabase.from('user_entries').delete().eq('user_id', user.id),
               supabase.from('assessments').delete().eq('user_id', user.id),
               supabase.from('journal_entries').delete().eq('user_id', user.id),
-              supabase.from('verification_codes').delete().eq('identifier', user.email),
               supabase.from('verification_tokens').delete().eq('user_id', user.id),
               supabase.from('password_reset_tokens').delete().eq('user_id', user.id),
+              // Email-based tables must also be strictly filtered
+              supabase.from('verification_codes').delete().eq('identifier', user.email),
             ]);
+            
             await supabase.auth.signOut();
         } catch (dbError) {
-            console.error("Database purge failed, proceeding with local wipe:", dbError);
+            console.error("Scoped purge failed:", dbError);
         }
       }
     } catch (error) {

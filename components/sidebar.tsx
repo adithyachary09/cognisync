@@ -44,24 +44,40 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
   const { user, isLoading, logout: contextLogout } = useUser();
   const { settings, resetTheme } = useTheme();
 
-  // FIX: Prioritize UserContext (Source of Truth) but allow Theme Settings to act as a 
-  // temporary "Instant Patch" while the DB is saving in the background.
-  // FIX: Read directly from LocalStorage for the avatar if the context isn't ready yet.
-  // This removes the 1-2 second "empty circle" delay.
+  // FIX: Priority Chain -> LocalStorage (Instant) > UserContext (Server) > Settings (Fallback)
   const [cachedData, setCachedData] = useState<{name?: string, avatar?: string}>({});
 
+  // 1. Load initial cache
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem("cognisync:user-session");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setCachedData({ name: parsed.name, avatar: parsed.avatarUrl });
-      }
-    }
-  }, [user]);
+      const loadCache = () => {
+        const cached = localStorage.getItem("cognisync:user-session");
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            setCachedData({ name: parsed.name, avatar: parsed.avatarUrl });
+          } catch (e) { console.error("Cache parse error", e); }
+        }
+      };
+      loadCache();
 
-  const displayName = user?.name || cachedData.name || settings.username || "User";
-  const displayAvatar = user?.avatarUrl || cachedData.avatar || settings.avatar || "/placeholder-user.png";
+      // 2. Listen for "patch" events from Settings page for real-time updates
+      const handlePatch = (e: any) => {
+         if (e.detail) {
+             setCachedData(prev => ({
+                 name: e.detail.username || prev.name,
+                 avatar: e.detail.avatar || prev.avatar
+             }));
+         }
+      };
+      window.addEventListener("cognisync:settings:patch", handlePatch);
+      return () => window.removeEventListener("cognisync:settings:patch", handlePatch);
+    }
+  }, []);
+
+  // Logic: Cache wins for instant feedback, falls back to User Context if cache empty
+  const displayName = cachedData.name || user?.name || settings.username || "User";
+  const displayAvatar = cachedData.avatar || user?.avatarUrl || settings.avatar || "/placeholder-user.png";
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home, shortcut: "D" },
