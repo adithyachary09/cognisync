@@ -320,7 +320,13 @@ export default function SettingsPage() {
     );
 
     try {
-        // Use explicit column selection to avoid RLS handshake issues
+        // 1. INSTANT UI UPDATE (Optimistic)
+        updateSettings({ username: trimmed });
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+            detail: { username: trimmed, avatar: settings.avatar } 
+        }));
+
+        // 2. SAVE TO DB
         const { error: dbError } = await supabase.from('users').upsert({ 
             id: user.id, 
             email: user.email,
@@ -328,23 +334,15 @@ export default function SettingsPage() {
             updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
 
-        if (dbError) throw dbError;
+        if (dbError) throw new Error("Database reject: " + dbError.message);
 
-        // Metadata update ensures consistency across reloads
-        const { error: authError } = await supabase.auth.updateUser({ 
+        // 3. BACKGROUND AUTH SYNC (Non-blocking)
+        // We do this separately so if Auth fails, the UI still stays updated.
+        supabase.auth.updateUser({ 
             data: { full_name: trimmed, name: trimmed } 
-        });
+        }).catch(e => console.warn("Auth metadata sync delayed:", e));
 
-        if (authError) throw authError;
-
-        // Local UI update
-        updateSettings({ username: trimmed });
-        
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-            detail: { username: trimmed, avatar: settings.avatar || user.avatarUrl } 
-        }));
-
-        showNotification({ type: "success", message: "Identity updated.", duration: 2000 });
+        showNotification({ type: "success", message: "Identity synchronized.", duration: 2000 });
     } catch (error: any) {
         console.error("Name Save Error:", error.message);
         showNotification({ type: "error", message: "Sync failed. Refresh and try again.", duration: 3000 });
@@ -366,7 +364,14 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        try {
+       try {
+            // 1. INSTANT UI UPDATE
+            updateSettings({ avatar: base64 });
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+                detail: { username: settings.username, avatar: base64 } 
+            }));
+
+            // 2. SAVE TO DB
             const { error: dbError } = await supabase.from('users').upsert({ 
                 id: user.id, 
                 email: user.email,
@@ -374,21 +379,14 @@ export default function SettingsPage() {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' });
 
-            if (dbError) throw dbError;
+            if (dbError) throw new Error("DB storage failed: " + dbError.message);
 
-            const { error: authError } = await supabase.auth.updateUser({ 
+            // 3. BACKGROUND AUTH SYNC
+            supabase.auth.updateUser({ 
                 data: { avatar_url: base64, picture: base64 } 
-            });
+            }).catch(e => console.warn("Auth avatar sync delayed:", e));
 
-            if (authError) throw authError;
-
-            updateSettings({ avatar: base64 });
-
-            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-                detail: { username: settings.username || user.name, avatar: base64 } 
-            }));
-
-            showNotification({ type: "success", message: "Avatar saved.", duration: 2000 });
+            showNotification({ type: "success", message: "Visual ID saved.", duration: 2000 });
         } catch (error: any) {
             console.error("Avatar Upload Error:", error.message);
             showNotification({ type: "error", message: "Upload failed. Try a smaller file.", duration: 3000 });
