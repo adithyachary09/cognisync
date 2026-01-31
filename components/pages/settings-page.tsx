@@ -331,10 +331,14 @@ export default function SettingsPage() {
     try {
         // 1. HARD CACHE UPDATE (Persistence Guarantee)
         const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-        localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+        const updatedCache = { 
             ...currentCache, 
-            name: trimmed 
-        }));
+            id: user.id,
+            email: user.email,
+            name: trimmed,
+            avatarUrl: currentCache.avatarUrl || settings.avatar || "/placeholder-user.png"
+        };
+        localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
         // 2. INSTANT UI UPDATE
         updateSettings({ username: trimmed });
@@ -342,14 +346,16 @@ export default function SettingsPage() {
             detail: { username: trimmed, avatar: settings.avatar } 
         }));
 
-        // 3. SAVE TO DB (Robust Upsert)
-        // Note: We intentionally exclude 'email' from the update payload to avoid RLS conflict 
-        // if the user isn't allowed to change their email via this endpoint.
+        // 3. SAVE TO DB (Proper Upsert with Required Fields)
         const { error: dbError } = await supabase.from('users').upsert({ 
-            id: user.id, 
+            id: user.id,
+            email: user.email, // CRITICAL: Include email for RLS
             name: trimmed,
             updated_at: new Date().toISOString()
-        }, { onConflict: 'id' });
+        }, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+        });
 
         if (dbError) {
             console.error("DB Save Failed:", dbError);
@@ -362,8 +368,7 @@ export default function SettingsPage() {
         showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
     } catch (error: any) {
         console.error("Critical Name Error:", error);
-        // Even if DB fails, we keep the local state for UX, but warn user
-        showNotification({ type: "warning", message: "Saved locally. Retrying sync...", duration: 3000 });
+        showNotification({ type: "error", message: "Save failed: " + error.message, duration: 4000 });
     } finally {
         setIsSavingName(false);
     }
@@ -373,6 +378,12 @@ export default function SettingsPage() {
     if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return showNotification({ type: "warning", message: "Only images (JPG, PNG, GIF, WEBP) are allowed.", duration: 3000 });
+    }
 
     if (file.size > 2 * 1024 * 1024) {
       return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
@@ -386,71 +397,158 @@ export default function SettingsPage() {
     try {
       showNotification({ type: "info", message: "Uploading...", duration: 1000 });
 
-      // 1. Upload (Fixed Path + Upsert)
-      const fileExt = file.name.split('.').pop();
-      // FIX: Use a consistent filename so we don't fill storage with duplicates
-      const filePath = `${user.id}/avatar.${fileExt}`;
+      // 1. Check if bucket exists, if not create it (one-time operation)
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(b => b.name === 'avatars');
+      
+      if (!bucketExists) {
+        const { error: bucketError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 2097152, // 2MB
+          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']
+        });
+        if (bucketError) {
+          console.error("Bucket creation failed:", bucketError);
+          throw new Error("Storage setup failed. Please contact support.");
+        }
+      }
 
-      const { error: uploadError } = await supabase.storage
+      // 2. Upload with proper path structure
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const timestamp = Date.now();
+      const filePath = `${user.id}/avatar-${timestamp}.${fileExt}`;
+
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true }); // FIX: 'upsert: true' is critical for overwriting
+        .upload(filePath, file, { 
+          cacheControl: '3600',
+          upsert: false // Create new file each time to avoid cache issues
+        });
 
-      if (uploadError) throw new Error("Storage Upload Failed: " + uploadError.message);
+      if (uploadError) {
+        console.error("Upload error details:", uploadError);
+        throw new Error(uploadError.message || "Storage upload failed");
+      }
 
-      // 2. Force a cache bust on the URL so the browser sees the new image
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrlWithBust = `${publicUrl}?t=${new Date().getTime()}`;
+      // 3. Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
 
-      // 3. HARD CACHE UPDATE
+      if (!publicUrl) {
+        throw new Error("Failed to generate public URL");
+      }
+
+      // 4. HARD CACHE UPDATE
       const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-      localStorage.setItem("cognisync:user-session", JSON.stringify({ 
-          ...currentCache, 
-          avatarUrl: publicUrlWithBust 
-      }));
+      const updatedCache = {
+          ...currentCache,
+          id: user.id,
+          email: user.email,
+          name: currentCache.name || settings.username || "User",
+          avatarUrl: publicUrl
+      };
+      localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-      // 4. INSTANT UI UPDATE
-      updateSettings({ avatar: publicUrlWithBust });
+      // 5. INSTANT UI UPDATE
+      updateSettings({ avatar: publicUrl });
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-          detail: { username: settings.username, avatar: publicUrlWithBust } 
+          detail: { username: settings.username, avatar: publicUrl } 
       }));
 
-      // 5. SAVE TO DB
+      // 6. SAVE TO DB (with email for RLS)
       const { error: dbError } = await supabase.from('users').upsert({ 
-          id: user.id, 
-          avatar_url: publicUrlWithBust,
+          id: user.id,
+          email: user.email, // CRITICAL: Include email for RLS
+          avatar_url: publicUrl,
           updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-
-      if (dbError) throw new Error("DB Update Failed: " + dbError.message);
-
-      // 6. AUTH SYNC
-      await supabase.auth.updateUser({ 
-          data: { avatar_url: publicUrlWithBust, picture: publicUrlWithBust } 
+      }, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
       });
 
-      showNotification({ type: "success", message: "New avatar saved!", duration: 2000 });
+      if (dbError) {
+        console.error("DB update error:", dbError);
+        throw new Error(dbError.message || "Database update failed");
+      }
+
+      // 7. AUTH SYNC
+      await supabase.auth.updateUser({ 
+          data: { avatar_url: publicUrl, picture: publicUrl } 
+      });
+
+      showNotification({ type: "success", message: "Avatar updated successfully!", duration: 2000 });
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error: any) {
-      console.error("Avatar Error:", error);
-      showNotification({ type: "error", message: "Upload failed: " + error.message, duration: 4000 });
+      console.error("Avatar Upload Error:", error);
+      showNotification({ 
+        type: "error", 
+        message: error.message || "Upload failed. Please try again.", 
+        duration: 4000 
+      });
+      // Reset file input on error
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleRemoveAvatar = async () => {
-    if (user) {
-        const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        await supabase.from('users').upsert({ id: user.id, email: user.email, avatar_url: null });
-    }
+    if (!user) return;
     
-    // FIX: Update Cache
-    const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-    localStorage.setItem("cognisync:user-session", JSON.stringify({ ...currentCache, avatarUrl: "/placeholder-user.png" }));
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    
+    try {
+      // Update database with required email field
+      const { error: dbError } = await supabase.from('users').upsert({ 
+        id: user.id, 
+        email: user.email, // CRITICAL: Include email for RLS
+        avatar_url: null,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      });
 
-    updateSettings({ avatar: "/placeholder-user.png" });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, avatar: "/placeholder-user.png" } }));
-    showNotification({ type: "info", message: "Restored default avatar.", duration: 2000 });
+      if (dbError) {
+        console.error("DB update error:", dbError);
+        throw new Error(dbError.message);
+      }
+
+      // Update cache
+      const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+      const updatedCache = {
+        ...currentCache,
+        id: user.id,
+        email: user.email,
+        name: currentCache.name || settings.username || "User",
+        avatarUrl: "/placeholder-user.png"
+      };
+      localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
+
+      // Update UI
+      updateSettings({ avatar: "/placeholder-user.png" });
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+        detail: { username: settings.username, avatar: "/placeholder-user.png" } 
+      }));
+      
+      // Sync auth metadata
+      await supabase.auth.updateUser({ 
+        data: { avatar_url: null, picture: null } 
+      });
+
+      showNotification({ type: "info", message: "Avatar removed successfully.", duration: 2000 });
+    } catch (error: any) {
+      console.error("Remove avatar error:", error);
+      showNotification({ type: "error", message: "Failed to remove avatar: " + error.message, duration: 3000 });
+    }
   };
 
   const sendEmailVerification = async () => {
