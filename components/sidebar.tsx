@@ -46,10 +46,22 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
 
   // FIX: Prioritize UserContext (Source of Truth) but allow Theme Settings to act as a 
   // temporary "Instant Patch" while the DB is saving in the background.
-  const displayName = user?.name || settings.username || "User";
-  const displayAvatar = (user?.avatarUrl && user.avatarUrl !== "/placeholder-user.png") 
-    ? user.avatarUrl 
-    : (settings.avatar || "/placeholder-user.png");
+  // FIX: Read directly from LocalStorage for the avatar if the context isn't ready yet.
+  // This removes the 1-2 second "empty circle" delay.
+  const [cachedData, setCachedData] = useState<{name?: string, avatar?: string}>({});
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem("cognisync:user-session");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setCachedData({ name: parsed.name, avatar: parsed.avatarUrl });
+      }
+    }
+  }, [user]);
+
+  const displayName = user?.name || cachedData.name || settings.username || "User";
+  const displayAvatar = user?.avatarUrl || cachedData.avatar || settings.avatar || "/placeholder-user.png";
 
   const menuItems = [
     { id: "main", label: "Dashboard", icon: Home, shortcut: "D" },

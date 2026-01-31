@@ -42,24 +42,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   
   const [isLoading, setIsLoading] = useState(true);
 
-  // Helper: Merges Auth Data with Database (Source of Truth)
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
-    // 1. Start with Auth Metadata, but check for CUSTOM overrides first
-    // This handles the case where we just updated the user via supabase.auth.updateUser
     const meta = sbUser.user_metadata || {};
     
+    // 1. FAST PATH: Check if we have this specific user cached in LocalStorage
+    // This makes the avatar show up instantly even if the Auth string is huge
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem(USER_STORAGE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.id === sbUser.id && parsed.avatarUrl?.length > 10) {
+          return parsed; // Return immediately for instant UI
+        }
+      }
+    }
+
     let finalUser: User = {
       id: sbUser.id,
       email: sbUser.email || "",
       user_metadata: meta, 
-      // Priority: Custom saved name > Google Full Name > Google Name
       name: meta.full_name || meta.name || "User",
-      // Priority: Custom saved avatar > Google Picture > Placeholder
       avatarUrl: meta.avatar_url || meta.picture || "/placeholder-user.png", 
     };
 
     try {
-      // Use maybeSingle() to prevent the "JSON object expected" crash if user isn't in the DB yet
       const { data, error } = await supabase
         .from('users')
         .select('name, avatar_url') 
@@ -67,21 +73,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (data && !error) {
-        // DB MUST ALWAYS WIN
-        if (data.name && data.name.trim() !== "") {
-            finalUser.name = data.name;
-        }
+        if (data.name && data.name.trim() !== "") finalUser.name = data.name;
         if (data.avatar_url && data.avatar_url.length > 10) {
             finalUser.avatarUrl = data.avatar_url;
         }
       }
     } catch (err) {
-      console.error("Critical Profile Merge Error:", err);
-    }
-
-    // Final safety check for empty strings
-    if (!finalUser.avatarUrl || finalUser.avatarUrl === "") {
-        finalUser.avatarUrl = "/placeholder-user.png";
+      console.error("Background profile sync failed:", err);
     }
 
     return finalUser;
@@ -110,22 +108,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const handlePatch = useCallback((e: Event) => {
-      const customEvent = e as CustomEvent;
-      setUserState((prevUser) => {
-          if (!prevUser || !customEvent.detail) return prevUser;
-          
-          const updatedUser = {
-              ...prevUser,
-              name: customEvent.detail.username || prevUser.name,
-              avatarUrl: customEvent.detail.avatar || prevUser.avatarUrl
-          };
-          
-          try {
-            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
-          } catch(e) {}
-          
-          return updatedUser;
-      });
+    const customEvent = e as CustomEvent;
+    if (!customEvent.detail) return;
+
+    setUserState((prevUser) => {
+      // If no user, we can't patch
+      if (!prevUser) return null;
+
+      const updatedUser = {
+        ...prevUser,
+        name: customEvent.detail.username ?? prevUser.name,
+        avatarUrl: customEvent.detail.avatar ?? prevUser.avatarUrl,
+        // Update the internal metadata so background fetches see the change
+        user_metadata: {
+          ...prevUser.user_metadata,
+          full_name: customEvent.detail.username ?? prevUser.user_metadata?.full_name,
+          avatar_url: customEvent.detail.avatar ?? prevUser.user_metadata?.avatar_url,
+        }
+      };
+
+      // Sync to storage immediately to survive accidental refreshes
+      try {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+      } catch (err) {
+        console.warn("Storage sync failed during patch");
+      }
+
+      return updatedUser;
+    });
   }, []);
 
   useEffect(() => {
