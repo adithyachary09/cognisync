@@ -5,8 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/user-context"; 
 
 export interface Entry {
-  id: string; 
-  user_id?: string; // Add this slot for RLS compatibility
+  id: string;
+  user_id?: string; // Add this line
   text: string;
   date: string;
   emotion: string;
