@@ -174,7 +174,7 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
           </AnimatePresence>
         </div>
 
-        {/* Profile Card with Skeleton */}
+        {/* Profile Card - Always shows cached state immediately */}
         <div className={cn("px-4 mb-4", isCollapsed && "px-3")}>
           <motion.div
             onClick={handleProfileClick}
@@ -185,28 +185,37 @@ export function Sidebar({ activePage, onPageChange, onLogout }: SidebarProps) {
               isCollapsed && "flex justify-center p-2 bg-transparent border-transparent hover:bg-muted/30"
             )}
           >
-            {isLoading ? (
-               /* SKELETON STATE */
-               <div className="flex items-center gap-3 animate-pulse">
-                  <div className="w-9 h-9 rounded-full bg-muted/50 shrink-0" />
-                  {!isCollapsed && <div className="h-3 w-20 bg-muted/50 rounded-md" />}
-               </div>
-            ) : (
-               /* LOADED STATE */
-               <div className="flex items-center gap-3 relative z-10">
-                  <div className="relative shrink-0">
-                    <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center shadow-sm">
-                      {displayAvatar ? <img src={displayAvatar} className="w-full h-full object-cover" alt="User" /> : <User size={16} className="text-muted-foreground" />}
-                    </div>
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background animate-pulse" />
-                  </div>
-                  {!isCollapsed && (
-                    <div className="overflow-hidden flex flex-col justify-center">
-                      <p className="text-xs font-bold text-foreground truncate max-w-[120px]">{displayName}</p>
-                    </div>
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center shadow-sm">
+                  {/* Using displayAvatar which now pulls from context cache or localStorage hook */}
+                  {displayAvatar ? (
+                    <img 
+                      src={displayAvatar} 
+                      className="w-full h-full object-cover transition-opacity duration-300" 
+                      alt="User"
+                      onLoad={(e) => (e.currentTarget.style.opacity = "1")}
+                      style={{ opacity: 0 }} // Smooth fade-in once loaded
+                    />
+                  ) : (
+                    <User size={16} className="text-muted-foreground" />
                   )}
-               </div>
-            )}
+                </div>
+                {/* Active Indicator */}
+                {!isLoading && (
+                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-background shadow-sm" />
+                )}
+              </div>
+              
+              {!isCollapsed && (
+                <div className="overflow-hidden flex flex-col justify-center">
+                  <p className="text-xs font-bold text-foreground truncate max-w-[120px]">
+                    {displayName}
+                  </p>
+                  {isLoading && <span className="text-[8px] font-medium text-muted-foreground/50 animate-pulse">Syncing...</span>}
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
 

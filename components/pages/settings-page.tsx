@@ -351,48 +351,62 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
-      
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const supabase = createBrowserClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-       try {
-            // 1. INSTANT UI UPDATE
-            updateSettings({ avatar: base64 });
-            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-                detail: { username: settings.username, avatar: base64 } 
-            }));
+    if (!file) return;
 
-            // 2. SAVE TO DB
-            const { error: dbError } = await supabase.from('users').upsert({ 
-                id: user.id, 
-                email: user.email,
-                avatar_url: base64,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
+    if (file.size > 2 * 1024 * 1024) {
+      return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
+    }
 
-            if (dbError) throw new Error("DB storage failed: " + dbError.message);
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
-            // 3. BACKGROUND AUTH SYNC
-            supabase.auth.updateUser({ 
-                data: { avatar_url: base64, picture: base64 } 
-            }).catch(e => console.warn("Auth avatar sync delayed:", e));
+    try {
+      // 1. Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-            showNotification({ type: "success", message: "Visual ID saved.", duration: 2000 });
-        } catch (error: any) {
-            console.error("Avatar Upload Error:", error.message);
-            showNotification({ type: "error", message: "Upload failed. Try a smaller file.", duration: 3000 });
-        }
-      };
-      reader.readAsDataURL(file);
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 3. INSTANT UI UPDATE
+      updateSettings({ avatar: publicUrl });
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+          detail: { username: settings.username, avatar: publicUrl } 
+      }));
+
+      // 4. SAVE URL TO DB
+      const { error: dbError } = await supabase.from('users').upsert({ 
+          id: user.id, 
+          email: user.email,
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+      if (dbError) throw dbError;
+
+      // 5. SYNC AUTH METADATA
+      await supabase.auth.updateUser({ 
+          data: { avatar_url: publicUrl, picture: publicUrl } 
+      });
+
+      showNotification({ type: "success", message: "Profile photo synchronized.", duration: 2000 });
+    } catch (error: any) {
+      console.error("Upload Error:", error.message);
+      showNotification({ type: "error", message: "Failed to sync photo.", duration: 3000 });
     }
   };
 
