@@ -159,8 +159,13 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     if (userId) await fetchEntriesFromDb(userId);
   };
 
+  const clearAllData = () => {
+    setEntries([]);
+    setUserId(null);
+  };
+
   return (
-    <JournalContext.Provider value={{ entries, isLoading, userId, setUserIdManual, addEntry, deleteEntry, refreshEntries, getStats }}>
+    <JournalContext.Provider value={{ entries, isLoading, userId, setUserIdManual, addEntry, deleteEntry, refreshEntries, getStats, clearAllData }}>
       {children}
     </JournalContext.Provider>
   );

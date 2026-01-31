@@ -59,24 +59,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
 
     try {
-      // 2. STICKY OVERRIDE: Fetch from 'users' table (Ultimate Source of Truth)
-      // We force { cache: 'no-store' } logic by using a fresh supabase call if needed,
-      // but standard select is usually fine if RLS is correct.
+      // Use maybeSingle() to prevent the "JSON object expected" crash if user isn't in the DB yet
       const { data, error } = await supabase
         .from('users')
         .select('name, avatar_url') 
         .eq('id', sbUser.id)
-        .maybeSingle(); // Use maybeSingle to avoid errors if user row doesn't exist yet
+        .maybeSingle();
 
       if (data && !error) {
-        // If Database has values, they OVERWRITE auth metadata permanently
-        if (data.name) finalUser.name = data.name;
+        // DB MUST ALWAYS WIN
+        if (data.name && data.name.trim() !== "") {
+            finalUser.name = data.name;
+        }
         if (data.avatar_url && data.avatar_url.length > 10) {
             finalUser.avatarUrl = data.avatar_url;
         }
       }
     } catch (err) {
-      console.error("Database sync failed, falling back to Auth Metadata:", err);
+      console.error("Critical Profile Merge Error:", err);
     }
 
     // Final safety check for empty strings

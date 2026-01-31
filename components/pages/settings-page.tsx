@@ -320,16 +320,30 @@ export default function SettingsPage() {
     );
 
     try {
-        await supabase.from('users').upsert({ 
+        // 1. Update the Public Table
+        const { error: dbError } = await supabase.from('users').upsert({ 
             id: user.id, 
             email: user.email,
             name: trimmed,
             updated_at: new Date().toISOString()
         });
-        await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
+        if (dbError) throw dbError;
+
+        // 2. Update the Auth Metadata (This stops the "reset" after refresh)
+        const { error: authError } = await supabase.auth.updateUser({ 
+            data: { full_name: trimmed, name: trimmed } 
+        });
+        if (authError) throw authError;
+
+        // 3. Update Local State
         updateSettings({ username: trimmed });
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, username: trimmed } }));
-        showNotification({ type: "success", message: "Identity saved forever.", duration: 2000 });
+        
+        // 4. Force UserContext to hear the change immediately
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+            detail: { username: trimmed, avatar: settings.avatar } 
+        }));
+
+        showNotification({ type: "success", message: "Identity synchronized.", duration: 2000 });
     } catch (error) {
         showNotification({ type: "error", message: "Could not save name.", duration: 3000 });
     } finally {
@@ -351,16 +365,30 @@ export default function SettingsPage() {
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         try {
-            await supabase.from('users').upsert({ 
+            // 1. Update Public Table
+            const { error: dbError } = await supabase.from('users').upsert({ 
                 id: user.id, 
                 email: user.email,
                 avatar_url: base64,
                 updated_at: new Date().toISOString()
             });
-            await supabase.auth.updateUser({ data: { avatar_url: base64, picture: base64 } });
+            if (dbError) throw dbError;
+
+            // 2. Update Auth Metadata (Crucial for persistence)
+            const { error: authError } = await supabase.auth.updateUser({ 
+                data: { avatar_url: base64, picture: base64 } 
+            });
+            if (authError) throw authError;
+
+            // 3. Local State
             updateSettings({ avatar: base64 });
-            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, avatar: base64 } }));
-            showNotification({ type: "success", message: "Profile photo saved.", duration: 2000 });
+
+            // 4. Broadcast to Sidebar/UserContext
+            window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+                detail: { username: settings.username, avatar: base64 } 
+            }));
+
+            showNotification({ type: "success", message: "Visual ID saved.", duration: 2000 });
         } catch (error) {
             showNotification({ type: "error", message: "Could not save photo.", duration: 3000 });
         }
