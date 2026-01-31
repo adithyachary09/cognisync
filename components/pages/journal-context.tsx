@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { useUser } from "@/lib/user-context"; 
 
 export interface Entry {
-  id: string; // Unified to string for safety
+  id: string; 
+  user_id?: string; // Add this slot for RLS compatibility
   text: string;
   date: string;
   emotion: string;
@@ -17,7 +18,7 @@ interface JournalContextType {
   entries: Entry[];
   isLoading: boolean;
   userId: string | null;
-  addEntry: (entry: Omit<Entry, 'id' | 'date'>, saveToDb?: boolean) => Promise<void>;
+  addEntry: (entry: Omit<Entry, 'id' | 'date'> & { user_id?: string }, saveToDb?: boolean) => Promise<void>;
   deleteEntry: (id: string | number) => Promise<void>;
   refreshEntries: () => Promise<void>;
   getStats: () => any;
@@ -89,19 +90,22 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 3. Add Entry
-  const addEntry = async (newEntry: Omit<Entry, 'id' | 'date'>, saveToDb = true) => {
+  // 3. Add Entry - Now accepts and prioritizes user_id from props
+  const addEntry = async (newEntry: Omit<Entry, 'id' | 'date'> & { user_id?: string }, saveToDb = true) => {
     const tempId = Date.now().toString();
     const isoDate = new Date().toISOString();
     
+    // Explicitly determine the owner ID (Prop ID > Context ID)
+    const ownerId = newEntry.user_id || userId;
+
     // Optimistic UI update
-    const optimisticEntry: Entry = { ...newEntry, id: tempId, date: isoDate };
+    const optimisticEntry: Entry = { ...newEntry, id: tempId, date: isoDate, user_id: ownerId || undefined };
     setEntries(prev => [optimisticEntry, ...prev]);
 
-    if (saveToDb && userId) {
+    if (saveToDb && ownerId) {
       try {
         const payload = {
-          user_id: userId,
+          user_id: ownerId,
           input_text: newEntry.text,
           detected_emotion: newEntry.emotion.toLowerCase(),
           emotion_score: newEntry.intensity,
