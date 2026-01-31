@@ -87,22 +87,28 @@ export default function SettingsPage() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // --- SESSION RADAR STATE ---
-  const [sessionInfo, setSessionInfo] = useState({ os: "Unknown", browser: "Unknown", location: "Telangana, India" });
+  const [sessionInfo, setSessionInfo] = useState({ os: "Detecting...", browser: "Detecting...", location: "Telangana, India" });
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const ua = window.navigator.userAgent;
-        let os = "Unknown OS";
-        if (ua.indexOf("Win") !== -1) os = "Windows";
-        if (ua.indexOf("Mac") !== -1) os = "MacOS";
-        if (ua.indexOf("Linux") !== -1) os = "Linux";
-        if (ua.indexOf("Android") !== -1) os = "Android";
-        if (ua.indexOf("like Mac") !== -1) os = "iOS";
+        const platform = (window.navigator as any).userAgentData?.platform || window.navigator.platform || "Unknown";
 
-        let browser = "Unknown Browser";
-        if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
-        if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
-        if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Safari";
+        // Precise OS Detection
+        let os = "Other";
+        if (/Win/.test(platform) || /Windows/.test(ua)) os = "Windows";
+        else if (/Mac/.test(platform) || /Macintosh/.test(ua)) os = "macOS";
+        else if (/Linux/.test(platform) || /Linux/.test(ua)) os = "Linux";
+        else if (/Android/.test(ua)) os = "Android";
+        else if (/iPhone|iPad|iPod/.test(ua)) os = "iOS";
+
+        // Precise Browser Detection
+        let browser = "Web Browser";
+        if (ua.indexOf("Edg/") !== -1) browser = "Microsoft Edge";
+        else if (ua.indexOf("Chrome") !== -1 && ua.indexOf("Safari") !== -1) browser = "Google Chrome";
+        else if (ua.indexOf("Firefox") !== -1) browser = "Mozilla Firefox";
+        else if (ua.indexOf("Safari") !== -1 && ua.indexOf("Chrome") === -1) browser = "Apple Safari";
+        else if (ua.indexOf("OPR/") !== -1 || ua.indexOf("Opera/") !== -1) browser = "Opera";
         
         setSessionInfo(prev => ({ ...prev, os, browser }));
     }
