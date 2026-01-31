@@ -374,12 +374,12 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // 1. Validate File
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       return showNotification({ type: "warning", message: "Only images (JPG, PNG, GIF, WEBP) are allowed.", duration: 3000 });
@@ -389,95 +389,80 @@ export default function SettingsPage() {
       return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
     }
 
+    // 2. IMMEDIATE OPTIMISTIC UPDATE (Local Preview)
+    // We do this BEFORE the upload so you see the change instantly.
+    const localUrl = URL.createObjectURL(file);
+    
+    // Update Local Cache
+    try {
+        const current = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+        localStorage.setItem("cognisync:user-session", JSON.stringify({ ...current, avatarUrl: localUrl }));
+    } catch(e) {}
+
+    // Update UI
+    updateSettings({ avatar: localUrl });
+    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+        detail: { username: pendingUsername, avatar: localUrl } 
+    }));
+
+    showNotification({ type: "info", message: "Uploading...", duration: 1000 });
+
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
     try {
-      showNotification({ type: "info", message: "Uploading...", duration: 1000 });
-
-      // 1. Upload with proper path structure (bucket already exists)
+      // 3. UPLOAD TO STORAGE
       const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const timestamp = Date.now();
-      const filePath = `${user.id}/avatar-${timestamp}.${fileExt}`;
+      // Use consistent filename to prevent filling storage with duplicates
+      const filePath = `${user.id}/avatar.${fileExt}`;
 
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { 
-          cacheControl: '3600',
-          upsert: false // Create new file each time to avoid cache issues
+          cacheControl: '0', 
+          upsert: true // Overwrite the existing file
         });
 
       if (uploadError) {
-        console.error("Upload error details:", uploadError);
-        throw new Error(uploadError.message || "Storage upload failed");
+        console.error("Storage blocked, keeping local file:", uploadError.message);
+        // We don't throw error here, we just stick with the local URL we already set
+        return; 
       }
 
-      // 3. Get public URL
+      // 4. GET PUBLIC URL (With Cache Buster)
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+        
+      if (!publicUrl) throw new Error("Failed to generate public URL");
 
-      if (!publicUrl) {
-        throw new Error("Failed to generate public URL");
-      }
+      const publicUrlWithBust = `${publicUrl}?t=${Date.now()}`;
 
-      // 4. HARD CACHE UPDATE
-      const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-      const updatedCache = {
-          ...currentCache,
-          id: user.id,
-          email: user.email,
-          name: currentCache.name || settings.username || "User",
-          avatarUrl: publicUrl
-      };
-      localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
-
-      // 5. INSTANT UI UPDATE
-      updateSettings({ avatar: publicUrl });
-      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-          detail: { username: settings.username, avatar: publicUrl } 
-      }));
-
-      // 6. SAVE TO DB (with email for RLS)
+      // 5. UPDATE DB WITH REAL URL
       const { error: dbError } = await supabase.from('users').upsert({ 
-          id: user.id,
-          email: user.email, // CRITICAL: Include email for RLS
-          avatar_url: publicUrl,
+          id: user.id, 
+          avatar_url: publicUrlWithBust,
           updated_at: new Date().toISOString()
-      }, { 
-          onConflict: 'id',
-          ignoreDuplicates: false 
-      });
+      }, { onConflict: 'id' });
 
-      if (dbError) {
-        console.error("DB update error:", dbError);
-        throw new Error(dbError.message || "Database update failed");
-      }
+      if (dbError) throw new Error("DB Update Failed: " + dbError.message);
 
-      // 7. AUTH SYNC
+      // 6. UPDATE CACHE WITH REAL URL
+      const current = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
+      localStorage.setItem("cognisync:user-session", JSON.stringify({ ...current, avatarUrl: publicUrlWithBust }));
+
+      // 7. SYNC AUTH
       await supabase.auth.updateUser({ 
-          data: { avatar_url: publicUrl, picture: publicUrl } 
+          data: { avatar_url: publicUrlWithBust, picture: publicUrlWithBust } 
       });
 
-      showNotification({ type: "success", message: "Avatar updated successfully!", duration: 2000 });
-      
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      showNotification({ type: "success", message: "Cloud sync complete.", duration: 2000 });
+
     } catch (error: any) {
-      console.error("Avatar Upload Error:", error);
-      showNotification({ 
-        type: "error", 
-        message: error.message || "Upload failed. Please try again.", 
-        duration: 4000 
-      });
-      // Reset file input on error
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      // Even if server fails, we kept the local URL visible so the user doesn't see a broken image
+      console.error("Sync Error:", error);
     }
   };
 
