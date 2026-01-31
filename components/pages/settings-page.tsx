@@ -255,30 +255,34 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-   // FIX: Load from Cache first. NEVER overwrite cache with DB data if cache exists.
+  // FIX: Session-Aware Data Sync (Solves the "Switch Account" Reset)
   useEffect(() => {
     if (!user?.id) return; 
-
     if (user.email) setUserEmail(user.email);
 
-    // 1. Read Cache Immediately & Set Flag
-    let hasLocalCache = false;
-    const cachedSession = localStorage.getItem("cognisync:user-session");
-    
-    if (cachedSession) {
-        try {
-            const parsed = JSON.parse(cachedSession);
-            if (parsed.name) {
-                setPendingUsername(parsed.name);
-                hasLocalCache = true; // Mark that we have trusted local data
+    // 1. Check Local Cache
+    let validCache = null;
+    try {
+        const cached = localStorage.getItem("cognisync:user-session");
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            // CRITICAL: Only use cache if it matches the CURRENT logged-in User ID
+            if (parsed.id === user.id) {
+                validCache = parsed;
+            } else {
+                // Cache belongs to previous user -> Wipe it
+                localStorage.removeItem("cognisync:user-session");
             }
-            if (parsed.avatarUrl) {
-                updateSettings({ avatar: parsed.avatarUrl });
-            }
-        } catch(e) { console.error("Cache read fail", e); }
+        }
+    } catch(e) {}
+
+    // 2. Apply Cache if Valid (Instant Load)
+    if (validCache) {
+        if (validCache.name) setPendingUsername(validCache.name);
+        if (validCache.avatarUrl) updateSettings({ avatar: validCache.avatarUrl });
     }
 
-    // 2. Fetch Fresh Data (Background Sync)
+    // 3. Always Fetch DB to Sync (Persistence Check)
     const fetchProfile = async () => {
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -288,19 +292,26 @@ export default function SettingsPage() {
         const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
         
         if (data) {
-            const dbName = data.name || "User";
-            const dbAvatar = data.avatar_url || "/placeholder-user.png";
+            const dbName = data.name;
+            const dbAvatar = data.avatar_url;
 
-            // CRITICAL FIX: Only update state/cache if we started with NOTHING.
-            // If we have local cache, we trust it MORE than the DB right now (Offline Mode).
-            if (!hasLocalCache) {
-                setPendingUsername(dbName);
-                updateSettings({ username: dbName, avatar: dbAvatar });
+            // Update UI if DB has data we don't
+            if (!validCache) {
+                if (dbName) setPendingUsername(dbName);
+                // If DB has an avatar, use it. If not, placeholder.
+                const finalAvatar = dbAvatar || "/placeholder-user.png";
+                updateSettings({ username: dbName, avatar: finalAvatar });
                 
-                // Only write to cache if we didn't have it
+                // Save to Cache with User ID (So it survives reload)
                 localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+                    id: user.id, // Tag cache with ID
                     name: dbName, 
-                    avatarUrl: dbAvatar 
+                    avatarUrl: finalAvatar 
+                }));
+                
+                // Update Sidebar
+                window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+                    detail: { username: dbName, avatar: finalAvatar } 
                 }));
             }
         }
