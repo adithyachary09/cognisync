@@ -255,19 +255,26 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
-   // FIX: Load from Cache first to prevent "Revert on Tab Switch"
+   // FIX: Load from Cache first. NEVER overwrite cache with DB data if cache exists.
   useEffect(() => {
     if (!user?.id) return; 
 
     if (user.email) setUserEmail(user.email);
 
-    // 1. Read Cache Immediately
+    // 1. Read Cache Immediately & Set Flag
+    let hasLocalCache = false;
     const cachedSession = localStorage.getItem("cognisync:user-session");
+    
     if (cachedSession) {
         try {
             const parsed = JSON.parse(cachedSession);
-            if (parsed.name) setPendingUsername(parsed.name);
-            if (parsed.avatarUrl) updateSettings({ avatar: parsed.avatarUrl });
+            if (parsed.name) {
+                setPendingUsername(parsed.name);
+                hasLocalCache = true; // Mark that we have trusted local data
+            }
+            if (parsed.avatarUrl) {
+                updateSettings({ avatar: parsed.avatarUrl });
+            }
         } catch(e) { console.error("Cache read fail", e); }
     }
 
@@ -280,19 +287,22 @@ export default function SettingsPage() {
         
         const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
         
-        // Only update if we have valid DB data
         if (data) {
             const dbName = data.name || "User";
             const dbAvatar = data.avatar_url || "/placeholder-user.png";
 
-            // Update Local State only if cache is missing (don't overwrite user edits)
-            if (!cachedSession) {
+            // CRITICAL FIX: Only update state/cache if we started with NOTHING.
+            // If we have local cache, we trust it MORE than the DB right now (Offline Mode).
+            if (!hasLocalCache) {
                 setPendingUsername(dbName);
                 updateSettings({ username: dbName, avatar: dbAvatar });
+                
+                // Only write to cache if we didn't have it
+                localStorage.setItem("cognisync:user-session", JSON.stringify({ 
+                    name: dbName, 
+                    avatarUrl: dbAvatar 
+                }));
             }
-            
-            // Always ensure cache is in sync with DB eventually
-            localStorage.setItem("cognisync:user-session", JSON.stringify({ name: dbName, avatarUrl: dbAvatar }));
         }
     };
     fetchProfile();
