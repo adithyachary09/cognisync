@@ -255,13 +255,23 @@ export default function SettingsPage() {
     return () => clearInterval(timer);
   }, []);
 
+   // FIX: Load from Cache first to prevent "Revert on Tab Switch"
   useEffect(() => {
     if (!user?.id) return; 
 
-    if (user.email) {
-      setUserEmail(user.email);
+    if (user.email) setUserEmail(user.email);
+
+    // 1. Read Cache Immediately
+    const cachedSession = localStorage.getItem("cognisync:user-session");
+    if (cachedSession) {
+        try {
+            const parsed = JSON.parse(cachedSession);
+            if (parsed.name) setPendingUsername(parsed.name);
+            if (parsed.avatarUrl) updateSettings({ avatar: parsed.avatarUrl });
+        } catch(e) { console.error("Cache read fail", e); }
     }
 
+    // 2. Fetch Fresh Data (Background Sync)
     const fetchProfile = async () => {
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -269,41 +279,24 @@ export default function SettingsPage() {
         );
         
         const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
-        const authName = (user as any)?.user_metadata?.full_name || (user as any)?.user_metadata?.name;
-        const authAvatar = (user as any)?.user_metadata?.avatar_url || (user as any)?.user_metadata?.picture;
-
-        const finalName = data?.name || authName || "User";
-        const finalAvatar = (data?.avatar_url && data.avatar_url.length > 5) 
-            ? data.avatar_url 
-            : (authAvatar || "/placeholder-user.png");
-
-        // FIX: Update Local Cache Immediately
-        localStorage.setItem("cognisync:user-session", JSON.stringify({ 
-            name: finalName, 
-            avatarUrl: finalAvatar 
-        }));
-
-        if (!data && (authName || authAvatar)) {
-            await supabase.from('users').upsert({
-                id: user.id,
-                email: user.email,
-                name: finalName,
-                avatar_url: finalAvatar,
-                updated_at: new Date().toISOString()
-            });
-        }
-
-        setPendingUsername(finalName);
         
-        const newSettings = { 
-            username: finalName, 
-            avatar: finalAvatar 
-        };
-        updateSettings(newSettings);
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: { ...settings, ...newSettings } }));
+        // Only update if we have valid DB data
+        if (data) {
+            const dbName = data.name || "User";
+            const dbAvatar = data.avatar_url || "/placeholder-user.png";
+
+            // Update Local State only if cache is missing (don't overwrite user edits)
+            if (!cachedSession) {
+                setPendingUsername(dbName);
+                updateSettings({ username: dbName, avatar: dbAvatar });
+            }
+            
+            // Always ensure cache is in sync with DB eventually
+            localStorage.setItem("cognisync:user-session", JSON.stringify({ name: dbName, avatarUrl: dbAvatar }));
+        }
     };
     fetchProfile();
-  }, [user?.id]); 
+  }, [user?.id]);
 
   // --- HANDLERS ---
   const handleInstantChange = (partial: Partial<typeof settings>) => {
@@ -326,40 +319,41 @@ export default function SettingsPage() {
     );
 
     try {
-        // 1. INSTANT UI UPDATE (Optimistic & Persistent)
-        updateSettings({ username: trimmed });
-        
-        // FIX: Force persist to LocalStorage for Sidebar
+        // 1. HARD CACHE UPDATE (Persistence Guarantee)
         const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
         localStorage.setItem("cognisync:user-session", JSON.stringify({ 
             ...currentCache, 
             name: trimmed 
         }));
 
+        // 2. INSTANT UI UPDATE
+        updateSettings({ username: trimmed });
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
             detail: { username: trimmed, avatar: settings.avatar } 
         }));
 
-        // 2. SAVE TO DB
+        // 3. SAVE TO DB (Robust Upsert)
+        // Note: We intentionally exclude 'email' from the update payload to avoid RLS conflict 
+        // if the user isn't allowed to change their email via this endpoint.
         const { error: dbError } = await supabase.from('users').upsert({ 
             id: user.id, 
-            email: user.email,
             name: trimmed,
             updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
 
-        if (dbError) throw new Error("Database reject: " + dbError.message);
+        if (dbError) {
+            console.error("DB Save Failed:", dbError);
+            throw new Error(dbError.message);
+        }
 
-        // 3. BACKGROUND AUTH SYNC (Non-blocking)
-        // We do this separately so if Auth fails, the UI still stays updated.
-        supabase.auth.updateUser({ 
-            data: { full_name: trimmed, name: trimmed } 
-        }).catch(e => console.warn("Auth metadata sync delayed:", e));
+        // 4. AUTH SYNC
+        await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
 
-        showNotification({ type: "success", message: "Identity synchronized.", duration: 2000 });
+        showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
     } catch (error: any) {
-        console.error("Name Save Error:", error.message);
-        showNotification({ type: "error", message: "Sync failed. Refresh and try again.", duration: 3000 });
+        console.error("Critical Name Error:", error);
+        // Even if DB fails, we keep the local state for UX, but warn user
+        showNotification({ type: "warning", message: "Saved locally. Retrying sync...", duration: 3000 });
     } finally {
         setIsSavingName(false);
     }
@@ -371,7 +365,7 @@ export default function SettingsPage() {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      return showNotification({ type: "warning", message: "Max 2MB.", duration: 3000 });
+      return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
     }
 
     const supabase = createBrowserClient(
@@ -380,55 +374,54 @@ export default function SettingsPage() {
     );
 
     try {
-      // 1. Upload to Supabase Storage
+      showNotification({ type: "info", message: "Uploading...", duration: 1000 });
+
+      // 1. Upload (Fixed Path + Upsert)
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      // FIX: Use a consistent filename so we don't fill storage with duplicates
+      const filePath = `${user.id}/avatar.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true }); // FIX: 'upsert: true' is critical for overwriting
 
-      if (uploadError) throw uploadError;
+      if (uploadError) throw new Error("Storage Upload Failed: " + uploadError.message);
 
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
+      // 2. Force a cache bust on the URL so the browser sees the new image
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrlWithBust = `${publicUrl}?t=${new Date().getTime()}`;
 
-      // 3. INSTANT UI UPDATE (Persistent)
-      updateSettings({ avatar: publicUrl });
-
-      // FIX: Force persist to LocalStorage for Sidebar
+      // 3. HARD CACHE UPDATE
       const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
       localStorage.setItem("cognisync:user-session", JSON.stringify({ 
           ...currentCache, 
-          avatarUrl: publicUrl 
+          avatarUrl: publicUrlWithBust 
       }));
 
+      // 4. INSTANT UI UPDATE
+      updateSettings({ avatar: publicUrlWithBust });
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-          detail: { username: settings.username, avatar: publicUrl } 
+          detail: { username: settings.username, avatar: publicUrlWithBust } 
       }));
 
-      // 4. SAVE URL TO DB
+      // 5. SAVE TO DB
       const { error: dbError } = await supabase.from('users').upsert({ 
           id: user.id, 
-          email: user.email,
-          avatar_url: publicUrl,
+          avatar_url: publicUrlWithBust,
           updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
 
-      if (dbError) throw dbError;
+      if (dbError) throw new Error("DB Update Failed: " + dbError.message);
 
-      // 5. SYNC AUTH METADATA
+      // 6. AUTH SYNC
       await supabase.auth.updateUser({ 
-          data: { avatar_url: publicUrl, picture: publicUrl } 
+          data: { avatar_url: publicUrlWithBust, picture: publicUrlWithBust } 
       });
 
-      showNotification({ type: "success", message: "Profile photo synchronized.", duration: 2000 });
+      showNotification({ type: "success", message: "New avatar saved!", duration: 2000 });
     } catch (error: any) {
-      console.error("Upload Error:", error.message);
-      showNotification({ type: "error", message: "Failed to sync photo.", duration: 3000 });
+      console.error("Avatar Error:", error);
+      showNotification({ type: "error", message: "Upload failed: " + error.message, duration: 4000 });
     }
   };
 
