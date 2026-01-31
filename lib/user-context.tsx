@@ -31,16 +31,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // 2. Initialize from LocalStorage to prevent flicker
+  // 2. TRUE SWR INITIALIZATION: Load from cache synchronously
   const [user, setUserState] = useState<User | null>(() => {
     if (typeof window !== "undefined") {
-      const cached = localStorage.getItem(USER_STORAGE_KEY);
-      return cached ? JSON.parse(cached) : null;
+      try {
+        const cached = localStorage.getItem(USER_STORAGE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // Return cached user immediately so UI renders instantly
+          return parsed;
+        }
+      } catch (e) {
+        console.error("Cache parse failed", e);
+      }
     }
     return null;
   });
   
-  const [isLoading, setIsLoading] = useState(true);
+  // Set isLoading to false if we have a cached user, so skeletons don't trigger
+  const [isLoading, setIsLoading] = useState(!user);
 
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
     const meta = sbUser.user_metadata || {};
@@ -151,9 +160,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (mounted) {
           if (session?.user) {
-            const fullUser = await fetchFullProfile(session.user);
-            handleUserUpdate(fullUser);
-          } else if (!user) {
+            const freshUser = await fetchFullProfile(session.user);
+            
+            // Only update state if data has actually changed (Deep Compare)
+            // This prevents the "reset" flicker when background sync finishes
+            setUserState(prev => {
+              const hasChanged = JSON.stringify(prev) !== JSON.stringify(freshUser);
+              if (hasChanged) {
+                localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(freshUser));
+                return freshUser;
+              }
+              return prev;
+            });
+          } else {
             handleUserUpdate(null);
           }
         }
@@ -163,6 +182,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (mounted) setIsLoading(false);
       }
     };
+        
 
     checkSession();
 
