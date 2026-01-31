@@ -172,15 +172,13 @@ export function MainPage({ userName, userId }: MainPageProps) {
       if (!res.ok) throw new Error(data.error);
 
       if (data.newEntry) {
-          // We must pass the userId to the context function 
-          // so it can satisfy the RLS policy: auth.uid() = user_id
           await addEntry({
             user_id: user?.id || userId, 
             text: data.newEntry.input_text || input,
             emotion: data.newEntry.detected_emotion ? data.newEntry.detected_emotion.charAt(0).toUpperCase() + data.newEntry.detected_emotion.slice(1) : "Calm",
             intensity: data.newEntry.emotion_score || 5,
             source: 'dashboard' 
-          }, false); 
+          }, true); // <--- CHANGED TO TRUE: Actually save to DB
       }
       
       const mappedEmotion = data.emotion === 'stressed' ? 'anxious' : data.emotion;

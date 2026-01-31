@@ -1,12 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from "@/lib/supabase"; 
+import { createBrowserClient } from "@supabase/ssr"; // <--- CHANGED: Use SSR client for RLS
 import { useUser } from "@/lib/user-context"; 
 
 export interface Entry {
   id: string;
-  user_id?: string; // Add this line
+  user_id?: string;
   text: string;
   date: string;
   emotion: string;
@@ -23,43 +23,43 @@ interface JournalContextType {
   refreshEntries: () => Promise<void>;
   getStats: () => any;
   setUserIdManual: (uid: string) => void;
-  clearAllData: () => void; // Added for Factory Reset
+  clearAllData: () => void;
 }
 
 const JournalContext = createContext<JournalContextType | undefined>(undefined);
 
 export const JournalProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useUser(); // <--- Listen to the working User Context
+  // 1. FIX: Create dynamic client that includes Cookies (Fixes RLS Error)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { user } = useUser();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // 1. The Fix: Listen to UserContext instead of Supabase Session
   useEffect(() => {
     if (user?.id) {
-      console.log("✅ JournalContext: Found User ID:", user.id);
       setUserId(user.id);
       fetchEntriesFromDb(user.id);
     } else {
-      console.log("⚠️ JournalContext: No User ID yet.");
       setUserId(null);
       setEntries([]);
       setIsLoading(false);
     }
   }, [user]);
 
-  // 2. Fetch Logic (Safe Table Check)
   const fetchEntriesFromDb = async (uid: string) => {
     setIsLoading(true);
     try {
-      // Try 'user_entries' first
       let { data, error } = await supabase
         .from('user_entries')
         .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
-      // Fallback if table name is different
       if (error) {
         console.warn("⚠️ 'user_entries' failed, trying 'journal_entries'...");
         const fallback = await supabase
@@ -72,7 +72,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (data) {
-        console.log(`✅ Loaded ${data.length} entries`);
         const mapped: Entry[] = data.map(item => ({
           id: item.id.toString(),
           text: item.input_text || item.content || "",
@@ -90,7 +89,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // 3. Add Entry - Now accepts and prioritizes user_id from props
   const addEntry = async (newEntry: Omit<Entry, 'id' | 'date'> & { user_id?: string }, saveToDb = true) => {
     const tempId = Date.now().toString();
     const isoDate = new Date().toISOString();
@@ -98,7 +96,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     // Explicitly determine the owner ID (Prop ID > Context ID)
     const ownerId = newEntry.user_id || userId;
 
-    // Optimistic UI update
     const optimisticEntry: Entry = { ...newEntry, id: tempId, date: isoDate, user_id: ownerId || undefined };
     setEntries(prev => [optimisticEntry, ...prev]);
 
@@ -113,12 +110,12 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
           created_at: isoDate
         };
 
-        // Try insert to main table
-        const { data, error } = await supabase.from('user_entries').insert(payload).select().single();
+        // RLS will now pass because 'supabase' client includes the Auth Cookie
+        const { error } = await supabase.from('user_entries').insert(payload);
 
-        // Fallback insert if main table fails
         if (error) {
-             await supabase.from('journal_entries').insert(payload).select().single();
+             // Fallback attempt
+             await supabase.from('journal_entries').insert(payload);
         }
 
       } catch (err) {
@@ -131,7 +128,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     const idStr = id.toString();
     setEntries(prev => prev.filter(e => e.id !== idStr));
     if (userId) {
-        // Try delete on both potential tables to be safe
         await supabase.from('user_entries').delete().eq('id', idStr);
         await supabase.from('journal_entries').delete().eq('id', idStr);
     }
@@ -156,7 +152,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  // Kept to prevent crashes in other files, but not needed for logic
   const setUserIdManual = (uid: string) => {}; 
 
   const refreshEntries = async () => {
