@@ -1,55 +1,39 @@
-// @ts-nocheck
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-export const runtime = "nodejs";
 
 export async function POST() {
   try {
-    // ❌ was: await cookies()
-    const supabaseAuth = createServerClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  { cookies }
-);
-
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
     const {
       data: { user },
-    } = await supabaseAuth.auth.getUser();
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* ---------------- ADMIN ---------------- */
-    const supabaseAdmin = createClient(
+    const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: { autoRefreshToken: false, persistSession: false },
-      }
+      { auth: { persistSession: false } }
     );
 
-    /* ---------------- DELETE STORAGE ---------------- */
-    const exts = ["png", "jpg", "jpeg", "gif", "webp"];
-    await supabaseAdmin.storage
-      .from("avatars")
-      .remove(exts.map((e) => `${user.id}/avatar.${e}`));
+    await admin.storage.from("avatars").remove([
+      `${user.id}/avatar.png`,
+      `${user.id}/avatar.jpg`,
+      `${user.id}/avatar.jpeg`,
+      `${user.id}/avatar.webp`,
+    ]);
 
-    /* ---------------- CLEAR DB ---------------- */
-    await supabaseAdmin
-      .from("users")
-      .update({
-        avatar_url: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
+    await admin.from("users").update({ avatar_url: null }).eq("id", user.id);
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
