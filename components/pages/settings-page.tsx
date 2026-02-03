@@ -63,6 +63,8 @@ export default function SettingsPage() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false); // ← ADD THIS LINE
   const [pendingUsername, setPendingUsername] = useState(settings.username || "");
+  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null); // holds the NEW avatar URL before save
+  const [isSavingChanges, setIsSavingChanges] = useState(false);
   const [, setShowSecurityTooltip] = useState(false);
   // Removed unused setShowSecurityTooltip state
   
@@ -141,37 +143,44 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-// MAGIC LISTENER: Fixes Sync & Animation (Broadcast + Aggressive Polling)
+// MAGIC LISTENER: Fixes Sync & Animation (Broadcast + Polling via auth.getUser)
   useEffect(() => {
     let pollingInterval: NodeJS.Timeout;
-    const channel = new BroadcastChannel('cognisync-auth');
-    
-    // Success Action
+    let channel: BroadcastChannel;
+
+    // ── Success Action ──
     const triggerSuccess = async () => {
         setEmailStatus("verified");
         setEmailCountdown(0);
-        // FORCE SWITCH to account tab to show animation
         setActiveTab("account");
-        
-        // Sync session
+
+        // Hard-refresh the Supabase session so auth state is fresh everywhere
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         await supabase.auth.refreshSession();
-        
+
         showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
     };
 
-    channel.onmessage = (event) => {
-      if (event.data.type === 'EMAIL_VERIFIED') triggerSuccess();
-    };
+    // ── BroadcastChannel listener (same-origin tab messaging) ──
+    try {
+      channel = new BroadcastChannel('cognisync-auth');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'EMAIL_VERIFIED') triggerSuccess();
+      };
+    } catch (e) {
+      console.warn("BroadcastChannel not supported, relying on polling only.");
+    }
 
-    // POLLING FIX: Poll with 5-minute timeout
+    // ── Polling: runs while status is 'sent' or 'sending' ──
+    // Uses supabase.auth.getUser() which reads the REAL auth.users row
+    // (the public 'users' table may not have email_confirmed_at at all)
     if (emailStatus === 'sent' || emailStatus === 'sending') {
         let pollCount = 0;
-        const MAX_POLLS = 300; // 5 minutes (300 seconds)
-        
+        const MAX_POLLS = 300; // 5 minutes
+
         pollingInterval = setInterval(async () => {
             pollCount++;
             if (pollCount > MAX_POLLS) {
@@ -180,26 +189,45 @@ export default function SettingsPage() {
                 showNotification({ type: "warning", message: "Verification timeout. Please try again.", duration: 3000 });
                 return;
             }
-            
-            if (!user?.id) return;
+
             const supabase = createBrowserClient(
                process.env.NEXT_PUBLIC_SUPABASE_URL!,
                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
-            
-            const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
-            if (data?.email_confirmed_at) {
+
+            // Pull the live auth user — email_confirmed_at lives HERE, not in public.users
+            const { data: { user: authUser }, error } = await supabase.auth.getUser();
+            if (error || !authUser) return;
+
+            if (authUser.email_confirmed_at) {
                 clearInterval(pollingInterval);
                 triggerSuccess();
             }
-        }, 1000);
+        }, 2000); // 2s interval is plenty — avoids hammering the auth endpoint
     }
 
     return () => {
-        channel.close();
+        if (channel) channel.close();
         if (pollingInterval) clearInterval(pollingInterval);
     };
   }, [user?.id, emailStatus]);
+
+  // ── MOUNT CHECK: if we landed here via the ?verified=true redirect fallback ──
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('verified') === 'true') {
+      // Confirmed via redirect — trigger success immediately
+      setEmailStatus("verified");
+      setEmailCountdown(0);
+      setActiveTab("account");
+      showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
+
+      // Clean the URL so it doesn't re-trigger on next render
+      const clean = window.location.pathname;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
 
   // --- SESSION CONTROL LOGIC ---
   const [logoutProgress, setLogoutProgress] = useState(0);
@@ -338,13 +366,15 @@ export default function SettingsPage() {
     window.dispatchEvent(new CustomEvent(PATCH_EVENT, { detail: merged }));
   };
 
+  // UNIFIED dirty flag: true if EITHER name or avatar has a pending change
   const isNameDirty = (pendingUsername || "").trim() !== (settings.username || "");
+  const isAvatarDirty = pendingAvatar !== null;
+  const isDirty = isNameDirty || isAvatarDirty;
 
-  const handleUsernameSave = async () => {
-    if (!user) return;
-    const trimmed = (pendingUsername ?? "").trim();
-    if (!trimmed) return;
-    setIsSavingName(true);
+  // SINGLE unified save handler — commits name + avatar together in one upsert
+  const handleSaveChanges = async () => {
+    if (!user || !isDirty) return;
+    setIsSavingChanges(true);
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -352,32 +382,45 @@ export default function SettingsPage() {
     );
 
     try {
-        // 1. HARD CACHE UPDATE (Persistence Guarantee)
-        const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-        const updatedCache = { 
-            ...currentCache, 
-            id: user.id,
-            email: user.email,
-            name: trimmed,
-            avatarUrl: currentCache.avatarUrl || settings.avatar || "/placeholder-user.png"
-        };
-        localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
+        const trimmedName = (pendingUsername ?? "").trim() || settings.username || "User";
+        const finalAvatar = pendingAvatar || settings.avatar || "/placeholder-user.png";
 
-        // 2. INSTANT UI UPDATE
-        updateSettings({ username: trimmed });
-        window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-            detail: { username: trimmed, avatar: settings.avatar } 
-        }));
+        // ── 1. UPLOAD avatar to Storage if we have a pending file ──
+        let uploadedUrl = finalAvatar;
+        if (pendingAvatar && pendingAvatar.startsWith("blob:")) {
+            // Convert the blob URL back to a File via fetch
+            const blobRes = await fetch(pendingAvatar);
+            const blob = await blobRes.blob();
+            const fileExt = blob.type.split("/")[1] || "png";
+            const filePath = `${user.id}/avatar.${fileExt}`;
 
-        // 3. SAVE TO DB (Proper Upsert with Required Fields)
-        const { error: dbError } = await supabase.from('users').upsert({ 
+            const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(filePath, blob, { cacheControl: '0', upsert: true });
+
+            if (uploadError) {
+                console.error("Storage upload error:", uploadError);
+                throw new Error("Avatar upload failed: " + uploadError.message);
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+              .from('avatars')
+              .getPublicUrl(filePath);
+
+            if (!publicUrl) throw new Error("Failed to generate public URL");
+            uploadedUrl = `${publicUrl}?t=${Date.now()}`;
+        }
+
+        // ── 2. SINGLE DB UPSERT (name + avatar together) ──
+        const { error: dbError } = await supabase.from('users').upsert({
             id: user.id,
-            email: user.email, // CRITICAL: Include email for RLS
-            name: trimmed,
+            email: user.email,           // CRITICAL for RLS
+            name: trimmedName,
+            avatar_url: uploadedUrl,
             updated_at: new Date().toISOString()
-        }, { 
+        }, {
             onConflict: 'id',
-            ignoreDuplicates: false 
+            ignoreDuplicates: false
         });
 
         if (dbError) {
@@ -385,109 +428,63 @@ export default function SettingsPage() {
             throw new Error(dbError.message);
         }
 
-        // 4. AUTH SYNC
-        await supabase.auth.updateUser({ data: { full_name: trimmed, name: trimmed } });
+        // ── 3. AUTH METADATA SYNC ──
+        await supabase.auth.updateUser({
+            data: {
+                full_name: trimmedName,
+                name: trimmedName,
+                avatar_url: uploadedUrl,
+                picture: uploadedUrl
+            }
+        });
+
+        // ── 4. LOCAL CACHE + UI UPDATE ──
+        const updatedCache = {
+            id: user.id,
+            email: user.email,
+            name: trimmedName,
+            avatarUrl: uploadedUrl
+        };
+        localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
+
+        updateSettings({ username: trimmedName, avatar: uploadedUrl });
+        window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
+            detail: { username: trimmedName, avatar: uploadedUrl }
+        }));
+
+        // ── 5. CLEAR pending avatar so dirty flag resets ──
+        setPendingAvatar(null);
 
         showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
     } catch (error: any) {
-        console.error("Critical Name Error:", error);
+        console.error("Save Changes Error:", error);
         showNotification({ type: "error", message: "Save failed: " + error.message, duration: 4000 });
     } finally {
-        setIsSavingName(false);
+        setIsSavingChanges(false);
     }
   };
 
- const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user) return;
+ // Avatar picker: sets a LOCAL blob preview + marks dirty. Actual upload happens on "Save Changes".
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 1. Validate File
+    // Validate
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       return showNotification({ type: "warning", message: "Only images (JPG, PNG, GIF, WEBP) are allowed.", duration: 3000 });
     }
-
     if (file.size > 2 * 1024 * 1024) {
       return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
     }
 
-    showNotification({ type: "info", message: "Uploading avatar...", duration: 2000 });
+    // Create a local blob URL for instant preview — no network call yet
+    const blobUrl = URL.createObjectURL(file);
+    setPendingAvatar(blobUrl);           // marks isAvatarDirty = true → enables Save button
+    updateSettings({ avatar: blobUrl }); // instant visual update in the avatar <img>
 
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    try {
-      // 3. UPLOAD TO STORAGE
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      // Use consistent filename to prevent filling storage with duplicates
-      const filePath = `${user.id}/avatar.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { 
-          cacheControl: '0', 
-          upsert: true // Overwrite the existing file
-        });
-
-      if (uploadError) {
-        console.error("Storage blocked, keeping local file:", uploadError.message);
-        // We don't throw error here, we just stick with the local URL we already set
-        return; 
-      }
-
-      // 4. GET PUBLIC URL (With Cache Buster)
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-        
-      if (!publicUrl) throw new Error("Failed to generate public URL");
-
-      const publicUrlWithBust = `${publicUrl}?t=${Date.now()}`;
-
-      // 5. UPDATE DB WITH REAL URL
-      const { error: dbError } = await supabase.from('users').upsert({ 
-          id: user.id, 
-          avatar_url: publicUrlWithBust,
-          updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
-
-      if (dbError) throw new Error("DB Update Failed: " + dbError.message);
-
-      // 6. UPDATE CACHE WITH REAL URL (Include User ID)
-      const current = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-      const updatedCache = {
-        ...current,
-        id: user.id, // CRITICAL: Tag with user ID
-        email: user.email,
-        name: current.name || pendingUsername || "User",
-        avatarUrl: publicUrlWithBust
-      };
-      localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
-
-      // 7. SYNC AUTH
-      await supabase.auth.updateUser({ 
-          data: { avatar_url: publicUrlWithBust, picture: publicUrlWithBust } 
-      });
-
-      // 8. Force context refresh to update sidebar
-      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-          detail: { username: pendingUsername, avatar: publicUrlWithBust } 
-      }));
-
-      showNotification({ type: "success", message: "Avatar updated successfully!", duration: 2000 });
-
-    } catch (error: any) {
-      console.error("Sync Error:", error);
-      showNotification({ type: "error", message: "Upload failed: " + error.message, duration: 3000 });
-    } finally {
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+    // Reset the file input so the same file can be re-selected if needed
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleRemoveAvatar = async () => {
@@ -1001,8 +998,8 @@ export default function SettingsPage() {
                                     <Input id="username" value={pendingUsername} onChange={(e) => setPendingUsername(e.target.value)} className="h-20 bg-muted/40 border-2 border-border/50 focus:border-primary/50 focus:bg-background shadow-inner transition-all rounded-[1.5rem] text-3xl font-black tracking-tight px-8 text-foreground placeholder:text-muted-foreground/30" />
                                     {!isNameDirty && <span className="absolute right-8 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none"><Check size={28} /></span>}
                                  </div>
-                                 <button onClick={handleUsernameSave} disabled={!isNameDirty || isSavingName} className="h-20 w-full sm:w-auto px-10 rounded-[1.5rem] bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center">
-                                    {isSavingName ? <Loader2 size={24} className="animate-spin" /> : "Save Changes"}
+                                 <button onClick={handleSaveChanges} disabled={!isDirty || isSavingChanges} className="h-20 w-full sm:w-auto px-10 rounded-[1.5rem] bg-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 text-white text-sm font-bold shadow-2xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 flex items-center justify-center">
+                                    {isSavingChanges ? <Loader2 size={24} className="animate-spin" /> : "Save Changes"}
                                  </button>
                               </div>
                            </div>

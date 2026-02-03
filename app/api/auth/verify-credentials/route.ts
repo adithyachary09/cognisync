@@ -9,16 +9,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
 
-    // Stateless Client: Verifies password without creating a browser session
+    // SERVICE ROLE client: verifies credentials server-side with zero session side-effects
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // signInWithPassword on the service-role client does a pure credential check
+    // It does NOT create or overwrite any browser-side session cookie
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 401 });
+    if (error || !data?.user) {
+      return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });
+    }
+
+    // Explicitly sign out the ephemeral service-role session so nothing leaks
+    await supabase.auth.signOut();
 
     return NextResponse.json({ success: true });
 
