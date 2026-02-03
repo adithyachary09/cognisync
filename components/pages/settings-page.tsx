@@ -486,7 +486,6 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
-      // ── Call a dedicated remove endpoint (see NEW FILE below) ──
       const res = await fetch('/api/auth/remove-avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -495,24 +494,27 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Remove failed');
 
-      // ── Clear pending avatar if one was staged but not yet saved ──
+      // ✅ Backend now returns the placeholder path
+      const placeholderPath = data.avatar_url || "/placeholder-user.png";
+
+      // Clear any pending staged avatar
       setPendingAvatar(null);
 
-      // ── Update cache ──
+      // Update cache with placeholder
       const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
       const updatedCache = {
         ...currentCache,
         id: user.id,
         email: user.email,
         name: currentCache.name || settings.username || "User",
-        avatarUrl: "/placeholder-user.png"
+        avatarUrl: placeholderPath
       };
       localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-      // ── Update UI ──
-      updateSettings({ avatar: "/placeholder-user.png" });
+      // Update UI with placeholder
+      updateSettings({ avatar: placeholderPath });
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-        detail: { username: settings.username, avatar: "/placeholder-user.png" } 
+        detail: { username: settings.username, avatar: placeholderPath } 
       }));
 
       showNotification({ type: "info", message: "Avatar removed successfully.", duration: 2000 });
@@ -947,10 +949,21 @@ export default function SettingsPage() {
                            <div className="relative w-44 h-44 rounded-full p-2 bg-gradient-to-tr from-background/50 to-primary/20 backdrop-blur-md shadow-2xl">
                               <div className={cn("w-full h-full rounded-full bg-background overflow-hidden relative border-[6px] transition-all duration-500", securityInfo.status === "SECURE" ? "border-emerald-500/20" : "border-amber-500/20")}>
                                  <img 
-                                    src={(settings.avatar && settings.avatar !== "") ? settings.avatar : "/placeholder-user.png"} 
+                                    src={
+                                      (settings.avatar && 
+                                       settings.avatar !== "" && 
+                                       settings.avatar !== "null" && 
+                                       settings.avatar !== "undefined") 
+                                        ? settings.avatar 
+                                        : "/placeholder-user.png"
+                                    } 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover/identity:scale-110" 
                                     alt="Profile"
-                                    onError={(e) => { e.currentTarget.src = "/placeholder-user.png"; }} 
+                                    onError={(e) => { 
+                                      if (e.currentTarget.src !== window.location.origin + "/placeholder-user.png") {
+                                        e.currentTarget.src = "/placeholder-user.png"; 
+                                      }
+                                    }} 
                                  />
                                  <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/60 opacity-0 group-hover/identity:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1 cursor-pointer">
                                     <Camera className="text-white drop-shadow-md" size={32} />

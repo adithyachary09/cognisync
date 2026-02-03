@@ -42,17 +42,23 @@ export async function POST(req: Request) {
       avatarUrl = `${data.publicUrl}?t=${Date.now()}`;
     }
 
+    // If no new avatar uploaded, keep existing avatar from DB
+    const finalAvatarUrl = avatarUrl || null;
+
     await admin.from("users").upsert({
       id: user.id,
       email: user.email,
       name,
-      avatar_url: avatarUrl,
+      avatar_url: finalAvatarUrl,
       updated_at: new Date().toISOString(),
     });
 
+    // CRITICAL: Always return a usable path (never null)
+    const returnUrl = finalAvatarUrl || "/placeholder-user.png";
+
     return NextResponse.json({
       success: true,
-      avatar_url: avatarUrl,
+      avatar_url: returnUrl,
     });
   } catch (err) {
     console.error(err);
