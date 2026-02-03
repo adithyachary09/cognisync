@@ -1,30 +1,48 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export async function POST() {
   try {
-    // ✅ User authentication check
-    const supabase = createClient(
+    // ✅ CORRECT: Use createServerClient for proper cookie handling
+    const cookieStore = await cookies();
+    
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          },
+        },
+      }
     );
 
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError || !user) {
+      console.error("Auth error:", authError);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // ✅ Service role admin client
+    const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
 
-    // ✅ Delete all possible avatar files for this user
+    // ✅ Delete all possible avatar files
     const possiblePaths = [
       `${user.id}/avatar.png`,
       `${user.id}/avatar.jpg`,
@@ -33,24 +51,26 @@ export async function POST() {
       `${user.id}/avatar.gif`,
     ];
 
-    // Attempt deletion (ignore errors if files don't exist)
-    await admin.storage.from("avatars").remove(possiblePaths);
+    try {
+      await admin.storage.from("avatars").remove(possiblePaths);
+    } catch (e) {
+      // Ignore if no files exist
+    }
 
-    // ✅ CRITICAL FIX: Set avatar_url to placeholder path instead of null
+    // ✅ Set avatar to placeholder
     const { error: dbError } = await admin
       .from("users")
-      .update({ 
+      .update({
         avatar_url: "/placeholder-user.png",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
     if (dbError) {
       console.error("Database error:", dbError);
-      throw new Error("Failed to remove avatar");
+      throw new Error("Failed to remove avatar: " + dbError.message);
     }
 
-    // ✅ Return the placeholder path so frontend can update immediately
     return NextResponse.json({
       success: true,
       avatar_url: "/placeholder-user.png",
