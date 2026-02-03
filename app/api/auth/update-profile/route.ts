@@ -7,10 +7,9 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    // ── 1. Read cookies ONCE at the top (FIX: Added await) ──
     const cookieStore = await cookies();
 
-    // ── 2. Auth-check client ──
+    // ── 1. Auth Check: Read User Session ──
     const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,89 +19,85 @@ export async function POST(request: Request) {
             return cookieStore.get(name)?.value;
           },
           set(name: string, value: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value, ...options });
-            } catch (error) {
-              // Ignore
-            }
+            // API routes don't need to set cookies for simple verification
           },
           remove(name: string, options: CookieOptions) {
-            try {
-              cookieStore.set({ name, value: '', ...options });
-            } catch (error) {
-              // Ignore
-            }
+            // API routes don't need to remove cookies for simple verification
           },
         },
       }
     );
 
-    // ── 3. Verify Session ──
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    
+
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized — no valid session.' }, { status: 401 });
+      console.error("Auth Error:", authError);
+      return NextResponse.json({ error: 'Unauthorized — valid session required.' }, { status: 401 });
     }
 
-    // ── 4. Parse Data ──
+    // ── 2. Parse Incoming Data ──
     const formData = await request.formData();
     const name = formData.get('name') as string | null;
     const avatarFile = formData.get('avatarFile') as File | null;
 
-    // ── 5. Service-role client for writes ──
+    // ── 3. Initialize ADMIN Client (God Mode) ──
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Server misconfiguration: Service Role Key missing.' }, { status: 500 });
+    }
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
     );
 
     let finalAvatarUrl: string | null = null;
 
-    // ── 6. Upload avatar to Storage if a file was sent ──
+    // ── 4. Upload Avatar (Bypassing RLS) ──
     if (avatarFile && avatarFile.size > 0) {
       const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'png';
-      // Use a fixed path so we don't accumulate junk files
+      // Use standard path
       const filePath = `${user.id}/avatar.${fileExt}`;
 
-      // Upload with Upsert (Overwrite)
+      // Convert file to ArrayBuffer for reliable upload
+      const arrayBuffer = await avatarFile.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+
       const { error: uploadError } = await supabaseAdmin.storage
         .from('avatars')
-        .upload(filePath, avatarFile, { 
-            cacheControl: '0', 
-            upsert: true,
-            contentType: avatarFile.type 
+        .upload(filePath, fileBuffer, {
+          cacheControl: '0',
+          upsert: true,
+          contentType: avatarFile.type,
         });
 
       if (uploadError) {
-        console.error('[update-profile] Storage upload failed:', uploadError);
-        return NextResponse.json({ error: 'Avatar upload failed: ' + uploadError.message }, { status: 500 });
+        console.error('Storage Upload Error:', uploadError);
+        return NextResponse.json({ error: `Avatar upload failed: ${uploadError.message}` }, { status: 500 });
       }
 
-      // Generate Public URL
+      // Get Public URL
       const { data: { publicUrl } } = supabaseAdmin.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
-      if (!publicUrl) {
-        return NextResponse.json({ error: 'Could not generate public URL.' }, { status: 500 });
-      }
-
-      // Add cache buster
       finalAvatarUrl = `${publicUrl}?t=${Date.now()}`;
     }
 
-    // ── 7. Build the update payload ──
-    const updatePayload: Record<string, any> = {
+    // ── 5. Update Database (Bypassing RLS) ──
+    const updatePayload: any = {
       updated_at: new Date().toISOString(),
     };
+    if (name) updatePayload.name = name.trim();
+    if (finalAvatarUrl) updatePayload.avatar_url = finalAvatarUrl;
 
-    if (name !== null && name.trim() !== '') {
-      updatePayload.name = name.trim();
-    }
-    if (finalAvatarUrl !== null) {
-      updatePayload.avatar_url = finalAvatarUrl;
-    }
-
-    // ── 8. Upsert into public.users ──
     const { error: dbError } = await supabaseAdmin
       .from('users')
       .upsert(
@@ -111,11 +106,10 @@ export async function POST(request: Request) {
       );
 
     if (dbError) {
-      console.error('[update-profile] DB upsert failed:', dbError);
-      return NextResponse.json({ error: 'DB write failed: ' + dbError.message }, { status: 500 });
+      console.error('DB Error:', dbError);
+      return NextResponse.json({ error: `DB write failed: ${dbError.message}` }, { status: 500 });
     }
 
-    // ── 9. Success Response ──
     return NextResponse.json({
       success: true,
       avatar_url: finalAvatarUrl,
@@ -123,7 +117,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('[update-profile] Unhandled:', error);
-    return NextResponse.json({ error: 'Server error: ' + error.message }, { status: 500 });
+    console.error('Update Profile Fatal Error:', error);
+    return NextResponse.json({ error: 'Server processing error.' }, { status: 500 });
   }
 }
