@@ -61,8 +61,10 @@ export default function SettingsPage() {
   const [showFactoryResetDialog, setShowFactoryResetDialog] = useState(false);
   const [showJournalDeleteDialog, setShowJournalDeleteDialog] = useState(false);
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false); // ← ADD THIS LINE
   const [pendingUsername, setPendingUsername] = useState(settings.username || "");
-  const [showSecurityTooltip, setShowSecurityTooltip] = useState(false);
+  const [, setShowSecurityTooltip] = useState(false);
+  // Removed unused setShowSecurityTooltip state
   
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem("cognisync:settings-tab") || "appearance";
@@ -165,22 +167,32 @@ export default function SettingsPage() {
       if (event.data.type === 'EMAIL_VERIFIED') triggerSuccess();
     };
 
-    // POLLING FIX: Always poll if status is 'sent', ensuring main page wakes up
+    // POLLING FIX: Poll with 5-minute timeout
     if (emailStatus === 'sent' || emailStatus === 'sending') {
+        let pollCount = 0;
+        const MAX_POLLS = 300; // 5 minutes (300 seconds)
+        
         pollingInterval = setInterval(async () => {
+            pollCount++;
+            if (pollCount > MAX_POLLS) {
+                clearInterval(pollingInterval);
+                setEmailStatus("unverified");
+                showNotification({ type: "warning", message: "Verification timeout. Please try again.", duration: 3000 });
+                return;
+            }
+            
             if (!user?.id) return;
             const supabase = createBrowserClient(
                process.env.NEXT_PUBLIC_SUPABASE_URL!,
                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
             
-            // Check DB directly
             const { data } = await supabase.from('users').select('email_confirmed_at').eq('id', user.id).single();
             if (data?.email_confirmed_at) {
                 clearInterval(pollingInterval);
                 triggerSuccess();
             }
-        }, 1000); // Check every 1s (Aggressive)
+        }, 1000);
     }
 
     return () => {
@@ -400,23 +412,7 @@ export default function SettingsPage() {
       return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
     }
 
-    // 2. IMMEDIATE OPTIMISTIC UPDATE (Local Preview)
-    // We do this BEFORE the upload so you see the change instantly.
-    const localUrl = URL.createObjectURL(file);
-    
-    // Update Local Cache
-    try {
-        const current = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-        localStorage.setItem("cognisync:user-session", JSON.stringify({ ...current, avatarUrl: localUrl }));
-    } catch(e) {}
-
-    // Update UI
-    updateSettings({ avatar: localUrl });
-    window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
-        detail: { username: pendingUsername, avatar: localUrl } 
-    }));
-
-    showNotification({ type: "info", message: "Uploading...", duration: 1000 });
+    showNotification({ type: "info", message: "Uploading avatar...", duration: 2000 });
 
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -460,20 +456,37 @@ export default function SettingsPage() {
 
       if (dbError) throw new Error("DB Update Failed: " + dbError.message);
 
-      // 6. UPDATE CACHE WITH REAL URL
+      // 6. UPDATE CACHE WITH REAL URL (Include User ID)
       const current = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
-      localStorage.setItem("cognisync:user-session", JSON.stringify({ ...current, avatarUrl: publicUrlWithBust }));
+      const updatedCache = {
+        ...current,
+        id: user.id, // CRITICAL: Tag with user ID
+        email: user.email,
+        name: current.name || pendingUsername || "User",
+        avatarUrl: publicUrlWithBust
+      };
+      localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
       // 7. SYNC AUTH
       await supabase.auth.updateUser({ 
           data: { avatar_url: publicUrlWithBust, picture: publicUrlWithBust } 
       });
 
-      showNotification({ type: "success", message: "Cloud sync complete.", duration: 2000 });
+      // 8. Force context refresh to update sidebar
+      window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
+          detail: { username: pendingUsername, avatar: publicUrlWithBust } 
+      }));
+
+      showNotification({ type: "success", message: "Avatar updated successfully!", duration: 2000 });
 
     } catch (error: any) {
-      // Even if server fails, we kept the local URL visible so the user doesn't see a broken image
       console.error("Sync Error:", error);
+      showNotification({ type: "error", message: "Upload failed: " + error.message, duration: 3000 });
+    } finally {
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -638,12 +651,18 @@ export default function SettingsPage() {
     showNotification({ type: "success", message: "Archive downloaded.", duration: 2000 });
   };
 
-  const handleClearCache = () => {
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    
+    // Visual feedback delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     const essentialKeys = [
       'supabase.auth.token', 
       'cognisync:settings', 
       'cognisync:settings-tab',
-      'theme-storage'
+      'theme-storage',
+      'cognisync:user-session' // CRITICAL: Don't clear active user
     ];
     
     let count = 0;
@@ -662,6 +681,8 @@ export default function SettingsPage() {
       message: count > 0 ? `Purged ${count} cached fragments.` : "Cache is already optimal.", 
       duration: 2000 
     });
+    
+    setIsClearingCache(false);
   };
 
   const handleResetPreferences = () => {
@@ -1251,7 +1272,13 @@ export default function SettingsPage() {
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Safe temporary wipe</p>
                              </div>
                           </div>
-                          <button onClick={handleClearCache} className="h-12 px-8 rounded-xl bg-background border border-border/50 text-xs font-black uppercase tracking-widest hover:border-emerald-500/50 transition-all">Clear</button>
+                          <button 
+  onClick={handleClearCache} 
+  disabled={isClearingCache}
+  className="h-12 px-8 rounded-xl bg-background border border-border/50 text-xs font-black uppercase tracking-widest hover:border-emerald-500/50 transition-all disabled:opacity-50 flex items-center gap-2"
+>
+  {isClearingCache ? <><Loader2 size={14} className="animate-spin" /> Clearing...</> : "Clear"}
+</button>
                        </div>
                     </motion.div>
 

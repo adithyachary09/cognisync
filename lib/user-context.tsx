@@ -54,14 +54,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const fetchFullProfile = async (sbUser: SupabaseUser): Promise<User> => {
     const meta = sbUser.user_metadata || {};
     
-    // 1. FAST PATH: Check if we have this specific user cached in LocalStorage
-    // This makes the avatar show up instantly even if the Auth string is huge
+    // 1. CRITICAL: Check if cache belongs to CURRENT user (not previous account)
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem(USER_STORAGE_KEY);
       if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.id === sbUser.id && parsed.avatarUrl?.length > 10) {
-          return parsed; // Return immediately for instant UI
+        try {
+          const parsed = JSON.parse(cached);
+          // ONLY use cache if IDs match exactly
+          if (parsed.id === sbUser.id) {
+            // Still fetch DB in background to ensure sync, but return cache first
+            setTimeout(() => {
+              supabase.from('users')
+                .select('name, avatar_url')
+                .eq('id', sbUser.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                  if (data && (data.name !== parsed.name || data.avatar_url !== parsed.avatarUrl)) {
+                    // DB has different data - update cache silently
+                    const updated = { ...parsed, name: data.name || parsed.name, avatarUrl: data.avatar_url || parsed.avatarUrl };
+                    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated));
+                  }
+                });
+            }, 500);
+            return parsed;
+          } else {
+            // Cache belongs to different user - WIPE IT
+            localStorage.removeItem(USER_STORAGE_KEY);
+          }
+        } catch (e) {
+          console.error("Cache validation failed:", e);
+          localStorage.removeItem(USER_STORAGE_KEY);
         }
       }
     }
