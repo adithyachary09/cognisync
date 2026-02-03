@@ -332,7 +332,7 @@ export default function SettingsPage() {
         if (validCache.avatarUrl) updateSettings({ avatar: validCache.avatarUrl });
     }
 
-    // 3. Always Fetch DB to Sync (Persistence Check)
+   // 3. Always Fetch DB to Sync (Persistence Check)
     const fetchProfile = async () => {
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -345,16 +345,23 @@ export default function SettingsPage() {
             const dbName = data.name;
             const dbAvatar = data.avatar_url;
 
+            // ✅ FIXED: Validate avatar URL - never use blob URLs from DB
+            const isValidAvatar = dbAvatar && 
+                                  dbAvatar !== "" && 
+                                  dbAvatar !== "null" && 
+                                  dbAvatar !== "undefined" &&
+                                  !dbAvatar.startsWith("blob:");
+            
+            const finalAvatar = isValidAvatar ? dbAvatar : "/placeholder-user.png";
+
             // Update UI if DB has data we don't
             if (!validCache) {
                 if (dbName) setPendingUsername(dbName);
-                // If DB has an avatar, use it. If not, placeholder.
-                const finalAvatar = dbAvatar || "/placeholder-user.png";
                 updateSettings({ username: dbName, avatar: finalAvatar });
                 
-                // Save to Cache with User ID (So it survives reload)
+                // Save to Cache with User ID
                 localStorage.setItem("cognisync:user-session", JSON.stringify({ 
-                    id: user.id, // Tag cache with ID
+                    id: user.id,
                     name: dbName, 
                     avatarUrl: finalAvatar 
                 }));
@@ -382,26 +389,22 @@ export default function SettingsPage() {
   const isDirty = isNameDirty || isAvatarDirty;
 
   // SINGLE unified save handler — sends name + avatar file to the server API route
-  // The API route uses the SERVICE ROLE key so RLS can never block it.
   const handleSaveChanges = async () => {
     if (!user || !isDirty) return;
     setIsSavingChanges(true);
 
     try {
         const trimmedName = (pendingUsername ?? "").trim();
-        // Fallback to existing if empty, but allow explicit changes
         const finalName = trimmedName.length > 0 ? trimmedName : (settings.username || "User");
 
-        // ── Build FormData for the API route ──
         const formData = new FormData();
         formData.append('name', finalName);
 
-        // If avatar is a blob: URL, convert it back to a File and attach
+        // ✅ FIXED: Only send file if there's a pending blob URL
         if (pendingAvatar && pendingAvatar.startsWith("blob:")) {
             try {
                 const blobRes = await fetch(pendingAvatar);
                 const blob = await blobRes.blob();
-                // Derive a proper filename
                 const ext = blob.type.split("/")[1] || "png";
                 const file = new File([blob], `avatar.${ext}`, { type: blob.type });
                 formData.append('avatarFile', file);
@@ -411,28 +414,21 @@ export default function SettingsPage() {
             }
         }
 
-        // ── Fire the server route — it handles storage upload + DB upsert ──
         const res = await fetch('/api/auth/update-profile', {
             method: 'POST',
             body: formData,
-            // Do NOT set Content-Type — let the browser set it with the boundary for multipart
         });
 
         const data = await res.json();
         
         if (!res.ok) {
-            // Revert UI if save failed (so user doesn't think it succeeded)
-            if (pendingAvatar) {
-                updateSettings({ avatar: settings.avatar }); // Revert context to old avatar
-            }
             throw new Error(data.error || 'Save failed');
         }
 
-        // ── Resolve the final avatar URL ──
-        // If the server uploaded a new avatar it returns the URL; otherwise keep current
-        const finalAvatar = data.avatar_url || settings.avatar || "/placeholder-user.png";
+        // ✅ FIXED: Backend now always returns a valid path
+        const finalAvatar = data.avatar_url || "/placeholder-user.png";
 
-        // ── LOCAL CACHE + UI UPDATE ──
+        // Update cache
         const updatedCache = {
             id: user.id,
             email: user.email,
@@ -441,13 +437,13 @@ export default function SettingsPage() {
         };
         localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-        // Commit changes to global state
+        // Update UI
         updateSettings({ username: finalName, avatar: finalAvatar });
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
             detail: { username: finalName, avatar: finalAvatar }
         }));
 
-        // ── CLEAR pending avatar so dirty flag resets ──
+        // Clear pending state
         setPendingAvatar(null);
 
         showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
@@ -459,28 +455,38 @@ export default function SettingsPage() {
     }
   };
 
+
  // Avatar picker: sets a LOCAL blob preview + marks dirty. Actual upload happens on "Save Changes".
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate
+    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       return showNotification({ type: "warning", message: "Only images (JPG, PNG, GIF, WEBP) are allowed.", duration: 3000 });
     }
+    
+    // Validate file size (2MB limit)
     if (file.size > 2 * 1024 * 1024) {
       return showNotification({ type: "warning", message: "Image must be under 2MB.", duration: 3000 });
     }
 
-    // Create a local blob URL for instant preview — no network call yet
+    // ✅ FIXED: Create blob URL for preview only - don't save to settings yet
     const blobUrl = URL.createObjectURL(file);
-    setPendingAvatar(blobUrl);           // marks isAvatarDirty = true → enables Save button
-    updateSettings({ avatar: blobUrl }); // instant visual update in the avatar <img>
+    setPendingAvatar(blobUrl); // Marks as dirty, enables Save button
+    
+    // ✅ CRITICAL: Update visual preview WITHOUT touching global settings
+    // This prevents blob URLs from being cached or persisted
+    const imgElement = document.querySelector('[alt="Profile"]') as HTMLImageElement;
+    if (imgElement) {
+      imgElement.src = blobUrl;
+    }
 
-    // Reset the file input so the same file can be re-selected if needed
+    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
 
   const handleRemoveAvatar = async () => {
     if (!user) return;
@@ -494,13 +500,13 @@ export default function SettingsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Remove failed');
 
-      // ✅ Backend now returns the placeholder path
+      // ✅ Backend returns placeholder path
       const placeholderPath = data.avatar_url || "/placeholder-user.png";
 
-      // Clear any pending staged avatar
+      // Clear pending avatar
       setPendingAvatar(null);
 
-      // Update cache with placeholder
+      // Update cache
       const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
       const updatedCache = {
         ...currentCache,
@@ -511,7 +517,7 @@ export default function SettingsPage() {
       };
       localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-      // Update UI with placeholder
+      // Update UI
       updateSettings({ avatar: placeholderPath });
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
         detail: { username: settings.username, avatar: placeholderPath } 
@@ -953,15 +959,17 @@ export default function SettingsPage() {
                                       (settings.avatar && 
                                        settings.avatar !== "" && 
                                        settings.avatar !== "null" && 
-                                       settings.avatar !== "undefined") 
+                                       settings.avatar !== "undefined" &&
+                                       !settings.avatar.startsWith("blob:")) 
                                         ? settings.avatar 
                                         : "/placeholder-user.png"
                                     } 
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover/identity:scale-110" 
                                     alt="Profile"
                                     onError={(e) => { 
-                                      if (e.currentTarget.src !== window.location.origin + "/placeholder-user.png") {
-                                        e.currentTarget.src = "/placeholder-user.png"; 
+                                      const placeholder = "/placeholder-user.png";
+                                      if (e.currentTarget.src !== window.location.origin + placeholder) {
+                                        e.currentTarget.src = placeholder;
                                       }
                                     }} 
                                  />

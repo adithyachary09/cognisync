@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
   try {
-    /* ✅ plain client (NO SSR) */
+    // ✅ User authentication check
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* ✅ service role admin */
+    // ✅ Service role admin client for bypassing RLS
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -28,40 +28,75 @@ export async function POST(req: Request) {
     const name = formData.get("name") as string | null;
     const avatarFile = formData.get("avatarFile") as File | null;
 
-    let avatarUrl: string | null = null;
+    let newAvatarUrl: string | null = null;
 
-    if (avatarFile) {
+    // ✅ If user uploaded a new avatar, process it
+    if (avatarFile && avatarFile.size > 0) {
       const ext = avatarFile.name.split(".").pop() || "png";
       const path = `${user.id}/avatar.${ext}`;
 
-      await admin.storage.from("avatars").upload(path, avatarFile, {
-        upsert: true,
-      });
+      // Delete old avatar files first
+      const possibleOldPaths = [
+        `${user.id}/avatar.png`,
+        `${user.id}/avatar.jpg`,
+        `${user.id}/avatar.jpeg`,
+        `${user.id}/avatar.webp`,
+        `${user.id}/avatar.gif`,
+      ];
+      await admin.storage.from("avatars").remove(possibleOldPaths);
 
+      // Upload new avatar
+      const { error: uploadError } = await admin.storage
+        .from("avatars")
+        .upload(path, avatarFile, {
+          upsert: true,
+          contentType: avatarFile.type,
+        });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error("Failed to upload avatar");
+      }
+
+      // Get public URL with cache-busting timestamp
       const { data } = admin.storage.from("avatars").getPublicUrl(path);
-      avatarUrl = `${data.publicUrl}?t=${Date.now()}`;
+      newAvatarUrl = `${data.publicUrl}?t=${Date.now()}`;
     }
 
-    // If no new avatar uploaded, keep existing avatar from DB
-    const finalAvatarUrl = avatarUrl || null;
+    // ✅ Fetch current user data to preserve existing avatar if not updating
+    const { data: existingUser } = await admin
+      .from("users")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .single();
 
-    await admin.from("users").upsert({
+    // Determine final avatar URL: new upload > existing > placeholder
+    const finalAvatarUrl = newAvatarUrl || existingUser?.avatar_url || "/placeholder-user.png";
+
+    // ✅ Upsert user data
+    const { error: dbError } = await admin.from("users").upsert({
       id: user.id,
       email: user.email,
-      name,
+      name: name || "User",
       avatar_url: finalAvatarUrl,
       updated_at: new Date().toISOString(),
     });
 
-    // CRITICAL: Always return a usable path (never null)
-    const returnUrl = finalAvatarUrl || "/placeholder-user.png";
+    if (dbError) {
+      console.error("Database error:", dbError);
+      throw new Error("Failed to update profile");
+    }
 
     return NextResponse.json({
       success: true,
-      avatar_url: returnUrl,
+      avatar_url: finalAvatarUrl,
+      name: name || "User",
     });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server Error" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Update profile error:", err);
+    return NextResponse.json(
+      { error: err.message || "Server Error" },
+      { status: 500 }
+    );
   }
 }
