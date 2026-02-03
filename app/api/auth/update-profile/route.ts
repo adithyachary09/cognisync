@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
   try {
-    // ✅ CORRECT: Use createServerClient for proper cookie handling
-    const cookieStore = await cookies();
-    
-    const supabase = createServerClient(
+    // ✅ Get auth token from request header
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized - No token" }, { status: 401 });
+    }
+
+    // ✅ Create client with user's token
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
         },
       }
@@ -30,12 +30,10 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error("Auth error:", authError);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
     }
 
-    // ✅ Service role admin client
-    const { createClient } = await import("@supabase/supabase-js");
+    // ✅ Service role admin
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -48,12 +46,10 @@ export async function POST(req: Request) {
 
     let newAvatarUrl: string | null = null;
 
-    // ✅ Process avatar upload
     if (avatarFile && avatarFile.size > 0) {
       const ext = avatarFile.name.split(".").pop() || "png";
       const path = `${user.id}/avatar.${ext}`;
 
-      // Delete old avatars
       const possibleOldPaths = [
         `${user.id}/avatar.png`,
         `${user.id}/avatar.jpg`,
@@ -64,11 +60,8 @@ export async function POST(req: Request) {
       
       try {
         await admin.storage.from("avatars").remove(possibleOldPaths);
-      } catch (e) {
-        // Ignore if no old files exist
-      }
+      } catch (e) {}
 
-      // Upload new avatar
       const { error: uploadError } = await admin.storage
         .from("avatars")
         .upload(path, avatarFile, {
@@ -77,16 +70,13 @@ export async function POST(req: Request) {
         });
 
       if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw new Error("Failed to upload avatar: " + uploadError.message);
+        throw new Error("Failed to upload avatar");
       }
 
-      // Get public URL with cache-busting
       const { data } = admin.storage.from("avatars").getPublicUrl(path);
       newAvatarUrl = `${data.publicUrl}?t=${Date.now()}`;
     }
 
-    // ✅ Get existing avatar if not uploading new one
     const { data: existingUser } = await admin
       .from("users")
       .select("avatar_url")
@@ -95,7 +85,6 @@ export async function POST(req: Request) {
 
     const finalAvatarUrl = newAvatarUrl || existingUser?.avatar_url || "/placeholder-user.png";
 
-    // ✅ Update database
     const { error: dbError } = await admin.from("users").upsert(
       {
         id: user.id,
@@ -104,14 +93,11 @@ export async function POST(req: Request) {
         avatar_url: finalAvatarUrl,
         updated_at: new Date().toISOString(),
       },
-      {
-        onConflict: "id",
-      }
+      { onConflict: "id" }
     );
 
     if (dbError) {
-      console.error("Database error:", dbError);
-      throw new Error("Failed to update profile: " + dbError.message);
+      throw new Error("Failed to update profile");
     }
 
     return NextResponse.json({

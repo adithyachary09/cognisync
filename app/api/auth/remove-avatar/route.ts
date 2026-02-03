@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    // ✅ CORRECT: Use createServerClient for proper cookie handling
-    const cookieStore = await cookies();
-    
-    const supabase = createServerClient(
+    // ✅ Get auth token from request header
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized - No token" }, { status: 401 });
+    }
+
+    // ✅ Create client with user's token
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
         },
       }
@@ -30,19 +30,16 @@ export async function POST() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.error("Auth error:", authError);
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
     }
 
-    // ✅ Service role admin client
-    const { createClient } = await import("@supabase/supabase-js");
+    // ✅ Service role admin
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     );
 
-    // ✅ Delete all possible avatar files
     const possiblePaths = [
       `${user.id}/avatar.png`,
       `${user.id}/avatar.jpg`,
@@ -53,11 +50,8 @@ export async function POST() {
 
     try {
       await admin.storage.from("avatars").remove(possiblePaths);
-    } catch (e) {
-      // Ignore if no files exist
-    }
+    } catch (e) {}
 
-    // ✅ Set avatar to placeholder
     const { error: dbError } = await admin
       .from("users")
       .update({
@@ -67,8 +61,7 @@ export async function POST() {
       .eq("id", user.id);
 
     if (dbError) {
-      console.error("Database error:", dbError);
-      throw new Error("Failed to remove avatar: " + dbError.message);
+      throw new Error("Failed to remove avatar");
     }
 
     return NextResponse.json({

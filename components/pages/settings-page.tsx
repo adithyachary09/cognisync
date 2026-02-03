@@ -414,8 +414,22 @@ export default function SettingsPage() {
             }
         }
 
+        // ✅ Get user's session token
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          throw new Error("No active session");
+        }
+
         const res = await fetch('/api/auth/update-profile', {
             method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            },
             body: formData,
         });
 
@@ -492,9 +506,23 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
+      // ✅ Get user's session token
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No active session");
+      }
+
       const res = await fetch('/api/auth/remove-avatar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
       });
 
       const data = await res.json();
