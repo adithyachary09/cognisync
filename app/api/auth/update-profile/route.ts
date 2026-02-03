@@ -62,11 +62,10 @@ export async function POST(request: Request) {
       const ext = avatarFile.name.split(".").pop() || "png";
       const path = `${user.id}/avatar.${ext}`;
 
-      const buffer = Buffer.from(await avatarFile.arrayBuffer());
-
-      const { error: uploadError } = await supabaseAdmin.storage
+            await supabaseAdmin.storage
         .from("avatars")
-        .upload(path, buffer, {
+        .upload(path, avatarFile, {
+
           upsert: true,
           cacheControl: "0",
           contentType: avatarFile.type,
