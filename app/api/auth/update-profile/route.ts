@@ -6,10 +6,12 @@ import { cookies } from 'next/headers';
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  console.log("🔹 [API] Update Profile triggered...");
+
   try {
     const cookieStore = await cookies();
 
-    // ── 1. Auth Check (Modern Adapter Pattern) ──
+    // ── 1. Auth Check (Explicit Types added to silence TS errors) ──
     const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,13 +20,13 @@ export async function POST(request: Request) {
           getAll() {
             return cookieStore.getAll();
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: any[]) { // <--- Added type : any[]
             try {
-              cookiesToSet.forEach(({ name, value, options }) =>
+              cookiesToSet.forEach(({ name, value, options }: any) => // <--- Added type : any
                 cookieStore.set(name, value, options)
               );
             } catch {
-              // Ignored: likely called from a server component context
+              // Ignored
             }
           },
         },
@@ -34,13 +36,13 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
 
     if (authError || !user) {
-      console.error("[update-profile] Auth Failed:", authError?.message || "No user found");
+      console.error("❌ [API] Auth Failed:", authError?.message);
       return NextResponse.json({ error: 'Unauthorized — valid session required.' }, { status: 401 });
     }
 
-    console.log("[update-profile] User verified:", user.id);
+    console.log(`✅ [API] User Verified: ${user.id}`);
 
-    // ── 2. Initialize Admin Client (God Mode) ──
+    // ── 2. Initialize Admin Client ──
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceRoleKey) {
       return NextResponse.json({ error: 'Server Config Error: Service Key missing' }, { status: 500 });
@@ -69,11 +71,9 @@ export async function POST(request: Request) {
       const fileExt = avatarFile.name.split('.').pop()?.toLowerCase() || 'png';
       const filePath = `${user.id}/avatar.${fileExt}`;
 
-      // Convert to ArrayBuffer for Node.js
       const arrayBuffer = await avatarFile.arrayBuffer();
       const fileBuffer = Buffer.from(arrayBuffer);
 
-      // Upload (Overwrite enabled)
       const { error: uploadError } = await supabaseAdmin.storage
         .from('avatars')
         .upload(filePath, fileBuffer, {
@@ -83,11 +83,10 @@ export async function POST(request: Request) {
         });
 
       if (uploadError) {
-        console.error('[update-profile] Upload Error:', uploadError);
+        console.error('[API] Upload Error:', uploadError);
         return NextResponse.json({ error: 'Storage upload failed' }, { status: 500 });
       }
 
-      // Get URL
       const { data: { publicUrl } } = supabaseAdmin.storage
         .from('avatars')
         .getPublicUrl(filePath);
@@ -110,7 +109,7 @@ export async function POST(request: Request) {
       );
 
     if (dbError) {
-      console.error('[update-profile] DB Error:', dbError);
+      console.error('[API] DB Error:', dbError);
       return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
     }
 
@@ -121,7 +120,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error('[update-profile] Fatal:', error);
+    console.error('[API] Fatal:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

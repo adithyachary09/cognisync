@@ -9,7 +9,7 @@ export async function POST() {
   try {
     const cookieStore = await cookies();
 
-    // ── 1. Auth Check ──
+    // ── 1. Auth Check (Aggressive Type-Casting) ──
     const supabaseAuth = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,9 +18,10 @@ export async function POST() {
           getAll() {
             return cookieStore.getAll();
           },
-          setAll(cookiesToSet) {
+          // Explicitly type every parameter as 'any' to satisfy strict mode
+          setAll(cookiesToSet: any[]) { 
             try {
-              cookiesToSet.forEach(({ name, value, options }) =>
+              cookiesToSet.forEach(({ name, value, options }: any) =>
                 cookieStore.set(name, value, options)
               );
             } catch {
