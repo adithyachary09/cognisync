@@ -143,18 +143,16 @@ export default function SettingsPage() {
   const [userEmail, setUserEmail] = useState("");
   const [emailCountdown, setEmailCountdown] = useState(0); 
 
-// MAGIC LISTENER: Fixes Sync & Animation (Broadcast + Polling via auth.getUser)
+// ── EFFECT A: BroadcastChannel — mounted ONCE, lives until component unmounts ──
+  // This must NEVER be torn down and rebuilt, or messages get lost in the gap.
   useEffect(() => {
-    let pollingInterval: NodeJS.Timeout;
-    let channel: BroadcastChannel;
+    let channel: BroadcastChannel | null = null;
 
-    // ── Success Action ──
-    const triggerSuccess = async () => {
+    const onVerified = async () => {
         setEmailStatus("verified");
         setEmailCountdown(0);
         setActiveTab("account");
 
-        // Hard-refresh the Supabase session so auth state is fresh everywhere
         const supabase = createBrowserClient(
            process.env.NEXT_PUBLIC_SUPABASE_URL!,
            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -164,68 +162,80 @@ export default function SettingsPage() {
         showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
     };
 
-    // ── BroadcastChannel listener (same-origin tab messaging) ──
     try {
       channel = new BroadcastChannel('cognisync-auth');
-      channel.onmessage = (event) => {
-        if (event.data?.type === 'EMAIL_VERIFIED') triggerSuccess();
+      channel.onmessage = (event: MessageEvent) => {
+        if (event.data?.type === 'EMAIL_VERIFIED') onVerified();
       };
     } catch (e) {
-      console.warn("BroadcastChannel not supported, relying on polling only.");
-    }
-
-    // ── Polling: runs while status is 'sent' or 'sending' ──
-    // Uses supabase.auth.getUser() which reads the REAL auth.users row
-    // (the public 'users' table may not have email_confirmed_at at all)
-    if (emailStatus === 'sent' || emailStatus === 'sending') {
-        let pollCount = 0;
-        const MAX_POLLS = 300; // 5 minutes
-
-        pollingInterval = setInterval(async () => {
-            pollCount++;
-            if (pollCount > MAX_POLLS) {
-                clearInterval(pollingInterval);
-                setEmailStatus("unverified");
-                showNotification({ type: "warning", message: "Verification timeout. Please try again.", duration: 3000 });
-                return;
-            }
-
-            const supabase = createBrowserClient(
-               process.env.NEXT_PUBLIC_SUPABASE_URL!,
-               process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
-
-            // Pull the live auth user — email_confirmed_at lives HERE, not in public.users
-            const { data: { user: authUser }, error } = await supabase.auth.getUser();
-            if (error || !authUser) return;
-
-            if (authUser.email_confirmed_at) {
-                clearInterval(pollingInterval);
-                triggerSuccess();
-            }
-        }, 2000); // 2s interval is plenty — avoids hammering the auth endpoint
+      console.warn("[BroadcastChannel] Not supported in this browser.");
     }
 
     return () => {
-        if (channel) channel.close();
-        if (pollingInterval) clearInterval(pollingInterval);
+      if (channel) channel.close();
     };
-  }, [user?.id, emailStatus]);
+  }, []); // ← EMPTY deps. This channel lives forever until unmount.
 
-  // ── MOUNT CHECK: if we landed here via the ?verified=true redirect fallback ──
+  // ── EFFECT B: Polling — runs ONLY while emailStatus is 'sent' or 'sending' ──
+  useEffect(() => {
+    if (emailStatus !== 'sent' && emailStatus !== 'sending') return;
+
+    let pollCount = 0;
+    const MAX_POLLS = 300; // 5 minutes at 1-poll/sec
+
+    const triggerSuccess = async () => {
+        setEmailStatus("verified");
+        setEmailCountdown(0);
+        setActiveTab("account");
+
+        const supabase = createBrowserClient(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        await supabase.auth.refreshSession();
+
+        showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
+    };
+
+    const pollingInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+            clearInterval(pollingInterval);
+            setEmailStatus("unverified");
+            showNotification({ type: "warning", message: "Verification timeout. Please try again.", duration: 3000 });
+            return;
+        }
+
+        const supabase = createBrowserClient(
+           process.env.NEXT_PUBLIC_SUPABASE_URL!,
+           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        // auth.getUser() reads the live auth.users row — email_confirmed_at lives HERE
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        if (error || !authUser) return;
+
+        if (authUser.email_confirmed_at) {
+            clearInterval(pollingInterval);
+            triggerSuccess();
+        }
+    }, 2000);
+
+    return () => clearInterval(pollingInterval);
+  }, [emailStatus]); // ← Only re-runs when emailStatus actually changes
+
+  // ── EFFECT C: URL param fallback — if verify page couldn't close itself ──
+  // and redirected to /settings?verified=true instead
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('verified') === 'true') {
-      // Confirmed via redirect — trigger success immediately
       setEmailStatus("verified");
       setEmailCountdown(0);
       setActiveTab("account");
       showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
-
-      // Clean the URL so it doesn't re-trigger on next render
-      const clean = window.location.pathname;
-      window.history.replaceState({}, '', clean);
+      // Strip the param so it doesn't re-trigger
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
 
@@ -371,88 +381,73 @@ export default function SettingsPage() {
   const isAvatarDirty = pendingAvatar !== null;
   const isDirty = isNameDirty || isAvatarDirty;
 
-  // SINGLE unified save handler — commits name + avatar together in one upsert
+  // SINGLE unified save handler — sends name + avatar file to the server API route
+  // The API route uses the SERVICE ROLE key so RLS can never block it.
   const handleSaveChanges = async () => {
     if (!user || !isDirty) return;
     setIsSavingChanges(true);
 
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
     try {
-        const trimmedName = (pendingUsername ?? "").trim() || settings.username || "User";
-        const finalAvatar = pendingAvatar || settings.avatar || "/placeholder-user.png";
+        const trimmedName = (pendingUsername ?? "").trim();
+        // Fallback to existing if empty, but allow explicit changes
+        const finalName = trimmedName.length > 0 ? trimmedName : (settings.username || "User");
 
-        // ── 1. UPLOAD avatar to Storage if we have a pending file ──
-        let uploadedUrl = finalAvatar;
+        // ── Build FormData for the API route ──
+        const formData = new FormData();
+        formData.append('name', finalName);
+
+        // If avatar is a blob: URL, convert it back to a File and attach
         if (pendingAvatar && pendingAvatar.startsWith("blob:")) {
-            // Convert the blob URL back to a File via fetch
-            const blobRes = await fetch(pendingAvatar);
-            const blob = await blobRes.blob();
-            const fileExt = blob.type.split("/")[1] || "png";
-            const filePath = `${user.id}/avatar.${fileExt}`;
-
-            const { error: uploadError } = await supabase.storage
-              .from('avatars')
-              .upload(filePath, blob, { cacheControl: '0', upsert: true });
-
-            if (uploadError) {
-                console.error("Storage upload error:", uploadError);
-                throw new Error("Avatar upload failed: " + uploadError.message);
+            try {
+                const blobRes = await fetch(pendingAvatar);
+                const blob = await blobRes.blob();
+                // Derive a proper filename
+                const ext = blob.type.split("/")[1] || "png";
+                const file = new File([blob], `avatar.${ext}`, { type: blob.type });
+                formData.append('avatarFile', file);
+            } catch (blobError) {
+                console.error("Blob conversion failed:", blobError);
+                throw new Error("Failed to process image file. Please try selecting it again.");
             }
-
-            const { data: { publicUrl } } = supabase.storage
-              .from('avatars')
-              .getPublicUrl(filePath);
-
-            if (!publicUrl) throw new Error("Failed to generate public URL");
-            uploadedUrl = `${publicUrl}?t=${Date.now()}`;
         }
 
-        // ── 2. SINGLE DB UPSERT (name + avatar together) ──
-        const { error: dbError } = await supabase.from('users').upsert({
-            id: user.id,
-            email: user.email,           // CRITICAL for RLS
-            name: trimmedName,
-            avatar_url: uploadedUrl,
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: 'id',
-            ignoreDuplicates: false
+        // ── Fire the server route — it handles storage upload + DB upsert ──
+        const res = await fetch('/api/auth/update-profile', {
+            method: 'POST',
+            body: formData,
+            // Do NOT set Content-Type — let the browser set it with the boundary for multipart
         });
 
-        if (dbError) {
-            console.error("DB Save Failed:", dbError);
-            throw new Error(dbError.message);
+        const data = await res.json();
+        
+        if (!res.ok) {
+            // Revert UI if save failed (so user doesn't think it succeeded)
+            if (pendingAvatar) {
+                updateSettings({ avatar: settings.avatar }); // Revert context to old avatar
+            }
+            throw new Error(data.error || 'Save failed');
         }
 
-        // ── 3. AUTH METADATA SYNC ──
-        await supabase.auth.updateUser({
-            data: {
-                full_name: trimmedName,
-                name: trimmedName,
-                avatar_url: uploadedUrl,
-                picture: uploadedUrl
-            }
-        });
+        // ── Resolve the final avatar URL ──
+        // If the server uploaded a new avatar it returns the URL; otherwise keep current
+        const finalAvatar = data.avatar_url || settings.avatar || "/placeholder-user.png";
 
-        // ── 4. LOCAL CACHE + UI UPDATE ──
+        // ── LOCAL CACHE + UI UPDATE ──
         const updatedCache = {
             id: user.id,
             email: user.email,
-            name: trimmedName,
-            avatarUrl: uploadedUrl
+            name: finalName,
+            avatarUrl: finalAvatar
         };
         localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-        updateSettings({ username: trimmedName, avatar: uploadedUrl });
+        // Commit changes to global state
+        updateSettings({ username: finalName, avatar: finalAvatar });
         window.dispatchEvent(new CustomEvent(PATCH_EVENT, {
-            detail: { username: trimmedName, avatar: uploadedUrl }
+            detail: { username: finalName, avatar: finalAvatar }
         }));
 
-        // ── 5. CLEAR pending avatar so dirty flag resets ──
+        // ── CLEAR pending avatar so dirty flag resets ──
         setPendingAvatar(null);
 
         showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
@@ -489,30 +484,21 @@ export default function SettingsPage() {
 
   const handleRemoveAvatar = async () => {
     if (!user) return;
-    
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    
+
     try {
-      // Update database with required email field
-      const { error: dbError } = await supabase.from('users').upsert({ 
-        id: user.id, 
-        email: user.email, // CRITICAL: Include email for RLS
-        avatar_url: null,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'id',
-        ignoreDuplicates: false
+      // ── Call a dedicated remove endpoint (see NEW FILE below) ──
+      const res = await fetch('/api/auth/remove-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       });
 
-      if (dbError) {
-        console.error("DB update error:", dbError);
-        throw new Error(dbError.message);
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Remove failed');
 
-      // Update cache
+      // ── Clear pending avatar if one was staged but not yet saved ──
+      setPendingAvatar(null);
+
+      // ── Update cache ──
       const currentCache = JSON.parse(localStorage.getItem("cognisync:user-session") || "{}");
       const updatedCache = {
         ...currentCache,
@@ -523,16 +509,11 @@ export default function SettingsPage() {
       };
       localStorage.setItem("cognisync:user-session", JSON.stringify(updatedCache));
 
-      // Update UI
+      // ── Update UI ──
       updateSettings({ avatar: "/placeholder-user.png" });
       window.dispatchEvent(new CustomEvent(PATCH_EVENT, { 
         detail: { username: settings.username, avatar: "/placeholder-user.png" } 
       }));
-      
-      // Sync auth metadata
-      await supabase.auth.updateUser({ 
-        data: { avatar_url: null, picture: null } 
-      });
 
       showNotification({ type: "info", message: "Avatar removed successfully.", duration: 2000 });
     } catch (error: any) {
