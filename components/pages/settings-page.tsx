@@ -1301,55 +1301,72 @@ export default function SettingsPage() {
                   </div>
               </TabsContent> 
 
-              {/* ======================= TAB: SUPPORT ======================= */}
-              <TabsContent value="support" className="space-y-6 m-0">
+              {/* ======================= TAB: SUPPORT (POLISHED BENTO) ======================= */}
+              <TabsContent value="support" className="space-y-6 m-0 outline-none">
+                  
+                  {/* HERO: SUPPORT LINE */}
                   <motion.div variants={itemVariant}>
                       <motion.div 
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleCopyEmail}
-                        className="relative p-10 rounded-[2.5rem] overflow-hidden bg-gradient-to-tr from-violet-600 to-indigo-700 text-white shadow-2xl cursor-pointer group"
+                        className="relative p-8 md:p-12 rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-indigo-600 text-white shadow-2xl cursor-pointer group"
                       >
-                        <div className="relative z-10 flex flex-col items-center text-center gap-4">
-                           <div className="p-4 bg-white/10 rounded-full backdrop-blur-lg border border-white/20 mb-2">
-                              <Fingerprint size={48} className="text-white opacity-90" />
+                        {/* Interactive Background Elements */}
+                        <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] pointer-events-none" />
+                        <motion.div 
+                          animate={{ rotate: [0, 360] }} 
+                          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                          className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-white/10 rounded-full blur-[100px] pointer-events-none" 
+                        />
+                        
+                        <div className="relative z-10 flex flex-col items-center text-center gap-6">
+                           <div className="p-5 bg-white/10 rounded-[2rem] backdrop-blur-2xl border border-white/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                              <Mail size={42} className="text-white drop-shadow-lg" />
                            </div>
-                           <div>
-                              <h2 className="text-sm font-bold uppercase tracking-[0.3em] opacity-70 mb-2">Direct Support Line</h2>
-                              <div className="text-3xl md:text-4xl font-black font-mono tracking-tight group-hover:scale-105 transition-transform duration-300">
+                           <div className="space-y-2">
+                              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/60">Direct Developer Access</h2>
+                              <div className="text-2xl md:text-5xl font-black font-mono tracking-tighter break-all">
                                   {copied ? "COPIED TO CLIPBOARD!" : "adithyachary09@gmail.com"}
                               </div>
                            </div>
-                           <div className="mt-6 flex items-center gap-2 px-5 py-2 bg-white/20 rounded-full backdrop-blur-md text-sm font-bold border border-white/10 group-hover:bg-white group-hover:text-violet-700 transition-all">
-                              {copied ? <Check size={16} /> : <Copy size={16} />}
-                              {copied ? "Address Copied" : "Click card to copy address"}
+                           <div className="flex items-center gap-3 px-8 py-3 bg-white text-primary rounded-full text-xs font-black uppercase tracking-widest shadow-xl group-hover:shadow-white/20 transition-all">
+                              {copied ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={3} />}
+                              {copied ? "Verified" : "Tap to Copy"}
                            </div>
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-y-full group-hover:-translate-y-full transition-transform duration-700 pointer-events-none" />
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
-                        <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/20 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2" />
                       </motion.div>
                   </motion.div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <motion.div variants={itemVariant} className="md:col-span-2">
-                        <Card className="p-6 border-0 bg-background/60 backdrop-blur-xl rounded-3xl ring-1 ring-border/50 h-full">
-                           <h3 className="font-bold text-lg mb-4 ml-1">Common Questions</h3>
-                           <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                      {/* FAQ BENTO (8/12) */}
+                      <motion.div variants={itemVariant} className="md:col-span-8">
+                        <Card className="p-8 border border-border/50 bg-card/40 backdrop-blur-3xl rounded-[2.5rem] shadow-xl h-full flex flex-col relative overflow-hidden">
+                           <div className="flex items-center gap-4 mb-8">
+                              <div className="p-3 bg-primary/10 text-primary rounded-2xl border border-primary/20"><Info size={22} /></div>
+                              <h3 className="font-black text-xl tracking-tight">Intelligence Base</h3>
+                           </div>
+                           
+                           <div className="space-y-3 flex-1">
                               {[
-                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device." },
-                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first. Cloud sync is coming in v2.0." },
-                                  { q: "Can I export my data?", a: "Yes! Go to the 'Data' tab to download a full JSON archive." }
+                                  { q: "Is my journal private?", a: "100%. Data is stored locally on your device and never touches our servers without your explicit JSON export." },
+                                  { q: "How do I sync across devices?", a: "Currently, CogniSync is local-first for peak privacy. Cloud-native sync is scheduled for v2.0." },
+                                  { q: "Can I export my data?", a: "Yes. Use the 'Data' tab to generate a portable JSON archive of your entire history." }
                               ].map((item, idx) => (
-                                  <div key={idx} className="bg-muted/30 rounded-2xl overflow-hidden border border-transparent hover:border-border/50 transition-all">
-                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-4 text-left">
-                                          <span className="font-bold text-sm">{item.q}</span>
-                                          <ChevronDown size={16} className={`transition-transform ${openFaq === idx ? "rotate-180" : ""}`} />
+                                  <div key={idx} className={cn(
+                                    "rounded-[1.8rem] transition-all duration-300 border",
+                                    openFaq === idx ? "bg-primary/5 border-primary/20 shadow-inner" : "bg-muted/20 border-transparent hover:border-border/50"
+                                  )}>
+                                     <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} className="w-full flex items-center justify-between p-5 text-left group">
+                                          <span className={cn("font-bold text-sm transition-colors", openFaq === idx ? "text-primary" : "text-foreground")}>{item.q}</span>
+                                          <div className={cn("p-1.5 rounded-full transition-all", openFaq === idx ? "bg-primary text-white rotate-180" : "bg-background text-muted-foreground group-hover:text-foreground")}>
+                                            <ChevronDown size={14} strokeWidth={3} />
+                                          </div>
                                      </button>
                                      <AnimatePresence>
                                          {openFaq === idx && (
-                                            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                                               <div className="p-4 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
+                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                               <div className="p-6 pt-0 text-xs text-muted-foreground font-medium leading-relaxed">{item.a}</div>
                                             </motion.div>
                                          )}
                                      </AnimatePresence>
@@ -1359,26 +1376,39 @@ export default function SettingsPage() {
                         </Card>
                       </motion.div>
 
-                      <motion.div variants={itemVariant} className="flex flex-col gap-4">
-                        <div className="p-5 rounded-3xl border border-green-500/20 bg-green-500/5 backdrop-blur-xl flex flex-col justify-center items-center text-center gap-2">
-                           <div className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span></div>
-                           <h4 className="font-bold text-sm text-foreground">Systems Online</h4>
-                           <p className="text-[10px] text-muted-foreground">v1.0.2 Stable</p>
+                      {/* SYSTEM STATUS & ABOUT (4/12) */}
+                      <motion.div variants={itemVariant} className="md:col-span-4 flex flex-col gap-6">
+                        {/* Status Card */}
+                        <div className="p-8 rounded-[2.5rem] border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-3xl shadow-xl flex flex-col items-center text-center gap-4 group">
+                           <div className="relative flex h-4 w-4">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]"></span>
+                           </div>
+                           <div className="space-y-1">
+                              <h4 className="font-black text-lg tracking-tight">Active Pulse</h4>
+                              <p className="text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-widest">v1.0.2 Stable Build</p>
+                           </div>
                         </div>
                         
+                        {/* About Project Sheet - STYLED BUT LOGIC UNTOUCHED */}
                         <Sheet>
                            <SheetTrigger asChild>
                               <motion.button 
-                                 whileHover={{ scale: 1.02, backgroundColor: "rgba(var(--primary-rgb), 0.05)" }} 
+                                 whileHover={{ scale: 1.02, y: -2 }} 
                                  whileTap={{ scale: 0.98 }}
-                                 className="w-full p-5 rounded-3xl border border-border/50 bg-background/60 backdrop-blur-xl flex items-center justify-between transition-all group relative overflow-hidden"
+                                 className="flex-1 p-8 rounded-[2.5rem] border border-border/50 bg-background/40 backdrop-blur-xl flex flex-col items-center justify-center gap-4 shadow-xl group relative overflow-hidden transition-all"
                               >
-                                 <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                                 <div className="flex items-center gap-3 relative z-10">
-                                    <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:rotate-12 transition-transform"><Info size={18} /></div>
-                                    <span className="font-bold text-sm">About Project</span>
+                                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                 <div className="p-5 bg-primary/10 rounded-[1.8rem] text-primary group-hover:rotate-12 group-hover:scale-110 transition-all duration-500">
+                                    <Sparkles size={28} />
                                  </div>
-                                 <ChevronDown size={16} className="text-muted-foreground -rotate-90 group-hover:text-primary transition-colors relative z-10" />
+                                 <div className="text-center">
+                                    <span className="font-black text-base block">About CogniSync</span>
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Technical Overview</span>
+                                 </div>
+                                 <div className="mt-2 p-2 bg-muted/30 rounded-full">
+                                    <ArrowRight size={16} className="text-muted-foreground group-hover:translate-x-1 group-hover:text-primary transition-all" />
+                                 </div>
                               </motion.button>
                            </SheetTrigger>
                            <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 bg-background/95 backdrop-blur-xl border-l border-border/50">
@@ -1440,51 +1470,51 @@ export default function SettingsPage() {
                                        <h4 className="font-bold text-base mb-6 flex items-center gap-2 relative z-10"><Users size={18} className="text-emerald-500"/> Project Team</h4>
                                        <div className="space-y-4 relative z-10">
                                           {[
-                                             { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/", image: "/adithya.png" },
-                                             { 
-                                                name: "Abhinaya", 
-                                                role: "Research & Documentation", 
-                                                color: "from-blue-400 to-cyan-400", 
-                                                icon: FileJson, 
-                                                isUser: false, 
-                                                link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320",
-                                                image: "/abhinaya.png" 
-                                             },
-                                             { name: "Sushmitha", role: "Compliance & Methodology", color: "from-emerald-400 to-teal-400", icon: ShieldCheck, isUser: false, link: "https://www.linkedin.com/in/sushmitha-dongara-805350348", image: "/sushmitha.png" }
+                                              { name: "Adithya", role: "Lead Architect & Developer", color: "from-primary to-violet-500", icon: Sparkles, isUser: true, link: "https://www.linkedin.com/in/adithya-chary/", image: "/adithya.png" },
+                                              { 
+                                                 name: "Abhinaya", 
+                                                 role: "Research & Documentation", 
+                                                 color: "from-blue-400 to-cyan-400", 
+                                                 icon: FileJson, 
+                                                 isUser: false, 
+                                                 link: "https://www.linkedin.com/in/abhinaya-chintada-71b07a320",
+                                                 image: "/abhinaya.png" 
+                                              },
+                                              { name: "Sushmitha", role: "Compliance & Methodology", color: "from-emerald-400 to-teal-400", icon: ShieldCheck, isUser: false, link: "https://www.linkedin.com/in/sushmitha-dongara-805350348", image: "/sushmitha.png" }
                                           ].map((member, i) => (
-                                             <a key={member.name} href={member.link} target="_blank" rel="noopener noreferrer" className="block group">
-                                                <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 + (i * 0.1), type: "spring" }} whileHover={{ scale: 1.02, x: 5 }} className="flex items-center gap-4 p-3 rounded-2xl bg-background/80 border border-white/5 shadow-sm hover:shadow-md transition-all relative overflow-hidden cursor-pointer">
-                                                   <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
-                                                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
-                                                      <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
-                                                         {member.image ? (
-                                                            <img
-                                                               src={member.image}
-                                                               alt={member.name}
-                                                               className="w-full h-full object-cover"
-                                                            />
-                                                         ) : (
-                                                            <>
-                                                               <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
+                                              <a key={member.name} href={member.link} target="_blank" rel="noopener noreferrer" className="block group">
+                                                 <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 + (i * 0.1), type: "spring" }} whileHover={{ scale: 1.02, x: 5 }} className="flex items-center gap-4 p-3 rounded-2xl bg-background/80 border border-white/5 shadow-sm hover:shadow-md transition-all relative overflow-hidden cursor-pointer">
+                                                    <div className={`absolute inset-y-0 left-0 w-1 bg-gradient-to-b ${member.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
+                                                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${member.color} p-0.5 shadow-lg flex-shrink-0`}>
+                                                       <div className="w-full h-full rounded-[10px] bg-background flex items-center justify-center font-black text-lg relative overflow-hidden">
+                                                          {member.image ? (
+                                                             <img
+                                                                src={member.image}
+                                                                alt={member.name}
+                                                                className="w-full h-full object-cover"
+                                                             />
+                                                          ) : (
+                                                             <>
+                                                                <span className="bg-clip-text text-transparent bg-gradient-to-br from-foreground to-muted-foreground relative z-10">
                                                                   {member.name.charAt(0)}
-                                                               </span>
-                                                               <member.icon
+                                                                </span>
+                                                                <member.icon
                                                                   size={24}
                                                                   className="absolute -bottom-2 -right-2 opacity-10 text-foreground"
-                                                               />
-                                                            </>
-                                                         )}
-                                                      </div>
-                                                   </div>
-                                                   <div className="flex-1">
-                                                      <div className="flex items-center justify-between">
-                                                         <p className="text-sm font-bold text-foreground flex items-center gap-2">{member.name} {i === 0 && <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-[8px] font-extrabold text-primary uppercase tracking-wider border border-primary/20">Lead</span>}</p>
-                                                         <ExternalLink size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-primary" />
-                                                      </div>
-                                                      <p className="text-xs font-medium text-muted-foreground">{member.role}</p>
-                                                   </div>
-                                                </motion.div>
-                                             </a>
+                                                                />
+                                                             </>
+                                                          )}
+                                                       </div>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                       <div className="flex items-center justify-between">
+                                                          <p className="text-sm font-bold text-foreground flex items-center gap-2">{member.name} {i === 0 && <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-[8px] font-extrabold text-primary uppercase tracking-wider border border-primary/20">Lead</span>}</p>
+                                                          <ExternalLink size={12} className="opacity-0 group-hover:opacity-50 transition-opacity text-primary" />
+                                                       </div>
+                                                       <p className="text-xs font-medium text-muted-foreground">{member.role}</p>
+                                                    </div>
+                                                 </motion.div>
+                                              </a>
                                           ))}
                                        </div>
                                     </motion.section>
