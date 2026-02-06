@@ -414,17 +414,26 @@ export default function SettingsPage() {
             }
         }
 
-        // ✅ Get user's session token with refresh
+        // ✅ CRITICAL FIX: Get fresh session using getUser (works with OAuth)
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
         
-        // CRITICAL FIX: Refresh session before getting token
-        const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+        // This forces a fresh token fetch from cookies
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
         
-        if (sessionError || !session) {
-          throw new Error("No active session. Please log in again.");
+        if (userError || !currentUser) {
+          console.error("Session error:", userError);
+          throw new Error("Session expired. Please refresh the page and try again.");
+        }
+
+        // Get the session after confirming user exists
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session?.access_token) {
+          console.error("Token error:", sessionError);
+          throw new Error("Unable to verify identity. Please log out and log back in.");
         }
 
         const res = await fetch('/api/auth/update-profile', {
@@ -438,6 +447,7 @@ export default function SettingsPage() {
         const data = await res.json();
         
         if (!res.ok) {
+            console.error("API Error:", data);
             throw new Error(data.error || 'Save failed');
         }
 
@@ -465,7 +475,7 @@ export default function SettingsPage() {
         showNotification({ type: "success", message: "Identity saved successfully.", duration: 2000 });
     } catch (error: any) {
         console.error("Save Changes Error:", error);
-        showNotification({ type: "error", message: "Save failed: " + error.message, duration: 4000 });
+        showNotification({ type: "error", message: error.message || "Save failed", duration: 4000 });
     } finally {
         setIsSavingChanges(false);
     }

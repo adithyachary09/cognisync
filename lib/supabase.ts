@@ -9,8 +9,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase public environment variables")
 }
 
-// UPDATED: Uses createBrowserClient for proper Cookie Sync
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+// ✅ FIXED: Proper client-side instance with cookie handling
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+})
 
 // Server-side Admin instance (unchanged)
 export const supabaseAdmin =
