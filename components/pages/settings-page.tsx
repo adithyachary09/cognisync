@@ -414,15 +414,17 @@ export default function SettingsPage() {
             }
         }
 
-        // ✅ Get user's session token
+        // ✅ Get user's session token with refresh
         const supabase = createBrowserClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
-        const { data: { session } } = await supabase.auth.getSession();
         
-        if (!session) {
-          throw new Error("No active session");
+        // CRITICAL FIX: Refresh session before getting token
+        const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+        
+        if (sessionError || !session) {
+          throw new Error("No active session. Please log in again.");
         }
 
         const res = await fetch('/api/auth/update-profile', {
@@ -506,15 +508,17 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
-      // ✅ Get user's session token
+      // ✅ Get user's session token with refresh
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
-      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        throw new Error("No active session");
+      // CRITICAL FIX: Refresh session before getting token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      
+      if (sessionError || !session) {
+        throw new Error("No active session. Please log in again.");
       }
 
       const res = await fetch('/api/auth/remove-avatar', {
