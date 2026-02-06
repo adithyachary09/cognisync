@@ -33,7 +33,7 @@ import {
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useTheme } from "@/lib/theme-context";
 import { useNotification } from "@/lib/notification-context";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 const PATCH_EVENT = "cognisync:settings:patch";
@@ -153,10 +153,7 @@ export default function SettingsPage() {
         setEmailCountdown(0);
         setActiveTab("account");
 
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createClient()
         await supabase.auth.refreshSession();
 
         showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
@@ -188,10 +185,7 @@ export default function SettingsPage() {
         setEmailCountdown(0);
         setActiveTab("account");
 
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createClient()
         await supabase.auth.refreshSession();
 
         showNotification({ type: "success", message: "Security Protocol Verified.", duration: 5000 });
@@ -206,10 +200,7 @@ export default function SettingsPage() {
             return;
         }
 
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createClient()
 
         // auth.getUser() reads the live auth.users row — email_confirmed_at lives HERE
         const { data: { user: authUser }, error } = await supabase.auth.getUser();
@@ -334,10 +325,7 @@ export default function SettingsPage() {
 
    // 3. Always Fetch DB to Sync (Persistence Check)
     const fetchProfile = async () => {
-        const supabase = createBrowserClient(
-           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        const supabase = createClient()
         
         const { data } = await supabase.from('users').select('name, avatar_url').eq('id', user.id).single();
         
@@ -414,26 +402,15 @@ export default function SettingsPage() {
             }
         }
 
-        // ✅ CRITICAL FIX: Get fresh session using getUser (works with OAuth)
-        const supabase = createBrowserClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
+        // ✅ CRITICAL FIX: Create fresh client with cookie handling
+        const supabase = createClient();
         
-        // This forces a fresh token fetch from cookies
-        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError || !currentUser) {
-          console.error("Session error:", userError);
-          throw new Error("Session expired. Please refresh the page and try again.");
-        }
-
-        // Get the session after confirming user exists
+        // Get session - middleware ensures it's synced
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError || !session?.access_token) {
-          console.error("Token error:", sessionError);
-          throw new Error("Unable to verify identity. Please log out and log back in.");
+          console.error("Session error:", sessionError);
+          throw new Error("Session expired. Please refresh the page and try again.");
         }
 
         const res = await fetch('/api/auth/update-profile', {
@@ -518,17 +495,13 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
-      // ✅ Get user's session token with refresh
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      // ✅ CRITICAL FIX: Create fresh client with cookie handling
+      const supabase = createClient();
       
-      // CRITICAL FIX: Refresh session before getting token
-      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session) {
-        throw new Error("No active session. Please log in again.");
+      if (sessionError || !session?.access_token) {
+        throw new Error("Session expired. Please refresh the page.");
       }
 
       const res = await fetch('/api/auth/remove-avatar', {
@@ -640,10 +613,7 @@ export default function SettingsPage() {
     }
 
     setPwdStage("saving");
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient()
 
     try {
       const { error } = await supabase.auth.updateUser({ password: newPwd });
@@ -723,10 +693,7 @@ export default function SettingsPage() {
 
   const handleDeleteJournals = async () => {
     if (!user) return;
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient()
     try {
       await supabase.from('user_entries').delete().eq('user_id', user.id);
       setShowJournalDeleteDialog(false);
@@ -741,10 +708,7 @@ export default function SettingsPage() {
   const { clearAllData } = useJournal();
 
   const handleFactoryReset = async () => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient()
     setShowFactoryResetDialog(false);
     showNotification({ type: "warning", message: "Factory Reset Initiated...", duration: 5000 });
     
