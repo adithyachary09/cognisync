@@ -26,8 +26,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
+    // FIX: Prevent bcrypt from crashing if the user signed up via OAuth (no password hash)
+    if (!user.password_hash) {
+      console.warn("Login Warning: Attempted manual login on OAuth account for", cleanEmail);
+      return NextResponse.json({ error: 'Please log in using Google.' }, { status: 401 });
+    }
+
     // 2. Compare password with the hash in the DB
-    // Note: Ensure your column name is exactly 'password_hash'
     const isMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!isMatch) {
