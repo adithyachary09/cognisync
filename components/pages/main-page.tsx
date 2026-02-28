@@ -178,7 +178,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
             emotion: data.newEntry.detected_emotion ? data.newEntry.detected_emotion.charAt(0).toUpperCase() + data.newEntry.detected_emotion.slice(1) : "Calm",
             intensity: data.newEntry.emotion_score || 5,
             source: 'dashboard' 
-          }, true); // <--- CHANGED TO TRUE: Actually save to DB
+          }, false); // FIX: Set to false. The backend API already saved it to the DB!
       }
       
       const mappedEmotion = data.emotion === 'stressed' ? 'anxious' : data.emotion;
@@ -389,7 +389,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
 
       {/* MODALS */}
       <Dialog open={!!activeModal && !!TOOL_DETAILS[activeModal]} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto bg-card border-border/50 shadow-2xl p-0 rounded-[2.5rem]">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md max-h-[85vh] overflow-y-auto bg-card border-border/50 shadow-2xl p-0 rounded-[2.5rem]">
             {activeModal && TOOL_DETAILS[activeModal] && (
                 <div className="flex flex-col h-full">
                     <div className={`p-10 text-center relative overflow-hidden`}><div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent" /><div className="relative z-10"><div className="w-24 h-24 mx-auto bg-background/50 backdrop-blur-md rounded-full flex items-center justify-center mb-6 shadow-lg">{TOOL_DETAILS[activeModal].icon}</div><DialogTitle className="text-2xl font-black mb-2 tracking-tight text-foreground">{TOOL_DETAILS[activeModal].title}</DialogTitle></div></div>
@@ -403,7 +403,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
       </Dialog>
 
       <Dialog open={activeModal === "streak"} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="sm:max-w-md bg-card border-border/50 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md bg-card border-border/50 shadow-2xl p-0 overflow-hidden rounded-[2.5rem]">
           <DialogTitle className="sr-only">Streak</DialogTitle>
           <div className="p-10 flex flex-col items-center text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-orange-500/10 to-transparent pointer-events-none" />
@@ -417,7 +417,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
       </Dialog>
       
       <Dialog open={activeModal === "mood"} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="sm:max-w-lg bg-card border-border/50 shadow-2xl rounded-[2.5rem] p-8">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-lg bg-card border-border/50 shadow-2xl rounded-[2.5rem] p-8">
             <div className="text-center mb-6"><DialogTitle className="text-2xl font-black tracking-tight flex items-center justify-center gap-2 text-foreground"><Activity className="text-emerald-500" /> Emotional Balance</DialogTitle><p className="text-muted-foreground text-sm mt-2">Distribution of your recent emotional states.</p></div>
             <div className="h-[300px] w-full relative">{dashboardEntries.length > 0 ? (<ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="70%" data={dynamicFrequencyData}><PolarGrid stroke="#e2e8f0" strokeOpacity={0.5} /><PolarAngleAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} /><Radar name="Count" dataKey="value" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.2} /></RadarChart></ResponsiveContainer>) : <div className="h-full flex items-center justify-center text-muted-foreground font-bold uppercase text-xs tracking-widest">No Data Available</div>}</div>
             <Button onClick={() => setActiveModal(null)} className="mt-6 w-full py-6 rounded-2xl bg-muted text-foreground font-bold hover:bg-muted/80">Close</Button>
@@ -425,7 +425,7 @@ export function MainPage({ userName, userId }: MainPageProps) {
       </Dialog>
 
       <Dialog open={activeModal === "entries"} onOpenChange={() => setActiveModal(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 border-0 bg-background shadow-2xl rounded-[2rem] overflow-hidden outline-none">
+        <DialogContent aria-describedby={undefined} className="max-w-2xl max-h-[85vh] flex flex-col p-0 border-0 bg-background shadow-2xl rounded-[2rem] overflow-hidden outline-none">
           <div className="p-8 bg-card/80 backdrop-blur-xl border-b border-border/50 z-10 shrink-0">
             <div className="flex justify-between items-center"><div><DialogTitle className="text-2xl font-black tracking-tight text-foreground flex items-center gap-3"><BookOpen className="text-primary" size={24} /> Memory Archive</DialogTitle><p className="text-muted-foreground text-sm font-medium mt-1">Timeline of your emotional journey</p></div><div className="px-4 py-2 bg-muted rounded-full text-xs font-bold text-muted-foreground border border-border/50">{dashboardEntries.length} Entries</div></div>
           </div>
