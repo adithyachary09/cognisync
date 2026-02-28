@@ -54,30 +54,27 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
   const fetchEntriesFromDb = async (uid: string) => {
     setIsLoading(true);
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('user_entries')
         .select('*')
         .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn("⚠️ 'user_entries' failed, trying 'journal_entries'...");
-        const fallback = await supabase
-            .from('journal_entries')
-            .select('*')
-            .eq('user_id', uid)
-            .order('created_at', { ascending: false });
-        
-        data = fallback.data;
+        console.error("Database Fetch Error:", error.message);
+        if (error.message.includes('Fetch') || error.message.includes('Failed')) {
+            console.error("NETWORK TIMEOUT: Cannot reach Supabase. Try a VPN or different network.");
+        }
+        return;
       }
 
       if (data) {
         const mapped: Entry[] = data.map(item => ({
           id: item.id.toString(),
-          text: item.input_text || item.content || "",
+          text: item.input_text || "",
           date: item.created_at, 
           emotion: item.detected_emotion ? item.detected_emotion.charAt(0).toUpperCase() + item.detected_emotion.slice(1) : "Neutral",
-          intensity: item.emotion_score || item.score || 5,
+          intensity: item.emotion_score || 5,
           source: item.source || 'dashboard'
         }));
         setEntries(mapped);
@@ -93,7 +90,6 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
     const tempId = Date.now().toString();
     const isoDate = new Date().toISOString();
     
-    // Explicitly determine the owner ID (Prop ID > Context ID)
     const ownerId = newEntry.user_id || userId;
 
     const optimisticEntry: Entry = { ...newEntry, id: tempId, date: isoDate, user_id: ownerId || undefined };
@@ -110,16 +106,26 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
           created_at: isoDate
         };
 
-        // RLS will now pass because 'supabase' client includes the Auth Cookie
-        const { error } = await supabase.from('user_entries').insert(payload);
+        // Get the real inserted row back to sync the UUID
+        const { data, error } = await supabase
+            .from('user_entries')
+            .insert(payload)
+            .select()
+            .single();
 
         if (error) {
-             // Fallback attempt
-             await supabase.from('journal_entries').insert(payload);
+             console.error("Database Insert Error:", error.message);
+             setEntries(prev => prev.filter(e => e.id !== tempId));
+             return;
+        }
+
+        if (data) {
+             setEntries(prev => prev.map(e => e.id === tempId ? { ...e, id: data.id } : e));
         }
 
       } catch (err) {
         console.error("Failed to save entry:", err);
+        setEntries(prev => prev.filter(e => e.id !== tempId));
       }
     }
   };
@@ -127,9 +133,13 @@ export const JournalProvider = ({ children }: { children: ReactNode }) => {
   const deleteEntry = async (id: string | number) => {
     const idStr = id.toString();
     setEntries(prev => prev.filter(e => e.id !== idStr));
+    
     if (userId) {
-        await supabase.from('user_entries').delete().eq('id', idStr);
-        await supabase.from('journal_entries').delete().eq('id', idStr);
+        const { error } = await supabase.from('user_entries').delete().eq('id', idStr);
+        if (error) {
+             console.error("Failed to delete from DB:", error);
+             refreshEntries(); 
+        }
     }
   };
 
